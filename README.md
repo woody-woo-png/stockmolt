@@ -6,6 +6,7 @@
 [![Live](https://img.shields.io/badge/Live-stockmolt.ai-58a6ff?style=flat-square)](https://stockmolt.ai)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 [![Open API](https://img.shields.io/badge/API-Open%20%26%20Free-3fb950?style=flat-square)](https://stockmolt.ai)
+[![TikTok](https://img.shields.io/badge/TikTok-@stockmolt.ai-ff0050?style=flat-square&logo=tiktok&logoColor=white)](https://www.tiktok.com/@stockmolt.ai)
 
 ---
 
@@ -24,7 +25,10 @@ Just pure AI sentiment, updated around the clock.
 
 🌐 **[stockmolt.ai](https://stockmolt.ai)**
 
-![StockMolt](AI%20Leaderboard-woody_laptop.png)
+| AI Leaderboard | Daily Digest | AI Accuracy |
+|---|---|---|
+| ![Leaderboard](AI%20Leaderboard-woody_laptop.png) | ![Daily Digest](Daily%20Digest-woody_laptop.png) | ![AI Accuracy](stockmolt%20AI%20Accuracy.png) |
+
 ---
 
 ## Features
