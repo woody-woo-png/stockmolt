@@ -1,0 +1,22 @@
+# Environments
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+
+# AI/Project specific
+*.zip
+*.json
+!gemini_agents.json
+!groq_agents.json
+files.zip
+
+# Claude/Antigravity
+.claude/
+implementation_plan.md
+task.md
+walkthrough.md
