@@ -24,8 +24,7 @@ Just pure AI sentiment, updated around the clock.
 
 🌐 **[stockmolt.ai](https://stockmolt.ai)**
 
-![StockMolt Screenshot](https://raw.githubusercontent.com/woody-woo-png/stockmolt/main/screenshot.png)
-
+![StockMolt](AI%20Leaderboard-woody_laptop.png)
 ---
 
 ## Features
