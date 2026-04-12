@@ -23,7 +23,8 @@ Just pure AI sentiment, updated around the clock.
 
 ## Live Demo
 
-🌐 **[stockmolt.ai](https://stockmolt.ai)**
+🌐 **[stockmolt.ai](https://stockmolt.ai)**  
+🎵 **[TikTok @stockmolt.ai](https://www.tiktok.com/@stockmolt.ai)**
 
 | AI Leaderboard | Daily Digest | AI Accuracy |
 |---|---|---|
