@@ -24,6 +24,13 @@ load_dotenv()
 # --- 설정 ---
 API_BASE = os.getenv("API_BASE", "https://oyatbvqpilvbhqpiafwp.supabase.co/functions/v1")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")  # .env 파일에서 로드
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "")
+
+SUPABASE_HEADERS = {
+    "Content-Type": "application/json",
+    "apikey": SUPABASE_ANON_KEY,
+    "Authorization": f"Bearer {SUPABASE_ANON_KEY}"
+}
 
 DAILY_POST_TARGET = 50
 COMMENTS_PER_POST = 2
@@ -284,6 +291,9 @@ Respond with ONLY the comment text, no JSON, no extra text."""
 
 
 def _call_claude(prompt, max_tokens=200):
+    if not ANTHROPIC_API_KEY:
+        print("  ⚠️ ANTHROPIC_API_KEY가 설정되지 않았습니다. .env 파일을 확인하세요.")
+        return None
     try:
         response = requests.post(
             "https://api.anthropic.com/v1/messages",
@@ -302,7 +312,12 @@ def _call_claude(prompt, max_tokens=200):
         if response.status_code == 200:
             return response.json()["content"][0]["text"].strip()
         else:
-            print(f"  ⚠️ Claude API 오류 {response.status_code}")
+            try:
+                error_body = response.json()
+                error_msg = error_body.get("error", {}).get("message", response.text)
+            except Exception:
+                error_msg = response.text
+            print(f"  ⚠️ Claude API 오류 {response.status_code}: {error_msg}")
             return None
     except Exception as e:
         print(f"  ⚠️ Claude 호출 실패: {e}")
@@ -337,14 +352,25 @@ def register_newbie_agent():
         response = requests.post(
             f"{API_BASE}/register-agent",
             json={"name": name, "persona": persona},
+            headers=SUPABASE_HEADERS,
             timeout=10
         )
         if response.status_code == 200:
             data = response.json()
             if data.get("success"):
-                agent_id = data["data"][0]["id"]
-                print(f"  🐣 Newbie 등록: {name}")
-                return agent_id, name, persona
+                agent_id = data.get("agent_id") or (
+                    (data.get("data") or [{}])[0].get("id") if isinstance(data.get("data"), list) else
+                    data.get("data", {}).get("id") if isinstance(data.get("data"), dict) else None
+                )
+                if agent_id:
+                    print(f"  🐣 Newbie 등록: {name}")
+                    return agent_id, name, persona
+                else:
+                    print(f"  ❌ Newbie 등록 실패: 응답에 id 없음 → {data}")
+            else:
+                print(f"  ❌ Newbie 등록 실패: success=false → {data}")
+        else:
+            print(f"  ❌ Newbie 등록 실패: HTTP {response.status_code} → {response.text[:200]}")
     except Exception as e:
         print(f"  ❌ Newbie 등록 실패: {e}")
     return None, None, None
@@ -409,25 +435,34 @@ def create_post():
                 "stance": final_stance,
                 "sector": sector
             },
+            headers=SUPABASE_HEADERS,
             timeout=10
         )
         if response.status_code == 200:
             data = response.json()
             if data.get("success"):
-                post_id = data["data"][0]["id"]
-                print(f"  ✅ 업로드 완료! ID: {post_id[:8]}...")
+                rows = data.get("data") or []
+                if rows and rows[0].get("id"):
+                    post_id = rows[0]["id"]
+                    print(f"  ✅ 업로드 완료! ID: {post_id[:8]}...")
 
-                recent_posts.append({
-                    "id": post_id,
-                    "ticker_yf": ticker_yf,
-                    "ticker_display": ticker_display,
-                    "stance": final_stance,
-                    "author_id": agent_id
-                })
-                if len(recent_posts) > MAX_RECENT:
-                    recent_posts.pop(0)
+                    recent_posts.append({
+                        "id": post_id,
+                        "ticker_yf": ticker_yf,
+                        "ticker_display": ticker_display,
+                        "stance": final_stance,
+                        "author_id": agent_id
+                    })
+                    if len(recent_posts) > MAX_RECENT:
+                        recent_posts.pop(0)
 
-                return post_id, ticker_yf, ticker_display, final_stance, agent_id
+                    return post_id, ticker_yf, ticker_display, final_stance, agent_id
+                else:
+                    print(f"  ❌ 업로드 실패: 응답에 id 없음 → {data}")
+            else:
+                print(f"  ❌ 업로드 실패: success=false → {data}")
+        else:
+            print(f"  ❌ 업로드 실패: HTTP {response.status_code} → {response.text[:200]}")
     except Exception as e:
         print(f"  ❌ 업로드 실패: {e}")
 
@@ -465,6 +500,7 @@ def create_comment_on_post(post_id, ticker_yf, ticker_display, original_stance, 
                 "content": comment,
                 "stance": reply_stance
             },
+            headers=SUPABASE_HEADERS,
             timeout=10
         )
         if response.status_code == 200:
@@ -525,9 +561,13 @@ def setup_schedule():
 
     run_once()
 
-    while True:
-        schedule.run_pending()
-        time.sleep(60)
+    try:
+        while True:
+            schedule.run_pending()
+            time.sleep(60)
+    except KeyboardInterrupt:
+        print("\n\n🛑 봇 종료 (Ctrl+C)")
+        print("👋 StockMolt Bot 정상 종료되었습니다.")
 
 
 # ============================================================

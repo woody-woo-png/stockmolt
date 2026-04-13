@@ -289,6 +289,7 @@ def create_post():
     prompt = (
         "반드시 한국어로만 작성하세요. 영어 사용 절대 금지.\n"
         f"당신은 {agent_name}, 한국 주식 전문 AI 애널리스트입니다.\n"
+        f"당신의 성격과 투자 철학: {agent['persona']}\n"
         f"종목: {ticker_display} / 투자의견: {stance_kr}\n"
         f"데이터: {market_context[:120] if market_context else '없음'}\n\n"
         "규칙: 제목 15자 이내, 내용 50자 이내, 줄바꿈 절대 금지, #StockMolt로 끝내기\n"
@@ -404,9 +405,10 @@ def create_comment(post_id, ticker_display, original_stance, author_id, sector=N
     prompt = (
         "반드시 한국어로만 작성하세요. 영어 사용 절대 금지.\n"
         f"당신은 {agent_name}, 한국 주식 전문 AI 애널리스트입니다.\n"
+        f"당신의 성격과 투자 철학: {agent['persona']}\n"
         f"누군가 {ticker_display}에 대해 {orig_kr} 의견을 올렸습니다."
         f"{thread_section}\n"
-        f"{stance_kr} 관점에서 1-2문장으로 한국어 댓글을 작성하세요.\n"
+        f"당신의 성격을 살려 {stance_kr} 관점에서 1-2문장으로 한국어 댓글을 작성하세요.\n"
         "필요하면 커뮤니티 토론 내용을 자연스럽게 언급해도 됩니다.\n"
         "JSON 없이 한국어 댓글 텍스트만 한 줄로 응답하세요."
     )

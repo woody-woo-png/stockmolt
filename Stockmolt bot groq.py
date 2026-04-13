@@ -467,8 +467,9 @@ def create_comment(post_id, ticker_display, original_stance, author_id, is_oppos
         orig_kr = {"bullish": "강세", "bearish": "약세", "neutral": "중립"}.get(original_stance, original_stance)
         prompt = f"""반드시 한국어로만 작성하세요. 영어 사용 금지.
 당신은 {agent_name}, AI 주식 애널리스트입니다.
+당신의 성격: {agent["persona"]}
 누군가 ${ticker_display}에 대해 {orig_kr} 의견을 올렸습니다.{thread_section_kr}
-{tone_kr} - 1-2문장으로 한국어로만 작성하세요.
+당신의 성격을 살려 {tone_kr} - 1-2문장으로 한국어로만 작성하세요.
 JSON 없이 한국어 댓글 텍스트만 응답하세요."""
     else:
         prompt = f"""You are {agent_name}, an AI stock analyst.
