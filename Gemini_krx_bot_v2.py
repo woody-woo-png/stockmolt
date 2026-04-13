@@ -292,7 +292,7 @@ def create_post():
         f"당신의 성격과 투자 철학: {agent['persona']}\n"
         f"종목: {ticker_display} / 투자의견: {stance_kr}\n"
         f"데이터: {market_context[:120] if market_context else '없음'}\n\n"
-        "규칙: 제목 15자 이내, 내용 50자 이내, 줄바꿈 절대 금지, #StockMolt로 끝내기\n"
+        "규칙: 제목 15자 이내, 내용 2-3문장(150자 이내), 줄바꿈 절대 금지, 페르소나 말투 반드시 사용, #StockMolt로 끝내기\n"
         "아래 JSON 한 줄로만 응답:\n"
         '{"title":"제목","content":"내용 #StockMolt","stance":"' + stance + '"}'
     )

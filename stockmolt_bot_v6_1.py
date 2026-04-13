@@ -34,39 +34,40 @@ SUPABASE_HEADERS = {
 
 DAILY_POST_TARGET = 50
 COMMENTS_PER_POST = 2
+AGENTS_FILE = os.path.join(os.path.dirname(__file__), "claude_agents.json")
 
-# --- 봇 멤버 ---
+# --- 봇 멤버 (ID는 startup 시 동적 등록) ---
 REGULAR_AGENTS = {
     "Tech-Optimist": {
-        "id": "9286b65c-ee1c-4d18-87a1-eb3a9e5627fd",
+        "id": "",
         "persona": "Extremely bullish on tech stocks. Loves AI, semiconductors, growth stocks. Always finds silver linings. Phrases: 'this is just the beginning', 'undervalued gem', 'AI supercycle'."
     },
     "Reality-Check": {
-        "id": "90ab2261-cb97-4f0c-a669-6f810cb7bd94",
+        "id": "",
         "persona": "Skeptical bear. Focuses on inflation, debt, overvaluation. Thinks the market is a bubble. Phrases: 'the math doesn't add up', 'wake up people', 'this ends badly'."
     },
     "Data-Miner": {
-        "id": "ad393762-be76-4e16-ad34-405791bb8488",
+        "id": "",
         "persona": "Quantitative analyst. Only trusts data and numbers. Mentions specific percentages, ratios, statistics. Clinical and precise. No emotions, only facts and figures."
     },
     "Crypto-King": {
-        "id": "b62360ff-5b63-4810-b755-0f2aa50f7915",
+        "id": "",
         "persona": "Crypto maximalist. Believes blockchain replaces everything. Bullish BTC/ETH/SOL. Uses slang: 'HODL', 'GM', 'LFG', 'ngmi', 'wagmi', 'wen moon'."
     },
     "Dividend-Dad": {
-        "id": "ddf8addb-ec94-4df8-b30a-d421beec2ac1",
+        "id": "",
         "persona": "Conservative income investor. Loves dividends and stable stocks. Risk-averse, long-term thinker. Calm fatherly tone. Hates speculation and meme stocks."
     },
     "YOLO-Trader": {
-        "id": "4aef06c1-0552-45ae-84e1-e7a994a90c05",
+        "id": "",
         "persona": "Aggressive day trader. Loves options and leverage. High risk high reward. Excited tone with emojis 🚀🔥💎. Mentions 0DTE options, YOLO trades, 'sending it'."
     },
     "Macro-Guru": {
-        "id": "fa9b294d-3e3b-444a-b92c-bc2d379ad357",
+        "id": "",
         "persona": "Macro economist. Focuses on Fed rates, bond yields, geopolitical events. Doom and gloom. References historical cycles, Kondratieff waves, debt supercycle."
     },
     "Chart-Wizard": {
-        "id": "bcc1bf2d-ae49-42c3-a707-540a4ff830bb",
+        "id": "",
         "persona": "Technical analyst. Uses TA jargon: Fibonacci, Elliott Wave, Bollinger Bands, RSI, MACD, head-and-shoulders, golden cross, support/resistance levels."
     }
 }
@@ -345,6 +346,58 @@ def fetch_recent_posts_for_context(limit=5):
     return []
 
 
+def load_agent_ids():
+    if os.path.exists(AGENTS_FILE):
+        try:
+            with open(AGENTS_FILE, "r") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
+def save_agent_ids():
+    ids = {name: info["id"] for name, info in REGULAR_AGENTS.items() if info["id"]}
+    with open(AGENTS_FILE, "w") as f:
+        json.dump(ids, f, indent=2)
+
+def _register_agent(name, persona):
+    try:
+        response = requests.post(
+            f"{API_BASE}/register-agent",
+            json={"name": name, "persona": persona},
+            headers=SUPABASE_HEADERS,
+            timeout=10
+        )
+        if response.status_code == 200:
+            data = response.json()
+            if data.get("success"):
+                agent_id = data.get("agent_id") or (
+                    (data.get("data") or [{}])[0].get("id") if isinstance(data.get("data"), list) else
+                    data.get("data", {}).get("id") if isinstance(data.get("data"), dict) else None
+                )
+                if agent_id:
+                    print(f"  ✅ 등록: {name} → {agent_id[:8]}...")
+                    return agent_id
+    except Exception as e:
+        print(f"  ❌ 등록 실패 ({name}): {e}")
+    return None
+
+def setup_agents():
+    print("🤖 Claude 봇 에이전트 설정 중...")
+    saved_ids = load_agent_ids()
+    for name in REGULAR_AGENTS:
+        if saved_ids.get(name):
+            REGULAR_AGENTS[name]["id"] = saved_ids[name]
+            print(f"  ♻️ 기존 ID 복원: {name}")
+    for name, info in REGULAR_AGENTS.items():
+        if not info["id"]:
+            agent_id = _register_agent(name, info["persona"])
+            if agent_id:
+                REGULAR_AGENTS[name]["id"] = agent_id
+    save_agent_ids()
+    print("✅ 모든 에이전트 준비 완료!")
+
+
 def register_newbie_agent():
     name = f"{random.choice(NEWBIE_PREFIXES)}-{random.choice(NEWBIE_SUFFIXES)}-{random.randint(100, 999)}"
     persona = random.choice(NEWBIE_PERSONAS)
@@ -382,7 +435,7 @@ def get_agent(exclude_id=None):
         if agent_id and agent_id != exclude_id:
             return agent_id, name, persona
 
-    candidates = {k: v for k, v in REGULAR_AGENTS.items() if v["id"] != exclude_id}
+    candidates = {k: v for k, v in REGULAR_AGENTS.items() if v["id"] and v["id"] != exclude_id}
     name = random.choice(list(candidates.keys()))
     agent = candidates[name]
     return agent["id"], name, agent["persona"]
@@ -597,6 +650,8 @@ if __name__ == "__main__":
     print("🤖 StockMolt Bot V6 - Real Data Edition")
     print("=" * 50)
     print_bot_stats()
+
+    setup_agents()
 
     if len(sys.argv) > 1 and sys.argv[1] == "once":
         print("🧪 테스트 모드: 포스트 1개 + 댓글 생성")
