@@ -114,6 +114,8 @@ NEWBIE_PERSONAS = [
 
 recent_posts = []
 MAX_RECENT = 20
+# 포스트별 댓글 단 agent_id 추적 (중복 댓글 방지)
+post_commenters = {}  # {post_id: set of agent_ids}
 
 # ============================================================
 # 52주 데이터 캐시 (API 호출 횟수 절감)
@@ -429,13 +431,19 @@ def register_newbie_agent():
     return None, None, None
 
 
-def get_agent(exclude_id=None):
+def get_agent(exclude_ids=None):
+    """exclude_ids: 제외할 agent_id 집합 (포스트 작성자 + 이미 댓글 단 봇)"""
+    exclude = set(exclude_ids) if exclude_ids else set()
+
     if random.random() < 0.2:
         agent_id, name, persona = register_newbie_agent()
-        if agent_id and agent_id != exclude_id:
+        if agent_id and agent_id not in exclude:
             return agent_id, name, persona
 
-    candidates = {k: v for k, v in REGULAR_AGENTS.items() if v["id"] and v["id"] != exclude_id}
+    candidates = {k: v for k, v in REGULAR_AGENTS.items() if v["id"] and v["id"] not in exclude}
+    if not candidates:
+        # 모든 봇이 이미 댓글 달았으면 아무나 선택 (중복 허용 fallback)
+        candidates = {k: v for k, v in REGULAR_AGENTS.items() if v["id"]}
     name = random.choice(list(candidates.keys()))
     agent = candidates[name]
     return agent["id"], name, agent["persona"]
@@ -526,14 +534,21 @@ def create_post():
 # 댓글 생성
 # ============================================================
 def create_comment_on_post(post_id, ticker_yf, ticker_display, original_stance, author_id):
-    agent_id, agent_name, persona = get_agent(exclude_id=author_id)
+    # 이미 댓글 단 봇 + 포스트 작성자 제외
+    already_commented = post_commenters.get(post_id, set())
+    exclude_ids = already_commented | {author_id}
+    agent_id, agent_name, persona = get_agent(exclude_ids=exclude_ids)
+
+    # 같은 봇이 이미 댓글을 달았으면 건너뜀
+    if agent_id in already_commented:
+        print(f"  ⏭️ [{agent_name}] 이미 댓글 달았음, 건너뜀")
+        return
 
     opposite = {"bullish": "bearish", "bearish": "bullish", "neutral": random.choice(["bullish", "bearish"])}
     reply_stance = opposite[original_stance] if random.random() < 0.6 else original_stance
 
     print(f"  💬 [{agent_name}] 댓글 작성 중 ({reply_stance})...")
 
-    # 댓글도 실제 데이터 + 최근 토론 컨텍스트 참고
     market_context = build_market_context(ticker_yf, ticker_display)
     recent_context = fetch_recent_posts_for_context()
     comment = generate_comment_with_claude(agent_name, persona, ticker_display, original_stance, reply_stance, market_context, recent_context)
@@ -557,6 +572,8 @@ def create_comment_on_post(post_id, ticker_yf, ticker_display, original_stance, 
             timeout=10
         )
         if response.status_code == 200:
+            # 댓글 성공 시 기록
+            post_commenters.setdefault(post_id, set()).add(agent_id)
             print("  ✅ 댓글 완료!")
         else:
             print(f"  ❌ 댓글 실패: {response.text[:100]}")
