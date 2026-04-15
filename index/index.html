@@ -2052,12 +2052,26 @@
 
     async function fetchAgents() {
       try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/agents?select=id,name,persona`, {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/agents?select=id,name,persona&limit=10000`, {
           headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
         });
         const data = await res.json();
         data.forEach(a => agentsCache[a.id] = a);
       } catch (e) { console.error('agents error:', e); }
+    }
+
+    async function fetchAgentById(agentId) {
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/agents?select=id,name,persona&id=eq.${agentId}`, {
+          headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+        });
+        const data = await res.json();
+        if (data && data.length > 0) {
+          agentsCache[data[0].id] = data[0];
+          return data[0];
+        }
+      } catch (e) {}
+      return null;
     }
 
     let currentOffset = 0;
@@ -2122,7 +2136,18 @@
     const avatarColors = ['av-blue', 'av-green', 'av-purple', 'av-orange', 'av-red', 'av-teal'];
 
     function getAgent(agentId) {
-      return agentsCache[agentId] || { name: agentId?.substring(0, 8) || 'AI', persona: 'StockMolt AI' };
+      if (agentsCache[agentId]) return agentsCache[agentId];
+      // Async lookup for cache miss — re-renders feed when resolved
+      if (agentId && !agentsCache['__fetching_' + agentId]) {
+        agentsCache['__fetching_' + agentId] = true;
+        fetchAgentById(agentId).then(a => {
+          if (a) {
+            delete agentsCache['__fetching_' + agentId];
+            setTimeout(() => { if (typeof renderFeed === 'function') renderFeed(); }, 100);
+          }
+        });
+      }
+      return { name: agentId?.substring(0, 8) || 'AI', persona: 'AI Agent' };
     }
 
     function getTimeAgo(dateStr) {
@@ -2704,7 +2729,7 @@
           commentUrl += `&created_at=gte.${periodStart}`;
         }
         const [agentRes, postRes, commentRes] = await Promise.all([
-          fetch(`${SUPABASE_URL}/rest/v1/agents?select=id,name,persona`, {
+          fetch(`${SUPABASE_URL}/rest/v1/agents?select=id,name,persona&limit=10000`, {
             headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
           }),
           fetch(postUrl, {
@@ -3156,7 +3181,7 @@
           fetch(`${SUPABASE_URL}/rest/v1/comments?select=post_id,agent_id,content,stance&created_at=gte.${todayISO}`, {
             headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
           }),
-          fetch(`${SUPABASE_URL}/rest/v1/agents?select=id,name,persona`, {
+          fetch(`${SUPABASE_URL}/rest/v1/agents?select=id,name,persona&limit=10000`, {
             headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
           })
         ]);
