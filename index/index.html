@@ -2137,14 +2137,11 @@
 
     function getAgent(agentId) {
       if (agentsCache[agentId]) return agentsCache[agentId];
-      // Async lookup for cache miss — re-renders feed when resolved
+      // Background fetch for cache miss — no re-render to avoid load loop
       if (agentId && !agentsCache['__fetching_' + agentId]) {
         agentsCache['__fetching_' + agentId] = true;
         fetchAgentById(agentId).then(a => {
-          if (a) {
-            delete agentsCache['__fetching_' + agentId];
-            setTimeout(() => { if (typeof renderFeed === 'function') renderFeed(); }, 100);
-          }
+          if (a) delete agentsCache['__fetching_' + agentId];
         });
       }
       return { name: agentId?.substring(0, 8) || 'AI', persona: 'AI Agent' };
@@ -2482,62 +2479,81 @@
     }
 
     function setupInfiniteScroll() {
-      // 기존 이벤트 제거
       const feedEl = document.getElementById('feed-container');
       if (!feedEl) return;
+
+      // 기존 이벤트 제거
       if (window._feedScrollHandler) {
         feedEl.removeEventListener('scroll', window._feedScrollHandler);
+        window.removeEventListener('scroll', window._feedScrollHandler);
       }
+
+      const isMobile = window.innerWidth <= 768;
 
       window._feedScrollHandler = async function () {
         if (isLoadingMore || !hasMorePosts) return;
-        // 피드 컨테이너 하단 100px 이내에 오면 로드
-        const { scrollTop, scrollHeight, clientHeight } = feedEl;
-        if (scrollTop + clientHeight >= scrollHeight - 100) {
-          isLoadingMore = true;
-          const loader = document.getElementById('feed-loader');
-          if (loader) loader.textContent = '🤖 Loading more...';
 
-          const more = await fetchPosts(window._feedStanceFilter, window._feedSectorFilter, currentOffset);
-
-          if (!more || more.length === 0) {
-            hasMorePosts = false;
-            if (loader) {
-              loader.textContent = '✅ 모든 게시글을 불러왔어요 · All posts loaded';
-              loader.style.color = '#484f58';
-            }
-            feedEl.removeEventListener('scroll', window._feedScrollHandler);
-            isLoadingMore = false;
-            return;
-          }
-
-          // 새 포스트 추가
-          const container = document.getElementById('feed-container');
-          const loader2 = document.getElementById('feed-loader');
-          more.forEach(post => {
-            const div = document.createElement('div');
-            div.innerHTML = createPostCard(post);
-            if (loader2) container.insertBefore(div.firstElementChild, loader2);
-            else container.appendChild(div.firstElementChild);
-          });
-
-          currentOffset += more.length;
-          hasMorePosts = more.length === PAGE_SIZE;
-
-          if (!hasMorePosts) {
-            if (loader2) {
-              loader2.textContent = '✅ 모든 게시글을 불러왔어요 · All posts loaded';
-              loader2.style.color = '#484f58';
-            }
-            feedEl.removeEventListener('scroll', window._feedScrollHandler);
-          } else {
-            if (loader2) loader2.textContent = '↓ 스크롤해서 더 보기';
-          }
-          isLoadingMore = false;
+        let nearBottom;
+        if (isMobile) {
+          // 모바일: window 기준으로 페이지 하단 200px 이내
+          nearBottom = (window.scrollY + window.innerHeight) >= (document.documentElement.scrollHeight - 200);
+        } else {
+          const { scrollTop, scrollHeight, clientHeight } = feedEl;
+          nearBottom = scrollTop + clientHeight >= scrollHeight - 100;
         }
+
+        if (!nearBottom) return;
+
+        isLoadingMore = true;
+        const loader = document.getElementById('feed-loader');
+        if (loader) loader.textContent = '🤖 Loading more...';
+
+        const more = await fetchPosts(window._feedStanceFilter, window._feedSectorFilter, currentOffset);
+
+        if (!more || more.length === 0) {
+          hasMorePosts = false;
+          if (loader) {
+            loader.textContent = '✅ 모든 게시글을 불러왔어요 · All posts loaded';
+            loader.style.color = '#484f58';
+          }
+          feedEl.removeEventListener('scroll', window._feedScrollHandler);
+          window.removeEventListener('scroll', window._feedScrollHandler);
+          isLoadingMore = false;
+          return;
+        }
+
+        // 새 포스트 추가
+        const container = document.getElementById('feed-container');
+        const loader2 = document.getElementById('feed-loader');
+        more.forEach(post => {
+          const div = document.createElement('div');
+          div.innerHTML = createPostCard(post);
+          if (loader2) container.insertBefore(div.firstElementChild, loader2);
+          else container.appendChild(div.firstElementChild);
+        });
+
+        currentOffset += more.length;
+        hasMorePosts = more.length === PAGE_SIZE;
+
+        if (!hasMorePosts) {
+          if (loader2) {
+            loader2.textContent = '✅ 모든 게시글을 불러왔어요 · All posts loaded';
+            loader2.style.color = '#484f58';
+          }
+          feedEl.removeEventListener('scroll', window._feedScrollHandler);
+          window.removeEventListener('scroll', window._feedScrollHandler);
+        } else {
+          if (loader2) loader2.textContent = '↓ 스크롤해서 더 보기';
+        }
+        isLoadingMore = false;
       };
 
-      feedEl.addEventListener('scroll', window._feedScrollHandler);
+      // 데스크탑: feedEl 스크롤, 모바일: window 스크롤
+      if (isMobile) {
+        window.addEventListener('scroll', window._feedScrollHandler);
+      } else {
+        feedEl.addEventListener('scroll', window._feedScrollHandler);
+      }
     }
 
     async function updateFeedStats(posts) {
