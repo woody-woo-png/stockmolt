@@ -1,12 +1,11 @@
 """
-StockMolt Bot V6 - Real Data Edition
-개선사항 (V5 대비):
+StockMolt Bot V6 - Gemma4 Local Edition
 - yfinance로 실시간 주가 데이터 가져오기 (무료)
 - 뉴스 헤드라인 크롤링 (무료)
-- 실제 데이터 기반으로 Claude AI 글 생성
-- 추가 비용 없음!
+- 로컬 Gemma4 (Ollama) 기반 글 생성 (완전 무료!)
 
-설치: pip install yfinance requests schedule
+설치: pip install yfinance requests schedule python-dotenv
+Ollama 실행: ollama serve (별도 터미널)
 """
 
 import requests
@@ -23,8 +22,8 @@ load_dotenv()
 
 # --- 설정 ---
 API_BASE = os.getenv("API_BASE", "https://oyatbvqpilvbhqpiafwp.supabase.co/functions/v1")
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")  # .env 파일에서 로드
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "")
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 
 SUPABASE_HEADERS = {
     "Content-Type": "application/json",
@@ -32,7 +31,7 @@ SUPABASE_HEADERS = {
     "Authorization": f"Bearer {SUPABASE_ANON_KEY}"
 }
 
-DAILY_POST_TARGET = 50
+DAILY_POST_TARGET = 96
 COMMENTS_PER_POST = 2
 AGENTS_FILE = os.path.join(os.path.dirname(__file__), "claude_agents.json")
 
@@ -93,6 +92,39 @@ TICKER_DISPLAY = {
 NEWBIE_PREFIXES = ["Crypto", "Stock", "Alpha", "Beta", "Gamma", "Delta", "Omega", "Moon", "Mars", "Rich"]
 NEWBIE_SUFFIXES = ["Bot", "AI", "Agent", "Trader", "Investor", "Analyst", "Mind", "Brain"]
 
+# 고정 핵심 종목 (항상 유지)
+CORE_US_TICKERS = ["TSLA", "NVDA", "AAPL", "AMD", "MSFT", "GOOGL", "AMZN", "PLTR", "MSTR", "INTC", "COIN"]
+
+
+def refresh_trending_tickers():
+    """Yahoo Finance 스크리너 4종으로 US 종목 풀을 최대 50개로 갱신"""
+    screens = [
+        ("most_actives", 20),
+        ("day_gainers", 15),
+        ("day_losers", 10),       # 급락 종목도 토론 활발
+        ("undervalued_growth_stocks", 10),
+    ]
+    trending = []
+    for screen_name, count in screens:
+        try:
+            result = yf.screen(screen_name, count=count)
+            for q in result.get("quotes", []):
+                sym = q.get("symbol", "")
+                if sym and "." not in sym and len(sym) <= 5:
+                    trending.append(sym)
+        except Exception:
+            pass
+
+    if not trending:
+        print("  ⚠️ 트렌딩 종목 없음, 기존 유지")
+        return
+
+    combined = list(dict.fromkeys(CORE_US_TICKERS + trending))[:50]
+    TICKER_MAP["US"] = combined
+
+    new_tickers = [t for t in combined if t not in CORE_US_TICKERS]
+    print(f"  US 종목 갱신: {len(combined)}개 (신규 {len(new_tickers)}개: {new_tickers[:10]}{'...' if len(new_tickers) > 10 else ''})")
+
 # 다양한 Newbie 페르소나 풀
 NEWBIE_PERSONAS = [
     "A momentum trader who chases breakouts and volume spikes. Loves FOMO entries.",
@@ -114,8 +146,26 @@ NEWBIE_PERSONAS = [
 
 recent_posts = []
 MAX_RECENT = 20
-# 포스트별 댓글 단 agent_id 추적 (중복 댓글 방지)
 post_commenters = {}  # {post_id: set of agent_ids}
+
+# 종목별 일일 포스트 카운터
+_ticker_daily_count = {}   # {ticker: count}
+_ticker_count_date = None  # 마지막 리셋 날짜
+MAX_POSTS_PER_TICKER = 4   # 종목당 하루 최대 포스트 수
+
+
+def _get_ticker_count(ticker):
+    global _ticker_daily_count, _ticker_count_date
+    today = datetime.now().date()
+    if _ticker_count_date != today:
+        _ticker_daily_count = {}
+        _ticker_count_date = today
+    return _ticker_daily_count.get(ticker, 0)
+
+
+def _increment_ticker_count(ticker):
+    global _ticker_daily_count
+    _ticker_daily_count[ticker] = _ticker_daily_count.get(ticker, 0) + 1
 
 # ============================================================
 # 52주 데이터 캐시 (API 호출 횟수 절감)
@@ -294,16 +344,14 @@ Respond with ONLY the comment text, no JSON, no extra text."""
 
 
 def _call_claude(prompt, max_tokens=200):
-    if not ANTHROPIC_API_KEY:
-        print("  ⚠️ ANTHROPIC_API_KEY가 설정되지 않았습니다. .env 파일을 확인하세요.")
-        return None
+    """Anthropic Claude API 호출"""
     try:
         response = requests.post(
             "https://api.anthropic.com/v1/messages",
             headers={
                 "x-api-key": ANTHROPIC_API_KEY,
                 "anthropic-version": "2023-06-01",
-                "content-type": "application/json"
+                "Content-Type": "application/json"
             },
             json={
                 "model": "claude-haiku-4-5-20251001",
@@ -314,16 +362,9 @@ def _call_claude(prompt, max_tokens=200):
         )
         if response.status_code == 200:
             return response.json()["content"][0]["text"].strip()
-        else:
-            try:
-                error_body = response.json()
-                error_msg = error_body.get("error", {}).get("message", response.text)
-            except Exception:
-                error_msg = response.text
-            print(f"  ⚠️ Claude API 오류 {response.status_code}: {error_msg}")
-            return None
+        raise Exception(f"Anthropic {response.status_code}")
     except Exception as e:
-        print(f"  ⚠️ Claude 호출 실패: {e}")
+        print(f"  ❌ Claude API 실패: {e}")
         return None
 
 
@@ -457,7 +498,12 @@ def create_post():
 
     agent_id, agent_name, persona = get_agent()
     sector = random.choice(list(TICKER_MAP.keys()))
-    ticker_yf = random.choice(TICKER_MAP[sector])
+
+    # 일일 한도 미초과 종목만 후보로
+    pool = [t for t in TICKER_MAP[sector] if _get_ticker_count(t) < MAX_POSTS_PER_TICKER]
+    if not pool:
+        pool = TICKER_MAP[sector]  # 전부 초과됐으면 제한 해제 (fallback)
+    ticker_yf = random.choice(pool)
     ticker_display = TICKER_DISPLAY.get(ticker_yf, ticker_yf)
     stance = random.choice(["bullish", "bearish", "neutral"])
 
@@ -506,6 +552,8 @@ def create_post():
                 if rows and rows[0].get("id"):
                     post_id = rows[0]["id"]
                     print(f"  ✅ 업로드 완료! ID: {post_id[:8]}...")
+
+                    _increment_ticker_count(ticker_yf)
 
                     recent_posts.append({
                         "id": post_id,
@@ -623,11 +671,15 @@ def run_once():
 # 스케줄러
 # ============================================================
 def setup_schedule():
-    schedule.every(6).hours.do(run_once)
+    schedule.every(15).minutes.do(run_once)
+    schedule.every().day.at("09:00").do(refresh_trending_tickers)
 
-    print("📅 스케줄: 6시간마다 1개 포스트")
+    print("📅 스케줄: 15분마다 1개 포스트 / 매일 09:00 트렌딩 종목 갱신")
     print("💰 예상 비용: ~$0.01/일 (초기 $5 크레딧으로 약 500일 사용 가능)")
     print("\n⏰ 스케줄러 시작 (Ctrl+C로 종료)")
+
+    print("\n🔄 트렌딩 종목 초기 갱신 중...")
+    refresh_trending_tickers()
 
     run_once()
 

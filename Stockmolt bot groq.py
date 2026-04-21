@@ -1,10 +1,10 @@
 """
-StockMolt Bot - Groq Edition (완전 무료!)
-- Groq API 무료 티어 사용 (Llama 3.3 70B 모델)
+StockMolt Bot - Gemma4 Local Edition (완전 무료!)
+- 로컬 Ollama + Gemma4 모델 사용
 - 30분마다 1개 포스트 + 기존 포스트 3~5개에 댓글
 - 같은 종목 반대 스탠스면 더 적극적으로 반박
-설치: pip install yfinance requests schedule groq
-Groq API 키 발급: https://console.groq.com (무료 가입)
+설치: pip install yfinance requests schedule python-dotenv
+Ollama 실행: ollama serve (별도 터미널)
 """
 import requests
 import random
@@ -12,8 +12,8 @@ import time
 import json
 import schedule
 import yfinance as yf
-from groq import Groq
 import os
+from datetime import datetime
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -24,9 +24,9 @@ load_dotenv()
 API_BASE = os.getenv("API_BASE", "https://oyatbvqpilvbhqpiafwp.supabase.co/functions/v1")
 SUPABASE_URL = os.getenv("SUPABASE_URL", "https://oyatbvqpilvbhqpiafwp.supabase.co")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 
-POSTS_PER_DAY = 48  # 30분마다 1개
+POSTS_PER_DAY = 96  # 15분마다 1개
 AGENTS_FILE = os.path.join(os.path.dirname(__file__), "groq_agents.json")
 
 # 52주 데이터 캐시
@@ -133,75 +133,81 @@ def setup_agents():
 # =============================================
 # 트렌딩 종목 자동 수집
 # =============================================
-def get_trending_tickers():
-    try:
-        url = "https://query1.finance.yahoo.com/v1/finance/trending/US?count=20"
-        res = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
-        data = res.json()
-        tickers = []
-        quotes = data.get("finance", {}).get("result", [{}])[0].get("quotes", [])
-        for q in quotes[:10]:
-            symbol = q.get("symbol", "")
-            if symbol:
-                tickers.append(symbol)
-        print(f"  🔥 트렌딩 {len(tickers)}개: {tickers}")
-        return tickers
-    except Exception as e:
-        print(f"  ⚠️ 트렌딩 수집 실패: {e}")
-        return []
+CORE_US_TICKERS_GROQ = ["NVDA", "AAPL", "TSLA", "MSFT", "GOOGL", "AMZN", "AMD", "COIN", "INTC", "PLTR"]
 
-def get_most_active_tickers():
-    try:
-        url = "https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=most_actives&count=10"
-        res = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
-        data = res.json()
-        tickers = []
-        quotes = data.get("finance", {}).get("result", [{}])[0].get("quotes", [])
-        for q in quotes[:10]:
-            symbol = q.get("symbol", "")
-            if symbol:
-                tickers.append(symbol)
-        print(f"  📊 거래량 상위 {len(tickers)}개: {tickers}")
-        return tickers
-    except Exception as e:
-        print(f"  ⚠️ 거래량 상위 수집 실패: {e}")
-        return []
+_groq_ticker_map_us = list(CORE_US_TICKERS_GROQ)
+
+# 종목별 일일 포스트 카운터
+_groq_ticker_daily = {}
+_groq_ticker_date = None
+MAX_POSTS_PER_TICKER_GROQ = 4
+
+
+def _groq_ticker_count(ticker):
+    global _groq_ticker_daily, _groq_ticker_date
+    today = datetime.now().date()
+    if _groq_ticker_date != today:
+        _groq_ticker_daily = {}
+        _groq_ticker_date = today
+    return _groq_ticker_daily.get(ticker, 0)
+
+
+def _groq_ticker_increment(ticker):
+    _groq_ticker_daily[ticker] = _groq_ticker_daily.get(ticker, 0) + 1
+
+
+def refresh_groq_trending():
+    """yfinance 스크리너 4종으로 US 종목 풀 갱신 (최대 50개)"""
+    global _groq_ticker_map_us
+    screens = [
+        ("most_actives", 20),
+        ("day_gainers", 15),
+        ("day_losers", 10),
+        ("undervalued_growth_stocks", 10),
+    ]
+    trending = []
+    for screen_name, count in screens:
+        try:
+            result = yf.screen(screen_name, count=count)
+            for q in result.get("quotes", []):
+                sym = q.get("symbol", "")
+                if sym and "." not in sym and len(sym) <= 5:
+                    trending.append(sym)
+        except Exception:
+            pass
+
+    if not trending:
+        print("  ⚠️ 트렌딩 없음, 기존 유지")
+        return
+
+    combined = list(dict.fromkeys(CORE_US_TICKERS_GROQ + trending))[:50]
+    _groq_ticker_map_us = combined
+    new_tickers = [t for t in combined if t not in CORE_US_TICKERS_GROQ]
+    print(f"  Groq US 종목 갱신: {len(combined)}개 (신규 {len(new_tickers)}개)")
+
 
 def get_dynamic_ticker():
     base_tickers = {
-        "US": ["NVDA", "AAPL", "TSLA", "MSFT", "GOOGL", "AMZN", "AMD", "COIN", "INTC", "PLTR"],
+        "US": _groq_ticker_map_us,
         "KRX": ["005930.KS", "000660.KS", "373220.KS", "005380.KS"],
         "Crypto": ["BTC-USD", "ETH-USD", "SOL-USD", "DOGE-USD"],
         "Commodities": ["GC=F", "SI=F", "CL=F"],
         "BondsFX": ["^TNX", "^IRX", "KRW=X"]
     }
-    if random.random() < 0.5:
-        trending = get_trending_tickers()
-        active = get_most_active_tickers()
-        pool = list(set(trending + active))
-        if pool:
-            symbol = random.choice(pool)
-            display = TICKER_DISPLAY.get(symbol, symbol)
-            if symbol.endswith(".KS"):
-                sector = "KRX"
-            elif symbol in ["BTC-USD", "ETH-USD", "SOL-USD", "DOGE-USD"]:
-                sector = "Crypto"
-            elif symbol in ["GC=F", "SI=F", "CL=F"]:
-                sector = "Commodities"
-            elif symbol in ["^TNX", "^IRX", "KRW=X"]:
-                sector = "BondsFX"
-            else:
-                sector = "US"
-            print(f"  🔥 트렌딩 선택: ${display} ({sector})")
-            return symbol, display, sector
 
-    # ✅ KRX 비중 2배로 높임
+    # KRX 비중 2배로 높임
     sectors = list(base_tickers.keys())
     weights = [2, 4, 2, 1, 1]  # US, KRX, Crypto, Commodities, BondsFX
     sector = random.choices(sectors, weights=weights, k=1)[0]
-    ticker_yf = random.choice(base_tickers[sector])
+
+    # 일일 한도 미초과 종목만 선택
+    pool = [t for t in base_tickers[sector] if _groq_ticker_count(t) < MAX_POSTS_PER_TICKER_GROQ]
+    if not pool:
+        pool = base_tickers[sector]  # 전부 초과 시 제한 해제 (fallback)
+
+    ticker_yf = random.choice(pool)
     ticker_display = TICKER_DISPLAY.get(ticker_yf, ticker_yf)
-    print(f"  📌 기본 선택: ${ticker_display} ({sector})")
+    print(f"  선택: ${ticker_display} ({sector})")
     return ticker_yf, ticker_display, sector
 
 # =============================================
@@ -250,25 +256,29 @@ def build_market_context(ticker_yf, ticker_display):
     return context
 
 # =============================================
-# Groq API 호출
+# AI 백엔드 호출 (Groq API 전용)
 # =============================================
-_groq_client = None
-
 def call_groq(prompt, max_tokens=300):
-    global _groq_client
+    """Groq API 호출"""
     try:
-        if _groq_client is None:
-            _groq_client = Groq(api_key=GROQ_API_KEY)
-        chat_completion = _groq_client.chat.completions.create(
-            messages=[{"role": "user", "content": prompt}],
-            model="llama-3.3-70b-versatile",
-            max_tokens=max_tokens,
-            temperature=0.9
+        response = requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
+            json={
+                "model": "llama-3.3-70b-versatile",
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": max_tokens
+            },
+            timeout=30
         )
-        return chat_completion.choices[0].message.content.strip()
+        if response.status_code == 200:
+            return response.json()["choices"][0]["message"]["content"].strip()
+        raise Exception(f"Groq {response.status_code}")
     except Exception as e:
-        print(f"  ⚠️ Groq 호출 실패: {e}")
+        print(f"  ❌ Groq API 실패: {e}")
         return None
+    print("  ❌ 모든 AI 백엔드 실패")
+    return None
 
 # =============================================
 # ✅ 기존 포스트 가져오기 (댓글용)
@@ -415,6 +425,7 @@ Respond ONLY in this JSON format, nothing else:
             if data.get("success"):
                 post_id = data["data"][0]["id"]
                 print(f"  ✅ 업로드 완료! ID: {post_id[:8]}...")
+                _groq_ticker_increment(ticker_yf)
                 recent_posts.append({
                     "id": post_id,
                     "ticker_yf": ticker_yf,
@@ -620,9 +631,12 @@ if __name__ == "__main__":
         run_comment_round()
         print("\n✅ 테스트 완료!")
     else:
-        schedule.every(30).minutes.do(run_every_30min)
-        print(f"\n⏰ 스케줄러 시작: 30분마다 실행")
+        schedule.every(15).minutes.do(run_every_30min)
+        schedule.every().day.at("09:00").do(refresh_groq_trending)
+        print(f"\n⏰ 스케줄러 시작: 15분마다 실행 / 매일 09:00 종목 갱신")
         print("Ctrl+C로 종료")
+        print("\n트렌딩 종목 초기 갱신 중...")
+        refresh_groq_trending()
         run_every_30min()
         while True:
             schedule.run_pending()
