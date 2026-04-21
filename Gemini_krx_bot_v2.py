@@ -9,32 +9,26 @@ import json
 import re
 import schedule
 import yfinance as yf
-from google import genai
-from google.genai import types
 import sys
 import os
-import certifi
+from datetime import datetime
 from dotenv import load_dotenv
+from google import genai
 
 load_dotenv()
-os.environ['SSL_CERT_FILE'] = certifi.where()
 
 # =============================================
 # 설정
 # =============================================
 API_BASE = os.getenv("API_BASE", "https://oyatbvqpilvbhqpiafwp.supabase.co/functions/v1")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 SUPABASE_URL = os.getenv("SUPABASE_URL", "https://oyatbvqpilvbhqpiafwp.supabase.co")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-# ✅ 클라이언트 한 번만 생성
-_gemini_client = None
-def get_gemini_client():
-    global _gemini_client
-    if _gemini_client is None:
-        _gemini_client = genai.Client(api_key=GEMINI_API_KEY)
-    return _gemini_client
+GEMINI_MODEL = "gemini-2.5-flash-lite"
 
-POSTS_PER_DAY = 24  # 1시간마다 1개
+_gemini_client = genai.Client(api_key=GEMINI_API_KEY)
+
+POSTS_PER_DAY = 96  # 15분마다 1개
 AGENTS_FILE = os.path.join(os.path.dirname(__file__), "gemini_agents.json")
 
 # =============================================
@@ -78,10 +72,40 @@ TICKER_DISPLAY = {
     "068270.KS": "Celltrion",
     "035420.KS": "NAVER",
     "005490.KS": "POSCO Holdings",
-    "035720.KS": "Kakao"
+    "035720.KS": "Kakao",
+    "000270.KS": "Kia",
+    "105560.KS": "KB Financial",
+    "055550.KS": "Shinhan Financial",
+    "096770.KS": "SK Innovation",
+    "034730.KS": "SK Inc",
+    "017670.KS": "SK Telecom",
+    "003550.KS": "LG Corp",
+    "051910.KS": "LG Chem",
+    "028260.KS": "Samsung C&T",
+    "066570.KS": "LG Electronics",
+    "012330.KS": "Hyundai Mobis",
+    "086790.KS": "Hana Financial"
 }
 
 recent_posts = []
+
+# 종목별 일일 포스트 카운터
+_krx_ticker_daily = {}
+_krx_ticker_date = None
+MAX_POSTS_PER_TICKER_KRX = 3
+
+
+def _krx_ticker_count(ticker):
+    global _krx_ticker_daily, _krx_ticker_date
+    today = datetime.now().date()
+    if _krx_ticker_date != today:
+        _krx_ticker_daily = {}
+        _krx_ticker_date = today
+    return _krx_ticker_daily.get(ticker, 0)
+
+
+def _krx_ticker_increment(ticker):
+    _krx_ticker_daily[ticker] = _krx_ticker_daily.get(ticker, 0) + 1
 
 # =============================================
 # 에이전트 등록 (ID 파일로 영구 저장)
@@ -149,10 +173,12 @@ def setup_agents():
 # 티커 선택 (KRX만)
 # =============================================
 def get_dynamic_ticker():
-    pool = list(TICKER_DISPLAY.keys())
+    pool = [t for t in TICKER_DISPLAY.keys() if _krx_ticker_count(t) < MAX_POSTS_PER_TICKER_KRX]
+    if not pool:
+        pool = list(TICKER_DISPLAY.keys())  # 전부 초과 시 제한 해제 (fallback)
     symbol = random.choice(pool)
     display = TICKER_DISPLAY.get(symbol, symbol)
-    print(f"  🇰🇷 KRX 종목 선택: ${display}")
+    print(f"  KRX 종목 선택: ${display}")
     return symbol, display, "KRX"
 
 # =============================================
@@ -166,12 +192,18 @@ def get_stock_data(ticker_yf):
             return None
         latest = hist.iloc[-1]
         prev = hist.iloc[-2] if len(hist) >= 2 else hist.iloc[-1]
-        current_price = round(float(latest["Close"]), 2)
-        prev_price = round(float(prev["Close"]), 2)
+        current_price = float(latest["Close"])
+        prev_price = float(prev["Close"])
+        if current_price != current_price or prev_price != prev_price:  # NaN 체크
+            return None
+        current_price = round(current_price, 2)
+        prev_price = round(prev_price, 2)
         change_pct = round((current_price - prev_price) / prev_price * 100, 2)
         hist_1y = ticker.history(period="1y")
         high_52w = round(float(hist_1y["High"].max()), 2) if not hist_1y.empty else None
         low_52w = round(float(hist_1y["Low"].min()), 2) if not hist_1y.empty else None
+        if high_52w and high_52w != high_52w: high_52w = None
+        if low_52w and low_52w != low_52w: low_52w = None
         return {
             "price": current_price,
             "change_pct": change_pct,
@@ -196,48 +228,37 @@ def build_market_context(ticker_yf, ticker_display):
     return context
 
 # =============================================
-# ✅ Gemini API 호출
+# AI 백엔드 호출 (Gemini 2.5 Flash Lite)
 # =============================================
-_gemini_client = None
-
 def call_gemini(prompt, max_tokens=1000, expect_json=False):
-    global _gemini_client
-    if not GEMINI_API_KEY:
-        print("  ❌ GEMINI_API_KEY 없음")
-        return None
+    """Gemini 2.5 Flash Lite 단독 호출"""
     try:
-        if _gemini_client is None:
-            _gemini_client = genai.Client(api_key=GEMINI_API_KEY)
         response = _gemini_client.models.generate_content(
-            model="gemini-2.5-flash-lite",
+            model=GEMINI_MODEL,
             contents=prompt,
-            config=types.GenerateContentConfig(
-                max_output_tokens=max_tokens,
-                temperature=0.7
-            )
         )
-        raw = response.text.strip()
-
-        if expect_json:
-            # 마크다운 제거
-            raw = re.sub(r'```(?:json)?', '', raw).replace('```', '').strip()
-            # 줄바꿈 공백 치환
-            raw = re.sub(r'\r?\n', ' ', raw)
-            # JSON 추출 시도 1: 직접 파싱
-            try:
-                json.loads(raw)
-                return raw
-            except:
-                pass
-            # JSON 추출 시도 2: 중괄호로 감싼 부분 추출
-            match = re.search(r'\{[^{}]*\}', raw)
-            if match:
-                return match.group(0)
-
-        return raw
+        raw = response.text.strip() if response.text else None
     except Exception as e:
-        print(f"  ⚠️ Gemini 호출 실패: {e}")
+        print(f"  ❌ Gemini 호출 실패: {e}")
         return None
+
+    if not raw:
+        print("  ❌ Gemini 응답 없음")
+        return None
+
+    if expect_json:
+        raw = re.sub(r'```(?:json)?', '', raw).replace('```', '').strip()
+        raw = re.sub(r'\r?\n', ' ', raw)
+        try:
+            json.loads(raw)
+            return raw
+        except:
+            pass
+        match = re.search(r'\{[^{}]*\}', raw)
+        if match:
+            return match.group(0)
+
+    return raw
 
 # =============================================
 # ✅ JSON 안전 파싱 (한글 특수문자 대응)
@@ -322,6 +343,8 @@ def create_post():
 
     stock_data = get_stock_data(ticker_yf)
     buy_price = stock_data["price"] if stock_data else None
+    if buy_price is not None and (buy_price != buy_price):  # NaN 체크
+        buy_price = None
 
     print(f"  제목: {title}")
     print(f"  내용: {content[:80]}...")
@@ -335,7 +358,7 @@ def create_post():
             "stance": final_stance,
             "sector": "KRX"
         }
-        if buy_price:
+        if buy_price is not None:
             post_body["buy_price"] = buy_price
 
         response = requests.post(
@@ -364,6 +387,7 @@ def create_post():
                     return None
 
                 print(f"  ✅ 업로드 완료! ID: {post_id[:8]}...")
+                _krx_ticker_increment(ticker_yf)
                 recent_posts.append({
                     "id": post_id,
                     "ticker_yf": ticker_yf,
@@ -570,10 +594,6 @@ if __name__ == "__main__":
     print(f"📊 하루 {POSTS_PER_DAY}회 한국 주식만 포스팅")
     print_bot_stats()
 
-    if not GEMINI_API_KEY:
-        print("\n❌ GEMINI_API_KEY가 비어 있습니다! 코드 상단에 키를 먼저 입력해 주세요.\n")
-        sys.exit(1)
-
     setup_agents()
 
     if len(sys.argv) > 1 and sys.argv[1] == "once":
@@ -587,7 +607,7 @@ if __name__ == "__main__":
         run_comment_round()
         print("\n✅ 테스트 완료!")
     else:
-        schedule.every(1).hours.do(run_hourly)
+        schedule.every(15).minutes.do(run_hourly)
         print(f"\n⏰ 스케줄러 시작: 1시간마다 1개 포스트")
         print("Ctrl+C로 종료")
         run_hourly()
