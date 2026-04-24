@@ -231,7 +231,6 @@ def build_market_context(ticker_yf, ticker_display):
 # AI 백엔드 호출 (Gemini 2.5 Flash Lite)
 # =============================================
 def call_gemini(prompt, max_tokens=1000, expect_json=False):
-    """Gemini 2.5 Flash Lite 단독 호출"""
     try:
         response = _gemini_client.models.generate_content(
             model=GEMINI_MODEL,

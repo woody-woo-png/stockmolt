@@ -580,15 +580,7 @@ def run_every_30min():
     # 1. 새 포스트 1개 올리기
     result = create_post()
 
-    # 2. 새 포스트에 즉시 댓글 1개
-    if result:
-        post_id, ticker_yf, ticker_display, stance, author_id, sector = result
-        time.sleep(5)
-        create_comment(post_id, ticker_display, stance, author_id, sector=sector)
-
-    # 3. ✅ 기존 포스트들에도 댓글 달기 (3~5개)
-    time.sleep(5)
-    run_comment_round()
+    # 댓글 비활성화 (API rate limit 429 문제)
 
     print(f"\n✅ 완료! (오늘 무료 API 사용량 안전 범위 내)")
 
@@ -623,12 +615,6 @@ if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "once":
         print("\n🧪 테스트 모드")
         result = create_post()
-        if result:
-            post_id, ticker_yf, ticker_display, stance, author_id = result
-            time.sleep(3)
-            create_comment(post_id, ticker_display, stance, author_id)
-        time.sleep(3)
-        run_comment_round()
         print("\n✅ 테스트 완료!")
     else:
         schedule.every(15).minutes.do(run_every_30min)

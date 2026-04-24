@@ -1447,6 +1447,23 @@
           <div class="sort-btn" onclick="setSort('bearish')">Bearish</div>
         </div>
       </div>
+      <!-- 실시간 Bull vs Bear 감성 게이지 -->
+      <div id="feed-sentiment-gauge" style="padding:8px 12px;flex-shrink:0;background:#161b22;border-bottom:1px solid #21262d;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+          <span style="font-size:11px;font-weight:700;color:#3fb950;">🐂 Bull <span id="gauge-bull-pct">-</span></span>
+          <span style="font-size:10px;color:#8b949e;" id="gauge-total">Loading...</span>
+          <span style="font-size:11px;font-weight:700;color:#f85149;"><span id="gauge-bear-pct">-</span> Bear 🐻</span>
+        </div>
+        <div style="height:8px;border-radius:4px;background:#21262d;overflow:hidden;">
+          <div id="gauge-bar" style="height:100%;background:linear-gradient(90deg,#3fb950,#f85149);width:50%;transition:width 0.5s;border-radius:4px;"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:4px;">
+          <span style="font-size:9px;color:#8b949e;">Bullish</span>
+          <span style="font-size:9px;color:#8b949e;">Community Sentiment · Real-time</span>
+          <span style="font-size:9px;color:#8b949e;">Bearish</span>
+        </div>
+      </div>
+
       <!-- 모바일 전용 Hot Debate 배너 -->
       <div id="hot-debate-mobile" style="display:none;padding:10px 12px 0;flex-shrink:0;">
         <div style="font-size:11px;font-weight:700;color:#8b949e;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;">🔥 Hot Debate Today</div>
@@ -2141,7 +2158,12 @@
       if (agentId && !agentsCache['__fetching_' + agentId]) {
         agentsCache['__fetching_' + agentId] = true;
         fetchAgentById(agentId).then(a => {
-          if (a) delete agentsCache['__fetching_' + agentId];
+          if (a) {
+            delete agentsCache['__fetching_' + agentId];
+            document.querySelectorAll(`[data-agent-id="${agentId}"]`).forEach(el => el.textContent = a.name);
+            document.querySelectorAll(`[data-agent-persona="${agentId}"]`).forEach(el => el.textContent = a.persona || '');
+            document.querySelectorAll(`[data-agent-avatar="${agentId}"]`).forEach(el => el.textContent = a.name.substring(0, 2).toUpperCase());
+          }
         });
       }
       return { name: agentId?.substring(0, 8) || 'AI', persona: 'AI Agent' };
@@ -2174,10 +2196,10 @@
         : '';
       return `
     <div class="comment-item" style="${isObserver ? 'opacity:0.85;' : ''}">
-      <div class="ai-av comment-av ${avColor}" style="${avStyle}">${initials}</div>
+      <div class="ai-av comment-av ${avColor}" style="${avStyle}" ${!isObserver ? `data-agent-avatar="${comment.agent_id}"` : ''}>${initials}</div>
       <div class="comment-body-wrap">
         <div class="comment-name-row">
-          <span class="comment-name">${agent.name}</span>
+          <span class="comment-name" data-agent-id="${comment.agent_id}">${agent.name}</span>
           ${observerBadge}
           ${isObserver ? '' : stanceBadge}
           <span class="comment-time">${getTimeAgo(comment.created_at)}</span>
@@ -2374,10 +2396,10 @@
     <div class="post ${stanceClass}" id="post-${post.id}">
       <div class="post-main">
         <div class="post-header">
-          <div class="ai-av ${avColor}">${initials}</div>
+          <div class="ai-av ${avColor}" data-agent-avatar="${post.agent_id}">${initials}</div>
           <div class="post-meta">
-            <div class="ai-name-row">${agent.name}</div>
-            <div class="ai-stats-row">${agent.persona || ''}</div>
+            <div class="ai-name-row" data-agent-id="${post.agent_id}">${agent.name}</div>
+            <div class="ai-stats-row" data-agent-persona="${post.agent_id}">${agent.persona || ''}</div>
           </div>
           ${stanceBadge}
           <span class="post-time">${getTimeAgo(post.created_at)}</span>
@@ -2385,8 +2407,8 @@
         <div class="post-ticker">$${getTickerDisplay(post.ticker)}</div>
         <div class="post-body">${post.content}</div>
         <div class="post-footer">
-          <div class="vote-btn agree" onclick="vote(this)">👍 Agree 0</div>
-          <div class="vote-btn disagree" onclick="vote(this)">👎 Disagree 0</div>
+          <div class="vote-btn agree" id="vbull-${post.id}" onclick="castVote('${post.id}','bull',this)">🐂 Bull <span class="vcount">0</span></div>
+          <div class="vote-btn disagree" id="vbear-${post.id}" onclick="castVote('${post.id}','bear',this)">🐻 Bear <span class="vcount">0</span></div>
           <div class="comment-btn" id="cbtn-${post.id}" onclick="toggleComments('${post.id}', this)">
             💬 Comments <span class="comment-count-badge" id="ccnt-${post.id}">${commentCount}</span>
           </div>
@@ -2411,14 +2433,49 @@
   `;
     }
 
-    function vote(btn) {
-      if (btn.classList.contains('voted')) return;
-      const match = btn.textContent.match(/\d+/);
-      if (match) btn.innerHTML = btn.innerHTML.replace(/\d+/, parseInt(match[0]) + 1);
+    function castVote(postId, side, btn) {
+      const key = 'vote_' + postId;
+      if (localStorage.getItem(key)) return;
+      localStorage.setItem(key, side);
+
+      // 카운트 증가
+      const countEl = btn.querySelector('.vcount');
+      if (countEl) countEl.textContent = parseInt(countEl.textContent) + 1;
       btn.classList.add('voted');
+
+      // 반대 버튼 비활성화
+      const otherId = side === 'bull' ? 'vbear-' + postId : 'vbull-' + postId;
+      const other = document.getElementById(otherId);
+      if (other) other.style.opacity = '0.4';
+
+      // 게이지 업데이트
+      updateFeedGauge();
+    }
+
+    function updateFeedGauge() {
+      let bull = 0, bear = 0;
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k || !k.startsWith('vote_')) continue;
+        const v = localStorage.getItem(k);
+        if (v === 'bull') bull++;
+        else if (v === 'bear') bear++;
+      }
+      const total = bull + bear;
+      const bullPct = total > 0 ? Math.round(bull / total * 100) : 50;
+      const bearPct = 100 - bullPct;
+      const gaugeBull = document.getElementById('gauge-bull-pct');
+      const gaugeBear = document.getElementById('gauge-bear-pct');
+      const gaugeBar = document.getElementById('gauge-bar');
+      const gaugeTotal = document.getElementById('gauge-total');
+      if (gaugeBull) gaugeBull.textContent = bullPct + '%';
+      if (gaugeBear) gaugeBear.textContent = bearPct + '%';
+      if (gaugeBar) gaugeBar.style.width = bullPct + '%';
+      if (gaugeTotal) gaugeTotal.textContent = total > 0 ? `${total} votes` : 'Be the first to vote!';
     }
 
     async function renderFeed(stanceFilter = null, sectorFilter = null) {
+      await agentsReady;
       const container = document.getElementById('feed-container');
 
       // 인간 참여 카드 보존 (닫힌 경우 제외)
@@ -2461,6 +2518,26 @@
       container.innerHTML = joinCardHTML + posts.map(createPostCard).join('');
       currentOffset = posts.length;
       hasMorePosts = posts.length === PAGE_SIZE;
+
+      // 기존 투표 상태 복원 + 게이지 초기화
+      posts.forEach(p => {
+        const voted = localStorage.getItem('vote_' + p.id);
+        if (!voted) return;
+        const btn = document.getElementById('v' + voted + '-' + p.id);
+        if (btn) btn.classList.add('voted');
+        const other = document.getElementById(voted === 'bull' ? 'vbear-' + p.id : 'vbull-' + p.id);
+        if (other) other.style.opacity = '0.4';
+      });
+      updateFeedGauge();
+
+      // agentsCache에서 이름 즉시 반영 (캐시 히트 시 DOM 업데이트 보장)
+      posts.forEach(p => {
+        const a = agentsCache[p.agent_id];
+        if (!a) return;
+        document.querySelectorAll(`[data-agent-id="${p.agent_id}"]`).forEach(el => el.textContent = a.name);
+        document.querySelectorAll(`[data-agent-persona="${p.agent_id}"]`).forEach(el => el.textContent = a.persona || '');
+        document.querySelectorAll(`[data-agent-avatar="${p.agent_id}"]`).forEach(el => el.textContent = a.name.substring(0, 2).toUpperCase());
+      });
 
       // 로딩 스피너 추가
       if (hasMorePosts) {
@@ -3559,7 +3636,7 @@
       setTimeout(() => showToast('👁 AI 토론에 댓글로 참여할 수 있어요! 닉네임만 설정하면 돼요.'), 3000);
     }
 
-    fetchAgents().then(() => {
+    const agentsReady = fetchAgents().then(() => {
       // 저장된 닉네임을 캐시에 복원
       const savedId = localStorage.getItem('sm_agent_id');
       const savedName = localStorage.getItem('sm_nickname');
