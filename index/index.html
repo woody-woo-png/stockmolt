@@ -3109,11 +3109,11 @@
       const agentName = btn.getAttribute('data-agent-name');
       const modal = document.getElementById('portfolio-modal');
       modal.style.display = 'flex';
-      document.getElementById('pm-name').textContent = '🤖 ' + agentName;
+      document.getElementById('pm-name').textContent = 'AI ' + agentName;
       document.getElementById('pm-positions').innerHTML = '<div style="text-align:center;color:#8b949e;padding:20px;">Loading positions...</div>';
-      document.getElementById('pm-return').textContent = '—';
-      document.getElementById('pm-posts').textContent = '—';
-      document.getElementById('pm-winrate').textContent = '—';
+      document.getElementById('pm-return').textContent = '-';
+      document.getElementById('pm-posts').textContent = '-';
+      document.getElementById('pm-winrate').textContent = '-';
       try {
         const res = await fetch(
           `${SUPABASE_URL}/rest/v1/posts?agent_id=eq.${agentId}&buy_price=not.is.null&select=ticker,buy_price,stance,created_at&order=created_at.desc`,
@@ -3299,79 +3299,6 @@
           </div>
           <div style="display:flex;justify-content:space-between;font-size:11px;color:#8b949e;">
             <span>${s.hits}/${s.total} correct</span>
-            <span>Avg: <span style="color:${cc}">${cs}${s.avgChange}%</span></span>
-          </div>
-        </div>
-      `;
-        }).join('');
-        return;
-        const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-
-        // ✅ 페이지네이션으로 전체 가져오기
-        let posts = [];
-        let offset = 0;
-        const batchSize = 1000;
-        while (true) {
-          const res = await fetch(
-            `${SUPABASE_URL}/rest/v1/posts?select=ticker,stance,buy_price,created_at&buy_price=not.is.null&created_at=gte.${weekAgo}&order=created_at.desc&limit=${batchSize}&offset=${offset}`,
-            { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` } }
-          );
-          const batch = await res.json();
-          if (!batch || batch.length === 0) break;
-          posts = posts.concat(batch);
-          if (batch.length < batchSize) break;
-          offset += batchSize;
-        }
-        if (!posts || posts.length === 0) { document.getElementById('acc-notice').style.display = 'block'; grid.innerHTML = ''; return; }
-        const tickers = [...new Set(posts.map(p => p.ticker))];
-        const priceMap = {};
-        await Promise.all(tickers.map(async t => { priceMap[t] = await getPrice(t); }));
-        const tickerMap = {};
-        let totalHits = 0, totalPredictions = 0;
-        posts.forEach(p => {
-          if (!p.ticker || !p.stance || !p.buy_price || p.stance === 'neutral') return;
-          const current = priceMap[p.ticker];
-          if (!current) return;
-          const buyPrice = parseFloat(p.buy_price);
-          const changePct = (current - buyPrice) / buyPrice * 100;
-          const hit = (p.stance === 'bullish' && changePct > 0) || (p.stance === 'bearish' && changePct < 0);
-          if (!tickerMap[p.ticker]) tickerMap[p.ticker] = { hits: 0, total: 0, changePcts: [], bullish: 0, bearish: 0 };
-          tickerMap[p.ticker].total++;
-          tickerMap[p.ticker].changePcts.push(changePct);
-          tickerMap[p.ticker][p.stance]++;
-          if (hit) { tickerMap[p.ticker].hits++; totalHits++; }
-          totalPredictions++;
-        });
-        const overallAcc = totalPredictions > 0 ? Math.round(totalHits / totalPredictions * 100) : 0;
-        const summary = Object.entries(tickerMap).filter(([t, d]) => d.total >= 3).map(([ticker, data]) => ({
-          ticker, accuracy: Math.round(data.hits / data.total * 100), total: data.total, hits: data.hits,
-          avgChange: (data.changePcts.reduce((a, b) => a + b, 0) / data.changePcts.length).toFixed(2),
-          dominant: data.bullish >= data.bearish ? 'bullish' : 'bearish'
-        })).sort((a, b) => b.accuracy - a.accuracy);
-        const accColor = overallAcc >= 60 ? '#3fb950' : overallAcc >= 40 ? '#e3b341' : '#f85149';
-        document.getElementById('acc-overall').innerHTML = `<span style="color:${accColor}">${overallAcc}%</span>`;
-        document.getElementById('acc-total').textContent = totalPredictions;
-        if (summary.length > 0) document.getElementById('acc-best').textContent = `$${summary[0].ticker} ${summary[0].accuracy}%`;
-        if (summary.length === 0) { document.getElementById('acc-notice').style.display = 'block'; grid.innerHTML = ''; return; }
-        grid.innerHTML = summary.map(s => {
-          const ac = s.accuracy >= 60 ? '#3fb950' : s.accuracy >= 40 ? '#e3b341' : '#f85149';
-          const cc = parseFloat(s.avgChange) >= 0 ? '#3fb950' : '#f85149';
-          const cs = parseFloat(s.avgChange) >= 0 ? '+' : '';
-          const em = s.accuracy >= 60 ? '🎯' : s.accuracy >= 40 ? '🤔' : '❌';
-          return `
-        <div style="background:#161b22;border:1px solid #21262d;border-radius:10px;padding:14px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-            <div style="display:flex;align-items:center;gap:10px;">
-              <span style="font-weight:800;font-size:15px;color:#e6edf3;">$${s.ticker}</span>
-              <span style="font-size:10px;color:${s.dominant === 'bullish' ? '#3fb950' : '#f85149'};background:${s.dominant === 'bullish' ? '#1a3025' : '#2d1b1b'};padding:2px 6px;border-radius:4px;">${s.dominant}</span>
-            </div>
-            <div style="text-align:right;"><span style="font-size:20px;font-weight:900;color:${ac};">${s.accuracy}%</span> <span style="font-size:11px;color:#8b949e;">${em}</span></div>
-          </div>
-          <div style="background:#21262d;border-radius:4px;height:6px;overflow:hidden;margin-bottom:8px;">
-            <div style="height:100%;width:${s.accuracy}%;background:${ac};transition:width .5s;"></div>
-          </div>
-          <div style="display:flex;justify-content:space-between;font-size:11px;color:#8b949e;">
-            <span>✅ ${s.hits}/${s.total} correct</span>
             <span>Avg: <span style="color:${cc}">${cs}${s.avgChange}%</span></span>
           </div>
         </div>
