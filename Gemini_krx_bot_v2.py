@@ -27,6 +27,10 @@ SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
 GEMINI_MODEL = "gemini-2.5-flash-lite"
 
 _gemini_client = genai.Client(api_key=GEMINI_API_KEY)
+RUN_INTERVAL_MINUTES = 60
+SAFE_POSTS_PER_DAY = 24 * 60 // RUN_INTERVAL_MINUTES
+GEMINI_MAX_POSTS_PER_DAY = SAFE_POSTS_PER_DAY
+GEMINI_MAX_COMMENTS_PER_DAY = SAFE_POSTS_PER_DAY * 4
 
 POSTS_PER_DAY = 96  # 15분마다 1개
 AGENTS_FILE = os.path.join(os.path.dirname(__file__), "gemini_agents.json")
@@ -88,6 +92,10 @@ TICKER_DISPLAY = {
 }
 
 recent_posts = []
+_usage_day = None
+_daily_usage = {"posts": 0, "comments": 0}
+POSTS_PER_DAY = SAFE_POSTS_PER_DAY
+AGENTS_FILE = os.path.join(os.path.dirname(__file__), "gemini_agents.json")
 
 # 종목별 일일 포스트 카운터
 _krx_ticker_daily = {}
@@ -106,6 +114,34 @@ def _krx_ticker_count(ticker):
 
 def _krx_ticker_increment(ticker):
     _krx_ticker_daily[ticker] = _krx_ticker_daily.get(ticker, 0) + 1
+
+
+def _reset_daily_usage_if_needed():
+    global _usage_day, _daily_usage
+    today = datetime.now().date()
+    if _usage_day != today:
+        _usage_day = today
+        _daily_usage = {"posts": 0, "comments": 0}
+
+
+def can_create_post_today():
+    _reset_daily_usage_if_needed()
+    return _daily_usage["posts"] < GEMINI_MAX_POSTS_PER_DAY
+
+
+def can_create_comment_today():
+    _reset_daily_usage_if_needed()
+    return _daily_usage["comments"] < GEMINI_MAX_COMMENTS_PER_DAY
+
+
+def mark_post_created():
+    _reset_daily_usage_if_needed()
+    _daily_usage["posts"] += 1
+
+
+def mark_comment_created():
+    _reset_daily_usage_if_needed()
+    _daily_usage["comments"] += 1
 
 # =============================================
 # 에이전트 등록 (ID 파일로 영구 저장)
@@ -290,6 +326,10 @@ def safe_parse_json(raw, stance):
 # 포스트 생성 (한글 강제)
 # =============================================
 def create_post():
+    if not can_create_post_today():
+        print("  Gemini daily post cap reached, skipping.")
+        return None
+
     agent_name = random.choice(list(GEMINI_AGENTS.keys()))
     agent = GEMINI_AGENTS[agent_name]
     if not agent["id"]:
@@ -396,6 +436,7 @@ def create_post():
                 })
                 if len(recent_posts) > 20:
                     recent_posts.pop(0)
+                mark_post_created()
                 return post_id, ticker_yf, ticker_display, final_stance, agent["id"], "KRX"
     except Exception as e:
         print(f"  ❌ 업로드 실패: {e}")
@@ -405,6 +446,10 @@ def create_post():
 # 댓글 생성 (한글 강제)
 # =============================================
 def create_comment(post_id, ticker_display, original_stance, author_id, sector=None):
+    if not can_create_comment_today():
+        print("  Gemini daily comment cap reached, skipping.")
+        return False
+
     candidates = {k: v for k, v in GEMINI_AGENTS.items() if v["id"] and v["id"] != author_id}
     if not candidates:
         return False
@@ -461,6 +506,7 @@ def create_comment(post_id, ticker_display, original_stance, author_id, sector=N
         )
         if response.status_code == 200:
             print(f"  ✅ 댓글 완료!")
+            mark_comment_created()
             return True
     except Exception as e:
         print(f"  ❌ 댓글 실패: {e}")
@@ -606,7 +652,7 @@ if __name__ == "__main__":
         run_comment_round()
         print("\n✅ 테스트 완료!")
     else:
-        schedule.every(15).minutes.do(run_hourly)
+        schedule.every(RUN_INTERVAL_MINUTES).minutes.do(run_hourly)
         print(f"\n⏰ 스케줄러 시작: 1시간마다 1개 포스트")
         print("Ctrl+C로 종료")
         run_hourly()

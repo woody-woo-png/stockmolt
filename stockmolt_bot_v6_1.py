@@ -24,6 +24,7 @@ load_dotenv()
 API_BASE = os.getenv("API_BASE", "https://oyatbvqpilvbhqpiafwp.supabase.co/functions/v1")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+ALLOW_PAID_CLAUDE = os.getenv("ALLOW_PAID_CLAUDE", "false").lower() == "true"
 
 SUPABASE_HEADERS = {
     "Content-Type": "application/json",
@@ -31,9 +32,12 @@ SUPABASE_HEADERS = {
     "Authorization": f"Bearer {SUPABASE_ANON_KEY}"
 }
 
-DAILY_POST_TARGET = 96
+CLAUDE_RUN_INTERVAL_MINUTES = 360
+DAILY_POST_TARGET = 24 * 60 // CLAUDE_RUN_INTERVAL_MINUTES
 COMMENTS_PER_POST = 2
 AGENTS_FILE = os.path.join(os.path.dirname(__file__), "claude_agents.json")
+CLAUDE_MAX_POSTS_PER_DAY = DAILY_POST_TARGET if ALLOW_PAID_CLAUDE else 0
+CLAUDE_MAX_COMMENTS_PER_DAY = (DAILY_POST_TARGET * COMMENTS_PER_POST) if ALLOW_PAID_CLAUDE else 0
 
 # --- 봇 멤버 (ID는 startup 시 동적 등록) ---
 REGULAR_AGENTS = {
@@ -147,6 +151,8 @@ NEWBIE_PERSONAS = [
 recent_posts = []
 MAX_RECENT = 20
 post_commenters = {}  # {post_id: set of agent_ids}
+_usage_day = None
+_daily_usage = {"posts": 0, "comments": 0}
 
 # 종목별 일일 포스트 카운터
 _ticker_daily_count = {}   # {ticker: count}
@@ -166,6 +172,34 @@ def _get_ticker_count(ticker):
 def _increment_ticker_count(ticker):
     global _ticker_daily_count
     _ticker_daily_count[ticker] = _ticker_daily_count.get(ticker, 0) + 1
+
+
+def _reset_daily_usage_if_needed():
+    global _usage_day, _daily_usage
+    today = datetime.now().date()
+    if _usage_day != today:
+        _usage_day = today
+        _daily_usage = {"posts": 0, "comments": 0}
+
+
+def can_create_post_today():
+    _reset_daily_usage_if_needed()
+    return _daily_usage["posts"] < CLAUDE_MAX_POSTS_PER_DAY
+
+
+def can_create_comment_today():
+    _reset_daily_usage_if_needed()
+    return _daily_usage["comments"] < CLAUDE_MAX_COMMENTS_PER_DAY
+
+
+def mark_post_created():
+    _reset_daily_usage_if_needed()
+    _daily_usage["posts"] += 1
+
+
+def mark_comment_created():
+    _reset_daily_usage_if_needed()
+    _daily_usage["comments"] += 1
 
 # ============================================================
 # 52주 데이터 캐시 (API 호출 횟수 절감)
@@ -496,6 +530,13 @@ def get_agent(exclude_ids=None):
 def create_post():
     global recent_posts
 
+    if not ALLOW_PAID_CLAUDE:
+        print("  Claude bot skipped: paid API disabled (set ALLOW_PAID_CLAUDE=true to enable).")
+        return None
+    if not can_create_post_today():
+        print("  Claude daily post cap reached, skipping.")
+        return None
+
     agent_id, agent_name, persona = get_agent()
     sector = random.choice(list(TICKER_MAP.keys()))
 
@@ -565,6 +606,7 @@ def create_post():
                     if len(recent_posts) > MAX_RECENT:
                         recent_posts.pop(0)
 
+                    mark_post_created()
                     return post_id, ticker_yf, ticker_display, final_stance, agent_id
                 else:
                     print(f"  ❌ 업로드 실패: 응답에 id 없음 → {data}")
@@ -582,6 +624,12 @@ def create_post():
 # 댓글 생성
 # ============================================================
 def create_comment_on_post(post_id, ticker_yf, ticker_display, original_stance, author_id):
+    if not ALLOW_PAID_CLAUDE:
+        return
+    if not can_create_comment_today():
+        print("  Claude daily comment cap reached, skipping.")
+        return
+
     # 이미 댓글 단 봇 + 포스트 작성자 제외
     already_commented = post_commenters.get(post_id, set())
     exclude_ids = already_commented | {author_id}
@@ -622,6 +670,7 @@ def create_comment_on_post(post_id, ticker_yf, ticker_display, original_stance, 
         if response.status_code == 200:
             # 댓글 성공 시 기록
             post_commenters.setdefault(post_id, set()).add(agent_id)
+            mark_comment_created()
             print("  ✅ 댓글 완료!")
         else:
             print(f"  ❌ 댓글 실패: {response.text[:100]}")
@@ -671,7 +720,11 @@ def run_once():
 # 스케줄러
 # ============================================================
 def setup_schedule():
-    schedule.every(15).minutes.do(run_once)
+    if not ALLOW_PAID_CLAUDE:
+        print("Claude auto-posting is disabled to avoid paid API usage. Set ALLOW_PAID_CLAUDE=true to enable.")
+        return
+
+    schedule.every(CLAUDE_RUN_INTERVAL_MINUTES).minutes.do(run_once)
     schedule.every().day.at("09:00").do(refresh_trending_tickers)
 
     print("📅 스케줄: 15분마다 1개 포스트 / 매일 09:00 트렌딩 종목 갱신")
@@ -719,6 +772,9 @@ if __name__ == "__main__":
     print("🤖 StockMolt Bot V6 - Real Data Edition")
     print("=" * 50)
     print_bot_stats()
+
+    if not ALLOW_PAID_CLAUDE:
+        print("Claude bot is disabled by default because Anthropic has no free tier. Set ALLOW_PAID_CLAUDE=true to opt in.")
 
     setup_agents()
 

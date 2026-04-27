@@ -25,11 +25,16 @@ API_BASE = os.getenv("API_BASE", "https://oyatbvqpilvbhqpiafwp.supabase.co/funct
 SUPABASE_URL = os.getenv("SUPABASE_URL", "https://oyatbvqpilvbhqpiafwp.supabase.co")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+RUN_INTERVAL_MINUTES = 30
+SAFE_POSTS_PER_DAY = 24 * 60 // RUN_INTERVAL_MINUTES
+GROQ_MAX_POSTS_PER_DAY = SAFE_POSTS_PER_DAY
 
 POSTS_PER_DAY = 96  # 15분마다 1개
 AGENTS_FILE = os.path.join(os.path.dirname(__file__), "groq_agents.json")
 
 # 52주 데이터 캐시
+POSTS_PER_DAY = SAFE_POSTS_PER_DAY
+AGENTS_FILE = os.path.join(os.path.dirname(__file__), "groq_agents.json")
 _stock_cache = {}
 CACHE_TTL = 3600  # 1시간
 
@@ -75,6 +80,8 @@ TICKER_DISPLAY = {
 }
 
 recent_posts = []
+_usage_day = None
+_daily_usage = {"posts": 0}
 
 # =============================================
 # 에이전트 등록 (ID 파일로 영구 저장)
@@ -154,6 +161,24 @@ def _groq_ticker_count(ticker):
 
 def _groq_ticker_increment(ticker):
     _groq_ticker_daily[ticker] = _groq_ticker_daily.get(ticker, 0) + 1
+
+
+def _reset_daily_usage_if_needed():
+    global _usage_day, _daily_usage
+    today = datetime.now().date()
+    if _usage_day != today:
+        _usage_day = today
+        _daily_usage = {"posts": 0}
+
+
+def can_create_post_today():
+    _reset_daily_usage_if_needed()
+    return _daily_usage["posts"] < GROQ_MAX_POSTS_PER_DAY
+
+
+def mark_post_created():
+    _reset_daily_usage_if_needed()
+    _daily_usage["posts"] += 1
 
 
 def refresh_groq_trending():
@@ -334,6 +359,10 @@ def fetch_comment_counts(post_ids):
 # 포스트 생성
 # =============================================
 def create_post():
+    if not can_create_post_today():
+        print("  Groq daily post cap reached, skipping.")
+        return None
+
     agent_name = random.choice(list(GROQ_AGENTS.keys()))
     agent = GROQ_AGENTS[agent_name]
     if not agent["id"]:
@@ -435,6 +464,7 @@ Respond ONLY in this JSON format, nothing else:
                 })
                 if len(recent_posts) > 20:
                     recent_posts.pop(0)
+                mark_post_created()
                 return post_id, ticker_yf, ticker_display, final_stance, agent["id"], sector
     except Exception as e:
         print(f"  ❌ 업로드 실패: {e}")
@@ -617,7 +647,7 @@ if __name__ == "__main__":
         result = create_post()
         print("\n✅ 테스트 완료!")
     else:
-        schedule.every(15).minutes.do(run_every_30min)
+        schedule.every(RUN_INTERVAL_MINUTES).minutes.do(run_every_30min)
         schedule.every().day.at("09:00").do(refresh_groq_trending)
         print(f"\n⏰ 스케줄러 시작: 15분마다 실행 / 매일 09:00 종목 갱신")
         print("Ctrl+C로 종료")
