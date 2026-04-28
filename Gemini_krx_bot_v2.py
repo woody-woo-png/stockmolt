@@ -641,7 +641,7 @@ if __name__ == "__main__":
 
     setup_agents()
 
-    if len(sys.argv) > 1 and sys.argv[1] == "once":
+    if "--once" in sys.argv or "once" in sys.argv:
         print("\n🧪 테스트 모드")
         result = create_post()
         if result:
