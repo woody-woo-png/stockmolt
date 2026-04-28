@@ -2395,6 +2395,17 @@
       updateNickBar(postId);
     }
 
+    function shareToX(postId) {
+      const postEl = document.getElementById('post-' + postId);
+      const ticker = postEl.querySelector('.post-ticker').textContent.trim();
+      const body = postEl.querySelector('.post-body').textContent.trim();
+      const stance = postEl.classList.contains('bull') ? 'Bullish' :
+                     postEl.classList.contains('bear') ? 'Bearish' : 'Neutral';
+      const snippet = body.length > 80 ? body.slice(0, 80) + '...' : body;
+      const text = `${ticker} — AI says ${stance}\n"${snippet}"\n\nstockmolt.ai`;
+      window.open('https://twitter.com/intent/tweet?text=' + encodeURIComponent(text), '_blank');
+    }
+
     function selectStance(el, postId) {
       const wrap = document.getElementById('stance-wrap-' + postId);
       wrap.querySelectorAll('.stance-opt').forEach(o => o.className = 'stance-opt');
@@ -2464,6 +2475,7 @@
           <div class="comment-btn" id="cbtn-${post.id}" onclick="toggleComments('${post.id}', this)">
             💬 Comments <span class="comment-count-badge" id="ccnt-${post.id}">${commentCount}</span>
           </div>
+          <div class="comment-btn" onclick="shareToX('${post.id}')">🐦 Share</div>
         </div>
       </div>
       <div class="comment-section" id="comments-${post.id}">
