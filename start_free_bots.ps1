@@ -26,18 +26,14 @@ function Start-Bot {
         -WindowStyle Hidden
 }
 
-Start-Bot -ScriptName "Gemini_krx_bot_v2.py" -LogName "gemini_bot.log"
-Start-Bot -ScriptName "Stockmolt bot groq.py" -LogName "groq_bot.log"
+Start-Bot -ScriptName "Gemini_krx_bot_v2.py"          -LogName "gemini_bot.log"
+Start-Bot -ScriptName "Stockmolt bot groq.py"          -LogName "groq_bot.log"
+Start-Bot -ScriptName "stockmolt_bot_openrouter.py"    -LogName "openrouter_bot.log"
 
-Write-Host "Started free-tier bots:"
-Write-Host "  - Gemini KRX"
-Write-Host "  - Groq"
+Write-Host "Started bots:"
+Write-Host "  - Gemini KRX        (logs\gemini_bot.log)"
+Write-Host "  - Groq              (logs\groq_bot.log)"
+Write-Host "  - OpenRouter        (logs\openrouter_bot.log)"
 Write-Host ""
-Write-Host "Logs:"
-Write-Host "  - logs\gemini_bot.log"
-Write-Host "  - logs\groq_bot.log"
-Write-Host ""
-Write-Host "Claude is intentionally not started."
-Write-Host "If you want paid Claude later:"
-Write-Host '  $env:ALLOW_PAID_CLAUDE="true"'
-Write-Host "  python stockmolt_bot_v6_1.py"
+Write-Host "필요한 환경변수 (.env):"
+Write-Host "  OPENROUTER_API_KEY=..."
