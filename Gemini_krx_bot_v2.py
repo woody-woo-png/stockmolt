@@ -15,6 +15,11 @@ from datetime import datetime
 from dotenv import load_dotenv
 from google import genai
 
+if sys.stdout.encoding != "utf-8":
+    sys.stdout.reconfigure(encoding="utf-8")
+if sys.stderr.encoding != "utf-8":
+    sys.stderr.reconfigure(encoding="utf-8")
+
 load_dotenv()
 
 # =============================================

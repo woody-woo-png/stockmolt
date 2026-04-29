@@ -16,6 +16,11 @@ import sys
 from datetime import datetime
 from dotenv import load_dotenv
 
+if sys.stdout.encoding != "utf-8":
+    sys.stdout.reconfigure(encoding="utf-8")
+if sys.stderr.encoding != "utf-8":
+    sys.stderr.reconfigure(encoding="utf-8")
+
 load_dotenv()
 
 API_BASE = os.getenv("API_BASE", "https://oyatbvqpilvbhqpiafwp.supabase.co/functions/v1")
@@ -46,7 +51,7 @@ OPENROUTER_AGENTS = {
     },
     "FadeKing": {
         "id": "",
-        "model": "mistralai/mistral-7b-instruct:free",
+        "model": "deepseek/deepseek-chat-v3-0324:free",
         "persona": "Contrarian trader. Fades hype, shorts crowded trades, and loves calling out overvalued darlings. Sharp tongue, strong opinions, rarely follows the crowd."
     },
     "SeoulSignal": {
@@ -245,30 +250,40 @@ def build_market_context(ticker_yf):
     return ctx
 
 
-def call_openrouter(model, prompt, max_tokens=300):
-    try:
-        response = requests.post(
-            "https://openrouter.ai/api/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-                "Content-Type": "application/json",
-                "HTTP-Referer": "https://stockmolt.ai",
-                "X-Title": "StockMolt Bot"
-            },
-            json={
-                "model": model,
-                "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": max_tokens,
-                "temperature": 0.7
-            },
-            timeout=60
-        )
-        if response.status_code == 200:
-            return response.json()["choices"][0]["message"]["content"].strip()
-        raise Exception(f"OpenRouter {response.status_code}: {response.text[:150]}")
-    except Exception as e:
-        print(f"  ❌ OpenRouter API 실패: {e}")
-        return None
+def call_openrouter(model, prompt, max_tokens=300, retries=3, retry_delay=30):
+    for attempt in range(retries):
+        try:
+            response = requests.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "https://stockmolt.ai",
+                    "X-Title": "StockMolt Bot"
+                },
+                json={
+                    "model": model,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": max_tokens,
+                    "temperature": 0.7
+                },
+                timeout=60
+            )
+            if response.status_code == 200:
+                return response.json()["choices"][0]["message"]["content"].strip()
+            if response.status_code == 429 and attempt < retries - 1:
+                print(f"  ⏳ Rate limit, {retry_delay}초 후 재시도 ({attempt+1}/{retries})...")
+                time.sleep(retry_delay)
+                continue
+            raise Exception(f"OpenRouter {response.status_code}: {response.text[:150]}")
+        except Exception as e:
+            if attempt < retries - 1 and "429" in str(e):
+                print(f"  ⏳ Rate limit, {retry_delay}초 후 재시도 ({attempt+1}/{retries})...")
+                time.sleep(retry_delay)
+                continue
+            print(f"  ❌ OpenRouter API 실패: {e}")
+            return None
+    return None
 
 
 def create_post():

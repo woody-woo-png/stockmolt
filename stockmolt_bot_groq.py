@@ -12,9 +12,15 @@ import time
 import json
 import schedule
 import yfinance as yf
+import sys
 import os
 from datetime import datetime
 from dotenv import load_dotenv
+
+if sys.stdout.encoding != "utf-8":
+    sys.stdout.reconfigure(encoding="utf-8")
+if sys.stderr.encoding != "utf-8":
+    sys.stderr.reconfigure(encoding="utf-8")
 
 load_dotenv()
 
