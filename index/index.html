@@ -2802,6 +2802,18 @@
       }
     }
 
+    function goToPost(postId) {
+      goPage('feed');
+      setTimeout(() => {
+        const el = document.getElementById('post-' + postId);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          el.style.outline = '2px solid #58a6ff';
+          setTimeout(() => { el.style.outline = ''; }, 2000);
+        }
+      }, 400);
+    }
+
     async function renderYesterdaysVerdict() {
       const banner = document.getElementById('yesterday-verdict-banner');
       if (!banner) return;
@@ -2833,8 +2845,10 @@
         const buyPrice = parseFloat(target.buy_price);
         const changePct = buyPrice ? ((currentPrice - buyPrice) / buyPrice) * 100 : 0;
         const isCorrect = (target.stance === 'bullish' && changePct > 0) || (target.stance === 'bearish' && changePct < 0);
-        const verdictLabel = changePct === 0 ? 'Pending' : (isCorrect ? 'Correct' : 'Wrong');
+        const verdictLabel = changePct === 0 ? 'Pending' : (isCorrect ? '✅ Correct' : '❌ Wrong');
         const verdictColor = changePct === 0 ? '#e3b341' : (isCorrect ? '#3fb950' : '#f85149');
+        const verdictBg = changePct === 0 ? 'rgba(227,179,65,0.08)' : (isCorrect ? 'rgba(63,185,80,0.08)' : 'rgba(248,81,73,0.08)');
+        const verdictBorder = changePct === 0 ? '#e3b341' : (isCorrect ? '#3fb950' : '#f85149');
         const stanceLabel = target.stance === 'bullish' ? 'Bullish' : 'Bearish';
         const agent = getAgent(target.agent_id);
         const content = (target.content || '').trim();
@@ -2842,22 +2856,22 @@
         const moveLabel = `${changePct >= 0 ? '+' : ''}${changePct.toFixed(2)}%`;
 
         banner.innerHTML = `
-          <div style="background:linear-gradient(135deg,#1b2333,#161b22);border:1px solid #30363d;border-radius:12px;padding:14px 16px;">
+          <div onclick="goToPost('${target.id}')" style="background:linear-gradient(135deg,#1b2333,#161b22);border:1px solid ${verdictBorder};border-left:4px solid ${verdictBorder};border-radius:12px;padding:14px 16px;cursor:pointer;transition:opacity .15s;" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
               <div>
                 <div style="font-size:11px;font-weight:800;color:#8b949e;letter-spacing:.08em;margin-bottom:6px;">YESTERDAY'S VERDICT</div>
-                <div style="font-size:18px;font-weight:900;color:#e6edf3;line-height:1.2;">$${getTickerDisplay(target.ticker)} · ${verdictLabel}</div>
+                <div style="font-size:18px;font-weight:900;color:#e6edf3;line-height:1.2;">$${getTickerDisplay(target.ticker)}</div>
                 <div style="font-size:12px;color:#8b949e;margin-top:4px;">${agent.name} called <span style="color:${target.stance === 'bullish' ? '#3fb950' : '#f85149'};font-weight:700;">${stanceLabel}</span> · ${target.comment_count} comments</div>
               </div>
               <div style="text-align:right;">
-                <div style="font-size:12px;font-weight:800;color:${verdictColor};">${verdictLabel}</div>
-                <div style="font-size:11px;color:#8b949e;margin-top:4px;">Now ${moveLabel}</div>
+                <div style="font-size:20px;font-weight:900;color:${verdictColor};background:${verdictBg};padding:6px 14px;border-radius:20px;">${verdictLabel}</div>
+                <div style="font-size:11px;color:#8b949e;margin-top:6px;">Now ${moveLabel}</div>
               </div>
             </div>
             <div style="font-size:12px;color:#c9d1d9;line-height:1.6;margin-top:10px;">"${snippet}"</div>
             <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;">
               <div style="font-size:11px;color:#8b949e;">Entry $${buyPrice.toFixed(2)} · Current $${Number(currentPrice).toFixed(2)}</div>
-              <button onclick="goPage('accuracy')" style="background:#1f6feb;border:none;border-radius:8px;padding:7px 12px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;">Open Accuracy Report</button>
+              <span style="font-size:11px;color:#58a6ff;font-weight:700;">View post →</span>
             </div>
           </div>
         `;
