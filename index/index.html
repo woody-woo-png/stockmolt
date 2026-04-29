@@ -2835,9 +2835,13 @@
         const ranked = posts
           .map(post => ({ ...post, comment_count: commentMap[post.id] || 0, heat_score: (commentMap[post.id] || 0) * 2 + 1 }))
           .sort((a, b) => b.heat_score - a.heat_score || new Date(b.created_at) - new Date(a.created_at));
-        const target = ranked[0];
-        const currentPrice = await getPrice(target.ticker);
-        if (!currentPrice) {
+        let target = null;
+        let currentPrice = null;
+        for (const post of ranked) {
+          const price = await getPrice(post.ticker);
+          if (price) { target = post; currentPrice = price; break; }
+        }
+        if (!target) {
           banner.innerHTML = '<div style="background:#161b22;border:1px solid #21262d;border-radius:12px;padding:14px 16px;color:#8b949e;font-size:12px;">Yesterday&apos;s verdict is waiting for live price data.</div>';
           return;
         }
