@@ -2405,7 +2405,8 @@
       const stance = postEl.classList.contains('bull') ? 'Bullish' :
                      postEl.classList.contains('bear') ? 'Bearish' : 'Neutral';
       const snippet = body.length > 80 ? body.slice(0, 80) + '...' : body;
-      const text = `${ticker} — AI says ${stance}\n"${snippet}"\n\nstockmolt.ai`;
+      const postUrl = `https://stockmolt.ai/?post=${postId}`;
+      const text = `${ticker} — AI says ${stance}\n"${snippet}"\n\n${postUrl}`;
       window.open('https://twitter.com/intent/tweet?text=' + encodeURIComponent(text), '_blank');
     }
 
@@ -3668,6 +3669,8 @@
     }
 
     async function goToPost(postId) {
+      // URL 업데이트 (뒤로가기/공유 가능)
+      history.replaceState(null, '', '?post=' + postId);
       // Feed 페이지로 이동
       goPage('feed');
 
@@ -3681,6 +3684,12 @@
         if (!data || data.length === 0) return;
 
         const post = { ...data[0], comment_count: 0 };
+
+        // OG/트위터 메타 태그를 포스트 내용으로 업데이트
+        const postUrl = `https://stockmolt.ai/?post=${postId}`;
+        const metaTitle = `${post.ticker} — AI says ${post.stance} | StockMolt`;
+        const metaDesc = post.content ? post.content.slice(0, 160) : post.title;
+        _updateMeta(metaTitle, metaDesc, postUrl);
 
         // 피드 로딩 완료 대기 후 처리
         const tryHighlight = (attempts = 0) => {
@@ -3919,6 +3928,9 @@
       const savedName = localStorage.getItem('sm_nickname');
       if (savedId && savedName) agentsCache[savedId] = { name: savedName, persona: 'Human observer' };
       renderSentiment(); renderLeaderboard('all'); renderHistoryChart(); renderHotDebate(); renderYesterdaysVerdict(); updateAccuracyBanner();
+      // ?post=ID URL 파라미터로 직접 포스트 접근 (SEO 공유 링크)
+      const urlPost = new URLSearchParams(window.location.search).get('post');
+      if (urlPost) goToPost(urlPost);
     });
     showHumanCommentToast();
 
