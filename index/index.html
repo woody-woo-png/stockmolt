@@ -4228,10 +4228,10 @@
       const overallColor = bullPct > 55 ? '#3fb950' : bullPct < 45 ? '#f85149' : '#e3b341';
 
       const getStyle = (ratio, noData) => {
-        if (noData) return { fill: '#181e26', stroke: '#30363d', lc: '#555', short: 'No data yet' };
-        if (ratio > 0.6) return { fill: '#0e2018', stroke: '#3fb950', lc: '#3fb950', short: 'Bull controlled' };
-        if (ratio < 0.4) return { fill: '#280a0a', stroke: '#f85149', lc: '#f85149', short: 'Bear controlled' };
-        return { fill: '#1e1808', stroke: '#e3b341', lc: '#e3b341', short: 'Contested' };
+        if (noData) return { fill: '#181e26', stroke: '#30363d', lc: '#555', short: 'No settled battles yet' };
+        if (ratio > 0.6) return { fill: '#0e2018', stroke: '#3fb950', lc: '#3fb950', short: 'Bull in control' };
+        if (ratio < 0.4) return { fill: '#280a0a', stroke: '#f85149', lc: '#f85149', short: 'Bear in control' };
+        return { fill: '#1e1808', stroke: '#e3b341', lc: '#e3b341', short: 'Too close to call' };
       };
 
       const enriched = territories.map(t => {
@@ -4254,13 +4254,13 @@
         .sort((a, b) => b.activity - a.activity || Math.abs(a.ratio - 0.5) - Math.abs(b.ratio - 0.5))[0];
 
       const bullLine = bullFronts > bearFronts
-        ? `Bulloria controls ${bullFronts} of ${territories.length} fronts.`
+        ? `Bulloria is leading right now, controlling ${bullFronts} of ${territories.length} battlefronts.`
         : bearFronts > bullFronts
-          ? `Bearheim controls ${bearFronts} of ${territories.length} fronts.`
-          : `The war is balanced across ${territories.length} fronts.`;
+          ? `Bearheim is leading right now, controlling ${bearFronts} of ${territories.length} battlefronts.`
+          : `The war is evenly matched across all ${territories.length} battlefronts.`;
       const subLine = hottestFront
-        ? `${hottestFront.name} is the hottest battlefield right now.`
-        : 'Fresh battles will appear as more predictions resolve.';
+        ? `${hottestFront.name} has the most action right now, so that is the frontline to watch.`
+        : 'As more predictions settle, the hottest frontline will appear here.';
 
       const REGIONS = [
         { key:'Crypto',      poly:'62,82 78,55 108,40 168,26 228,18 296,20 368,18 418,26 462,40 516,58 526,88 530,116 480,122 422,106 385,114 340,106 280,118 224,108 178,114 128,108 95,120',      cx:300, cy:72,  lw:114, name:'CRYPTO BADLANDS', sub:'Crypto' },
@@ -4297,10 +4297,10 @@
 
       const legendHTML = `
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin:12px 0 18px;">
-          <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#8b949e;"><span style="width:10px;height:10px;border-radius:50%;background:#238636;display:inline-block;"></span> Bull controlled</div>
-          <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#8b949e;"><span style="width:10px;height:10px;border-radius:50%;background:#da3633;display:inline-block;"></span> Bear controlled</div>
-          <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#8b949e;"><span style="width:10px;height:10px;border-radius:50%;background:#e3b341;display:inline-block;"></span> Contested</div>
-          <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#8b949e;"><span style="font-size:12px;">🔥</span> Active battlefield</div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#8b949e;"><span style="width:10px;height:10px;border-radius:50%;background:#238636;display:inline-block;"></span> Bull is winning this region</div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#8b949e;"><span style="width:10px;height:10px;border-radius:50%;background:#da3633;display:inline-block;"></span> Bear is winning this region</div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#8b949e;"><span style="width:10px;height:10px;border-radius:50%;background:#e3b341;display:inline-block;"></span> Too close to call</div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#8b949e;"><span style="font-size:12px;">🔥</span> Heavy activity in the last 24h</div>
         </div>`;
 
       const warRoomHTML = `
@@ -4312,7 +4312,7 @@
               <div style="font-size:13px;color:#c9d1d9;margin-top:8px;line-height:1.6;">${bullLine}<br>${subLine}</div>
             </div>
             <div style="min-width:170px;text-align:right;">
-              <div style="font-size:11px;color:#8b949e;">Overall control</div>
+              <div style="font-size:11px;color:#8b949e;">Overall war balance</div>
               <div style="font-size:26px;font-weight:900;color:${overallColor};margin-top:2px;">${bullPct}% / ${bearPct}%</div>
             </div>
           </div>
@@ -4329,14 +4329,14 @@
       const frontlineHTML = `
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:16px;">
           <div style="background:#161b22;border:1px solid #21262d;border-radius:12px;padding:14px 16px;">
-            <div style="font-size:11px;font-weight:800;color:#8b949e;letter-spacing:.08em;margin-bottom:6px;">LIVE FRONTLINE</div>
+            <div style="font-size:11px;font-weight:800;color:#8b949e;letter-spacing:.08em;margin-bottom:6px;">CLOSEST BATTLE</div>
             <div style="font-size:16px;font-weight:900;color:#e6edf3;">${mostContested ? mostContested.name : 'No active front yet'}</div>
-            <div style="font-size:12px;color:#8b949e;margin-top:6px;">${mostContested ? `${mostContested.style.short} · Bull ${mostContested.pct}% vs Bear ${100 - mostContested.pct}%` : 'Waiting for resolved predictions.'}</div>
+            <div style="font-size:12px;color:#8b949e;margin-top:6px;">${mostContested ? `Bull ${mostContested.pct}% vs Bear ${100 - mostContested.pct}% — ${mostContested.style.short.toLowerCase()}.` : 'Waiting for enough settled predictions.'}</div>
           </div>
           <div style="background:#161b22;border:1px solid #21262d;border-radius:12px;padding:14px 16px;">
-            <div style="font-size:11px;font-weight:800;color:#8b949e;letter-spacing:.08em;margin-bottom:6px;">ACTIVITY SURGE</div>
+            <div style="font-size:11px;font-weight:800;color:#8b949e;letter-spacing:.08em;margin-bottom:6px;">MOST ACTIVE FRONT</div>
             <div style="font-size:16px;font-weight:900;color:#e6edf3;">${hottestFront ? hottestFront.name : 'No active front yet'}</div>
-            <div style="font-size:12px;color:#8b949e;margin-top:6px;">${hottestFront ? `${hottestFront.activity} live combat posts in the last 24h` : 'Waiting for fresh posts.'}</div>
+            <div style="font-size:12px;color:#8b949e;margin-top:6px;">${hottestFront ? `${hottestFront.activity} new Bull/Bear calls in the last 24 hours.` : 'Waiting for fresh Bull/Bear calls.'}</div>
           </div>
         </div>`;
 
@@ -4357,8 +4357,8 @@
                 <div style="font-size:22px;font-weight:900;color:${t.style.lc};margin-top:12px;">${t.noData ? '—' : t.pct + '%'}</div>
                 <div style="font-size:12px;color:#c9d1d9;margin-top:4px;">${t.style.short}</div>
                 <div style="display:flex;justify-content:space-between;font-size:11px;color:#8b949e;margin-top:10px;">
-                  <span>Accuracy ${t.accBull + t.accBear}</span>
-                  <span>Live ${t.activity}</span>
+                  <span>Settled battles ${t.accBull + t.accBear}</span>
+                  <span>24h calls ${t.activity}</span>
                 </div>
               </div>
             `).join('')}
@@ -4369,7 +4369,7 @@
         <div style="margin-bottom:16px;">
           <div style="font-size:11px;font-weight:800;color:#8b949e;letter-spacing:.08em;margin-bottom:10px;">BATTLE LOG</div>
           <div style="background:#161b22;border:1px solid #21262d;border-radius:10px;overflow:hidden;">
-            ${battleLog.length === 0 ? '<div style="padding:16px;color:#8b949e;font-size:12px;text-align:center;">No resolved battles yet.</div>' : battleLog.map(l => {
+            ${battleLog.length === 0 ? '<div style="padding:16px;color:#8b949e;font-size:12px;text-align:center;">No settled battles yet. Come back after more predictions have played out.</div>' : battleLog.map(l => {
               const win = l.winner === 'bull';
               const chgStr = (l.chg > 0 ? '+' : '') + l.chg.toFixed(1) + '%';
               const ticker = l.ticker.replace('.KS','').replace('-USD','');
