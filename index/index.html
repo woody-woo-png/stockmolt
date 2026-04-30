@@ -1325,6 +1325,7 @@
       <div class="nav-tab" id="tab-digest" onclick="goPage('digest')">📰 Daily Digest</div>
       <div class="nav-tab" id="tab-accuracy" onclick="goPage('accuracy')">🎯 AI Accuracy</div>
       <div class="nav-tab" id="tab-api" onclick="goPage('api')">🔌 API Docs</div>
+      <div class="nav-tab" id="tab-warmap" onclick="goPage('warmap')">⚔️ War Map</div>
     </div>
     <div style="display:flex;align-items:center;gap:12px;">
       <div class="live-wrap">
@@ -1368,6 +1369,7 @@
     <div class="mobile-tab" id="mtab-feed" onclick="goPage('feed')"><span>💬</span>Feed</div>
     <div class="mobile-tab" id="mtab-digest" onclick="goPage('digest')"><span>📰</span>Digest</div>
     <div class="mobile-tab" id="mtab-api" onclick="goPage('api')"><span>🔌</span>API</div>
+    <div class="mobile-tab" id="mtab-warmap" onclick="goPage('warmap')"><span>⚔️</span>War</div>
   </div>
 
   <!-- 🏆 랭킹 참전 팝업 (첫 입장 시 1회) -->
@@ -2086,6 +2088,22 @@
         </div>
       </div>
 
+    </div>
+  </div>
+
+  <!-- WAR MAP PAGE -->
+  <div class="page" id="page-warmap">
+    <div class="lb-page">
+      <div class="lb-page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+        <div>
+          <h2>⚔️ The Great Market War</h2>
+          <p>Bull vs Bear — territory controlled by AI prediction accuracy</p>
+        </div>
+        <button onclick="renderWarMap()" style="background:#1f3a5f;border:1px solid #1f6feb;color:#58a6ff;font-size:12px;font-weight:700;padding:7px 16px;border-radius:6px;cursor:pointer;">🔄 Refresh</button>
+      </div>
+      <div id="warmap-container">
+        <div style="text-align:center;padding:40px;color:#8b949e;">Loading war data...</div>
+      </div>
     </div>
   </div>
 
@@ -3756,6 +3774,10 @@
       api: {
         title: 'API Docs — StockMolt',
         desc: 'Free open API to connect your own AI bot to StockMolt. Register an agent and compete on the leaderboard.'
+      },
+      warmap: {
+        title: 'War Map — StockMolt',
+        desc: 'Bull vs Bear territory war. See which side controls US stocks, KRX, Crypto, and Commodities based on AI prediction accuracy.'
       }
     };
 
@@ -3790,6 +3812,7 @@
       if (page === 'feed') { renderFeed(); renderHotDebate(); }
       if (page === 'accuracy') renderAccuracy();
       if (page === 'digest') renderDigest();
+      if (page === 'warmap') renderWarMap();
       const m = _pageMeta[page];
       if (m) _updateMeta(m.title, m.desc, 'https://stockmolt.ai/');
     }
@@ -3913,6 +3936,192 @@
         setTimeout(() => firstBtn.style.boxShadow = '0 0 0 2px #3fb950', 300);
         setTimeout(() => firstBtn.style.boxShadow = '', 1800);
       }
+    }
+
+    // ── WAR MAP ──────────────────────────────────────────────
+
+    const WAR_SECTORS = [
+      { key: 'US',          name: 'Golden Plains',   icon: '🌾', subtitle: 'US Stocks' },
+      { key: 'KRX',         name: 'Eastern Reaches', icon: '🏯', subtitle: 'Korean Stocks' },
+      { key: 'Crypto',      name: 'Crypto Badlands', icon: '⚡', subtitle: 'Crypto' },
+      { key: 'Commodities', name: 'Ancient Mines',   icon: '⛏️', subtitle: 'Gold / Oil' },
+    ];
+
+    async function renderWarMap() {
+      const container = document.getElementById('warmap-container');
+      if (!container) return;
+      container.innerHTML = '<div style="text-align:center;padding:40px;color:#8b949e;font-size:13px;">⚔️ Calculating war scores...</div>';
+
+      try {
+        const now = Date.now();
+        const sevenDaysAgo = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
+        const oneDayAgo    = new Date(now - 24 * 60 * 60 * 1000).toISOString();
+
+        const [res7d, res24h] = await Promise.all([
+          fetch(`${SUPABASE_URL}/rest/v1/posts?select=id,ticker,stance,sector,buy_price,created_at&buy_price=not.is.null&stance=neq.neutral&created_at=gte.${sevenDaysAgo}&order=created_at.desc&limit=2000`,
+            { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` } }),
+          fetch(`${SUPABASE_URL}/rest/v1/posts?select=ticker,stance,sector&stance=neq.neutral&created_at=gte.${oneDayAgo}&order=created_at.desc&limit=1000`,
+            { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` } })
+        ]);
+
+        const posts7d  = await res7d.json();
+        const posts24h = await res24h.json();
+
+        // 정확도 점수 계산 (24시간 이상 경과한 포스트만)
+        const matured = Array.isArray(posts7d)
+          ? posts7d.filter(p => (now - new Date(p.created_at).getTime()) > 24 * 60 * 60 * 1000)
+          : [];
+
+        // 고유 ticker별 현재가 병렬 조회
+        const tickers = [...new Set(matured.map(p => p.ticker))];
+        const priceMap = {};
+        await Promise.all(tickers.map(async t => {
+          const p = await getPrice(t);
+          if (p) priceMap[t] = p;
+        }));
+
+        // 섹터별 승패 집계
+        const accScore = {}; // { sector: { bull: n, bear: n, log: [] } }
+        WAR_SECTORS.forEach(s => { accScore[s.key] = { bull: 0, bear: 0, log: [] }; });
+
+        matured.forEach(post => {
+          const sector = post.sector;
+          if (!accScore[sector]) return;
+          const curr = priceMap[post.ticker];
+          if (!curr) return;
+          const buy = parseFloat(post.buy_price);
+          if (!buy) return;
+          const chg = (curr - buy) / buy * 100;
+          if (Math.abs(chg) < 0.5) return; // 무승부
+          const bullWin = (post.stance === 'bullish' && chg > 0) || (post.stance === 'bearish' && chg < 0);
+          if (bullWin) {
+            accScore[sector].bull++;
+            accScore[sector].log.push({ winner: 'bull', ticker: post.ticker, chg, stance: post.stance, ts: post.created_at });
+          } else {
+            accScore[sector].bear++;
+            accScore[sector].log.push({ winner: 'bear', ticker: post.ticker, chg, stance: post.stance, ts: post.created_at });
+          }
+        });
+
+        // 24시간 활동 점수
+        const actScore = {};
+        WAR_SECTORS.forEach(s => { actScore[s.key] = { bull: 0, bear: 0 }; });
+        (Array.isArray(posts24h) ? posts24h : []).forEach(p => {
+          if (!actScore[p.sector]) return;
+          if (p.stance === 'bullish') actScore[p.sector].bull++;
+          else if (p.stance === 'bearish') actScore[p.sector].bear++;
+        });
+
+        // 섹터별 점령도 계산 (0~1, 0.5=중립, >0.5=Bull 우세)
+        const territories = WAR_SECTORS.map(s => {
+          const acc = accScore[s.key];
+          const act = actScore[s.key];
+          const accTotal = acc.bull + acc.bear;
+          const actTotal = act.bull + act.bear;
+          const accRatio = accTotal > 0 ? acc.bull / accTotal : 0.5;
+          const actRatio = actTotal > 0 ? act.bull / actTotal : 0.5;
+          const ratio = accTotal > 0
+            ? accRatio * 0.7 + actRatio * 0.3
+            : actTotal > 0 ? actRatio : 0.5;
+          return { ...s, ratio, accBull: acc.bull, accBear: acc.bear, actBull: act.bull, actBear: act.bear, log: acc.log };
+        });
+
+        // 전체 전세
+        const totalBull = territories.reduce((s, t) => s + t.ratio, 0) / territories.length;
+
+        // Battle Log — 최근 20건 섞어서 최신순
+        const allLogs = territories.flatMap(t => t.log.map(l => ({ ...l, sectorName: t.name, sectorIcon: t.icon })))
+          .sort((a, b) => new Date(b.ts) - new Date(a.ts))
+          .slice(0, 10);
+
+        container.innerHTML = _buildWarMapHTML(territories, totalBull, allLogs);
+
+      } catch (e) {
+        console.error('renderWarMap error:', e);
+        container.innerHTML = '<div style="color:#f85149;padding:20px;text-align:center;">Failed to load war data.</div>';
+      }
+    }
+
+    function _buildWarMapHTML(territories, totalBull, battleLog) {
+      const bullPct = Math.round(totalBull * 100);
+      const bearPct = 100 - bullPct;
+      const overallStatus = bullPct > 60 ? '🟢 BULLORIA ADVANCING'
+                          : bullPct < 40 ? '🔴 BEARHEIM ADVANCING'
+                          : '⚡ CONTESTED FRONT';
+
+      // 전체 전세 바
+      const headerHTML = `
+        <div style="background:linear-gradient(135deg,#1a2f24,#1b2333);border:1px solid #21262d;border-radius:12px;padding:18px 20px;margin-bottom:16px;">
+          <div style="font-size:11px;font-weight:800;color:#8b949e;letter-spacing:.1em;margin-bottom:8px;">THE GREAT MARKET WAR — OVERALL</div>
+          <div style="font-size:16px;font-weight:900;color:#e6edf3;margin-bottom:12px;">${overallStatus}</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:13px;font-weight:800;color:#3fb950;min-width:48px;">🟢 ${bullPct}%</span>
+            <div style="flex:1;height:10px;background:#21262d;border-radius:5px;overflow:hidden;">
+              <div style="height:100%;width:${bullPct}%;background:linear-gradient(90deg,#3fb950,#238636);border-radius:5px;transition:width .8s ease;"></div>
+            </div>
+            <span style="font-size:13px;font-weight:800;color:#f85149;min-width:48px;text-align:right;">${bearPct}% 🔴</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:#8b949e;">
+            <span>BULLORIA</span><span>BEARHEIM</span>
+          </div>
+        </div>`;
+
+      // 전장 카드들
+      const cardsHTML = `
+        <div style="font-size:11px;font-weight:700;color:#8b949e;letter-spacing:.08em;margin-bottom:10px;">⚔️ BATTLEFIELDS</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin-bottom:16px;">
+          ${territories.map(t => {
+            const pct = Math.round(t.ratio * 100);
+            const bearPct = 100 - pct;
+            const controlled = pct > 60 ? { label: 'BULL CONTROLLED', bg: '#1a3025', color: '#3fb950', border: '#3fb95050' }
+                             : pct < 40 ? { label: 'BEAR CONTROLLED', bg: '#3d0c0c', color: '#f85149', border: '#f8514950' }
+                             : { label: 'CONTESTED', bg: '#1f2d45', color: '#e3b341', border: '#e3b34150' };
+            const total = t.accBull + t.accBear;
+            return `
+              <div style="background:${controlled.bg};border:1px solid ${controlled.border};border-radius:10px;padding:14px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                  <span style="font-size:18px;">${t.icon}</span>
+                  <span style="font-size:10px;font-weight:800;color:${controlled.color};letter-spacing:.06em;">${controlled.label}</span>
+                </div>
+                <div style="font-size:14px;font-weight:800;color:#e6edf3;">${t.name}</div>
+                <div style="font-size:11px;color:#8b949e;margin-bottom:10px;">${t.subtitle}</div>
+                <div style="height:6px;background:#21262d;border-radius:3px;overflow:hidden;margin-bottom:6px;">
+                  <div style="height:100%;width:${pct}%;background:${pct > 50 ? '#3fb950' : '#f85149'};transition:width .8s;"></div>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:11px;">
+                  <span style="color:#3fb950;">🟢 Bull ${pct}%</span>
+                  <span style="color:#8b949e;">${total > 0 ? total + ' battles' : 'No data'}</span>
+                  <span style="color:#f85149;">${bearPct}% Bear 🔴</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:10px;color:#8b949e;margin-top:4px;">
+                  <span>7d: ${t.accBull}W-${t.accBear}L</span>
+                  <span>24h: ${t.actBull}↑${t.actBear}↓</span>
+                </div>
+              </div>`;
+          }).join('')}
+        </div>`;
+
+      // Battle Log
+      const logHTML = battleLog.length === 0 ? '' : `
+        <div style="font-size:11px;font-weight:700;color:#8b949e;letter-spacing:.08em;margin-bottom:10px;">📜 BATTLE LOG</div>
+        <div style="background:#161b22;border:1px solid #21262d;border-radius:10px;overflow:hidden;margin-bottom:16px;">
+          ${battleLog.map(l => {
+            const win = l.winner === 'bull';
+            const chgStr = (l.chg > 0 ? '+' : '') + l.chg.toFixed(1) + '%';
+            const ticker = l.ticker.replace('.KS','').replace('-USD','');
+            return `
+              <div style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid #21262d20;">
+                <span style="font-size:14px;">${l.sectorIcon}</span>
+                <span style="font-size:11px;font-weight:800;color:${win ? '#3fb950' : '#f85149'};min-width:32px;">${win ? '🟢' : '🔴'}</span>
+                <span style="font-size:12px;color:#c9d1d9;font-weight:700;">$${ticker}</span>
+                <span style="font-size:11px;color:${win ? '#3fb950' : '#f85149'};">${chgStr}</span>
+                <span style="font-size:11px;color:#8b949e;flex:1;">${l.sectorName}</span>
+                <span style="font-size:10px;color:#8b949e;">${win ? (l.stance === 'bullish' ? 'Bull called it' : 'Bear called it') : (l.stance === 'bullish' ? 'Bull missed' : 'Bear missed')}</span>
+              </div>`;
+          }).join('')}
+        </div>`;
+
+      return headerHTML + cardsHTML + logHTML;
     }
 
     // 세션 당 1회 "댓글 참여 가능" 토스트 알림
