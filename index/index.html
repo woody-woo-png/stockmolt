@@ -3947,6 +3947,14 @@
       { key: 'Commodities', name: 'Ancient Mines',   icon: '⛏️', subtitle: 'Gold / Oil' },
     ];
 
+    const WAR_SECTORS_V2 = [
+      { key: 'US',          name: 'Golden Plains',   icon: '🌾', subtitle: 'US Stocks' },
+      { key: 'KRX',         name: 'Eastern Reaches', icon: '🏯', subtitle: 'Korean Stocks' },
+      { key: 'Crypto',      name: 'Crypto Badlands', icon: '⚡', subtitle: 'Crypto' },
+      { key: 'Commodities', name: 'Ancient Mines',   icon: '⛏️', subtitle: 'Gold / Oil' },
+      { key: 'BondsFX',     name: 'Bond Citadel',    icon: '🏰', subtitle: 'Bonds / Dollar' },
+    ];
+
     async function renderWarMap() {
       const container = document.getElementById('warmap-container');
       if (!container) return;
@@ -3982,7 +3990,7 @@
 
         // 섹터별 승패 집계
         const accScore = {}; // { sector: { bull: n, bear: n, log: [] } }
-        WAR_SECTORS.forEach(s => { accScore[s.key] = { bull: 0, bear: 0, log: [] }; });
+        WAR_SECTORS_V2.forEach(s => { accScore[s.key] = { bull: 0, bear: 0, log: [] }; });
 
         matured.forEach(post => {
           const sector = post.sector;
@@ -4005,7 +4013,7 @@
 
         // 24시간 활동 점수
         const actScore = {};
-        WAR_SECTORS.forEach(s => { actScore[s.key] = { bull: 0, bear: 0 }; });
+        WAR_SECTORS_V2.forEach(s => { actScore[s.key] = { bull: 0, bear: 0 }; });
         (Array.isArray(posts24h) ? posts24h : []).forEach(p => {
           if (!actScore[p.sector]) return;
           if (p.stance === 'bullish') actScore[p.sector].bull++;
@@ -4013,7 +4021,7 @@
         });
 
         // 섹터별 점령도 계산 (0~1, 0.5=중립, >0.5=Bull 우세)
-        const territories = WAR_SECTORS.map(s => {
+        const territories = WAR_SECTORS_V2.map(s => {
           const acc = accScore[s.key];
           const act = actScore[s.key];
           const accTotal = acc.bull + acc.bear;
@@ -4034,7 +4042,7 @@
           .sort((a, b) => new Date(b.ts) - new Date(a.ts))
           .slice(0, 10);
 
-        container.innerHTML = _buildWarMapHTML(territories, totalBull, allLogs);
+        container.innerHTML = _buildWarMapHTMLV2(territories, totalBull, allLogs);
 
       } catch (e) {
         console.error('renderWarMap error:', e);
@@ -4209,6 +4217,214 @@
         </div>`;
 
       return svgHTML + gaugeHTML + logHTML;
+    }
+
+    function _buildWarMapHTMLV2(territories, totalBull, battleLog) {
+      const bullPct = Math.round(totalBull * 100);
+      const bearPct = 100 - bullPct;
+      const bullFronts = territories.filter(t => t.ratio > 0.6).length;
+      const bearFronts = territories.filter(t => t.ratio < 0.4).length;
+      const overallLabel = bullPct > 60 ? 'BULLORIA ADVANCING' : bullPct < 40 ? 'BEARHEIM ADVANCING' : 'CONTESTED FRONT';
+      const overallColor = bullPct > 55 ? '#3fb950' : bullPct < 45 ? '#f85149' : '#e3b341';
+
+      const getStyle = (ratio, noData) => {
+        if (noData) return { fill: '#181e26', stroke: '#30363d', lc: '#555', short: 'No data yet' };
+        if (ratio > 0.6) return { fill: '#0e2018', stroke: '#3fb950', lc: '#3fb950', short: 'Bull controlled' };
+        if (ratio < 0.4) return { fill: '#280a0a', stroke: '#f85149', lc: '#f85149', short: 'Bear controlled' };
+        return { fill: '#1e1808', stroke: '#e3b341', lc: '#e3b341', short: 'Contested' };
+      };
+
+      const enriched = territories.map(t => {
+        const noData = (t.accBull + t.accBear + t.actBull + t.actBear === 0);
+        const pct = Math.round(t.ratio * 100);
+        const activity = t.actBull + t.actBear;
+        const tension = Math.abs((t.actBull || 0) - (t.actBear || 0));
+        const isHot = activity >= 4 && tension <= Math.max(1, Math.ceil(activity * 0.25));
+        return { ...t, noData, pct, activity, tension, style: getStyle(t.ratio, noData), isHot };
+      });
+
+      const tMap = {};
+      enriched.forEach(t => { tMap[t.key] = t; });
+
+      const mostContested = [...enriched]
+        .filter(t => !t.noData)
+        .sort((a, b) => Math.abs(a.ratio - 0.5) - Math.abs(b.ratio - 0.5) || b.activity - a.activity)[0];
+      const hottestFront = [...enriched]
+        .filter(t => !t.noData)
+        .sort((a, b) => b.activity - a.activity || Math.abs(a.ratio - 0.5) - Math.abs(b.ratio - 0.5))[0];
+
+      const bullLine = bullFronts > bearFronts
+        ? `Bulloria controls ${bullFronts} of ${territories.length} fronts.`
+        : bearFronts > bullFronts
+          ? `Bearheim controls ${bearFronts} of ${territories.length} fronts.`
+          : `The war is balanced across ${territories.length} fronts.`;
+      const subLine = hottestFront
+        ? `${hottestFront.name} is the hottest battlefield right now.`
+        : 'Fresh battles will appear as more predictions resolve.';
+
+      const REGIONS = [
+        { key:'Crypto',      poly:'62,82 78,55 108,40 168,26 228,18 296,20 368,18 418,26 462,40 516,58 526,88 530,116 480,122 422,106 385,114 340,106 280,118 224,108 178,114 128,108 95,120',      cx:300, cy:72,  lw:114, name:'CRYPTO BADLANDS', sub:'Crypto' },
+        { key:'US',          poly:'62,82 95,120 128,108 178,114 224,108 280,118 285,262 210,280 145,268 108,258 65,190',                                                                              cx:172, cy:195, lw:102, name:'GOLDEN PLAINS',   sub:'US Stocks' },
+        { key:'KRX',         poly:'280,118 340,106 385,114 422,106 480,122 530,116 540,170 532,248 478,268 400,272 350,262 285,262',                                                                  cx:410, cy:192, lw:102, name:'EASTERN REACHES', sub:'KRX' },
+        { key:'Commodities', poly:'108,258 145,268 210,280 285,262 350,262 400,272 478,268 490,322 406,360 275,370 150,358 95,310',                                                                   cx:292, cy:322, lw:108, name:'ANCIENT MINES',   sub:'Gold / Oil' },
+        { key:'BondsFX',     poly:'500,286 530,280 554,292 560,322 548,348 520,356 492,340 488,312',                                                                                                   cx:524, cy:319, lw:84,  name:'BOND CITADEL',    sub:'Bonds / FX' },
+      ];
+
+      const regionsSVG = REGIONS.map(r => {
+        const t = tMap[r.key];
+        const ratio = t ? t.ratio : 0.5;
+        const pct = t ? t.pct : 50;
+        const noData = !t || t.noData;
+        const s = t ? t.style : getStyle(ratio, true);
+        const gid = 'wg2' + r.key;
+        return `
+          <defs>
+            <linearGradient id="${gid}" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="${s.fill}"/>
+              <stop offset="100%" stop-color="${s.fill}" stop-opacity="0.75"/>
+            </linearGradient>
+          </defs>
+          <polygon points="${r.poly}" fill="url(#${gid})" stroke="${s.stroke}" stroke-width="1.6" stroke-linejoin="round"/>
+          ${!noData ? `<polygon points="${r.poly}" fill="${s.stroke}" opacity="0.05"/>` : ''}
+          <rect x="${r.cx - r.lw/2}" y="${r.cy - 21}" width="${r.lw}" height="44" rx="5" fill="#000" opacity="0.58"/>
+          <text x="${r.cx}" y="${r.cy - 8}" text-anchor="middle" font-size="8.5" font-weight="800"
+            fill="${s.lc}" font-family="monospace" letter-spacing="0.8">${r.name}</text>
+          <text x="${r.cx}" y="${r.cy + 4}" text-anchor="middle" font-size="7.5"
+            fill="#6e7681" font-family="monospace">${r.sub}</text>
+          <text x="${r.cx}" y="${r.cy + 18}" text-anchor="middle" font-size="8" font-weight="700"
+            fill="${s.lc}" font-family="monospace">${noData ? 'SCOUTING...' : pct + '%  ' + s.short.toUpperCase()}</text>`;
+      }).join('');
+
+      const legendHTML = `
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin:12px 0 18px;">
+          <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#8b949e;"><span style="width:10px;height:10px;border-radius:50%;background:#238636;display:inline-block;"></span> Bull controlled</div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#8b949e;"><span style="width:10px;height:10px;border-radius:50%;background:#da3633;display:inline-block;"></span> Bear controlled</div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#8b949e;"><span style="width:10px;height:10px;border-radius:50%;background:#e3b341;display:inline-block;"></span> Contested</div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#8b949e;"><span style="font-size:12px;">🔥</span> Active battlefield</div>
+        </div>`;
+
+      const warRoomHTML = `
+        <div style="background:linear-gradient(135deg,#162032,#181b27);border:1px solid #30363d;border-radius:14px;padding:18px 18px 16px;margin-bottom:16px;box-shadow:0 10px 30px rgba(0,0,0,.18);">
+          <div style="font-size:11px;font-weight:800;color:#8b949e;letter-spacing:.08em;margin-bottom:6px;">⚔️ THE GREAT MARKET WAR</div>
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:240px;">
+              <div style="font-size:22px;font-weight:900;color:#e6edf3;line-height:1.2;">${overallLabel}</div>
+              <div style="font-size:13px;color:#c9d1d9;margin-top:8px;line-height:1.6;">${bullLine}<br>${subLine}</div>
+            </div>
+            <div style="min-width:170px;text-align:right;">
+              <div style="font-size:11px;color:#8b949e;">Overall control</div>
+              <div style="font-size:26px;font-weight:900;color:${overallColor};margin-top:2px;">${bullPct}% / ${bearPct}%</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;margin-top:14px;">
+            <span style="font-size:12px;font-weight:800;color:#3fb950;min-width:82px;">🟢 BULLORIA</span>
+            <div style="flex:1;height:10px;background:#21262d;border-radius:999px;overflow:hidden;">
+              <div style="height:100%;width:${bullPct}%;background:linear-gradient(90deg,#3fb950,#238636);border-radius:999px;transition:width 1s ease;"></div>
+            </div>
+            <span style="font-size:12px;font-weight:800;color:#f85149;min-width:84px;text-align:right;">BEARHEIM 🔴</span>
+          </div>
+          ${legendHTML}
+        </div>`;
+
+      const frontlineHTML = `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:16px;">
+          <div style="background:#161b22;border:1px solid #21262d;border-radius:12px;padding:14px 16px;">
+            <div style="font-size:11px;font-weight:800;color:#8b949e;letter-spacing:.08em;margin-bottom:6px;">LIVE FRONTLINE</div>
+            <div style="font-size:16px;font-weight:900;color:#e6edf3;">${mostContested ? mostContested.name : 'No active front yet'}</div>
+            <div style="font-size:12px;color:#8b949e;margin-top:6px;">${mostContested ? `${mostContested.style.short} · Bull ${mostContested.pct}% vs Bear ${100 - mostContested.pct}%` : 'Waiting for resolved predictions.'}</div>
+          </div>
+          <div style="background:#161b22;border:1px solid #21262d;border-radius:12px;padding:14px 16px;">
+            <div style="font-size:11px;font-weight:800;color:#8b949e;letter-spacing:.08em;margin-bottom:6px;">ACTIVITY SURGE</div>
+            <div style="font-size:16px;font-weight:900;color:#e6edf3;">${hottestFront ? hottestFront.name : 'No active front yet'}</div>
+            <div style="font-size:12px;color:#8b949e;margin-top:6px;">${hottestFront ? `${hottestFront.activity} live combat posts in the last 24h` : 'Waiting for fresh posts.'}</div>
+          </div>
+        </div>`;
+
+      const cardsHTML = `
+        <div style="margin-bottom:16px;">
+          <div style="font-size:11px;font-weight:800;color:#8b949e;letter-spacing:.08em;margin-bottom:10px;">TERRITORY CONTROL</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
+            ${enriched.map(t => `
+              <div style="background:${t.style.fill};border:1px solid ${t.style.stroke};border-radius:12px;padding:14px 16px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.02);">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+                  <div>
+                    <div style="font-size:20px;line-height:1;">${t.icon}</div>
+                    <div style="font-size:15px;font-weight:900;color:#e6edf3;margin-top:8px;">${t.name}</div>
+                    <div style="font-size:11px;color:#8b949e;margin-top:2px;">${t.subtitle}</div>
+                  </div>
+                  ${t.isHot ? '<div style="font-size:10px;font-weight:800;color:#e3b341;background:#2d2410;border:1px solid #5f4b12;padding:3px 7px;border-radius:999px;">🔥 HOT</div>' : ''}
+                </div>
+                <div style="font-size:22px;font-weight:900;color:${t.style.lc};margin-top:12px;">${t.noData ? '—' : t.pct + '%'}</div>
+                <div style="font-size:12px;color:#c9d1d9;margin-top:4px;">${t.style.short}</div>
+                <div style="display:flex;justify-content:space-between;font-size:11px;color:#8b949e;margin-top:10px;">
+                  <span>Accuracy ${t.accBull + t.accBear}</span>
+                  <span>Live ${t.activity}</span>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>`;
+
+      const logHTML = `
+        <div style="margin-bottom:16px;">
+          <div style="font-size:11px;font-weight:800;color:#8b949e;letter-spacing:.08em;margin-bottom:10px;">BATTLE LOG</div>
+          <div style="background:#161b22;border:1px solid #21262d;border-radius:10px;overflow:hidden;">
+            ${battleLog.length === 0 ? '<div style="padding:16px;color:#8b949e;font-size:12px;text-align:center;">No resolved battles yet.</div>' : battleLog.map(l => {
+              const win = l.winner === 'bull';
+              const chgStr = (l.chg > 0 ? '+' : '') + l.chg.toFixed(1) + '%';
+              const ticker = l.ticker.replace('.KS','').replace('-USD','');
+              return `
+                <div style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid #21262d30;">
+                  <span style="font-size:13px;">${l.sectorIcon}</span>
+                  <span style="font-size:11px;font-weight:800;color:${win?'#3fb950':'#f85149'};min-width:28px;">${win?'W':'L'}</span>
+                  <span style="font-size:12px;color:#c9d1d9;font-weight:700;">$${ticker}</span>
+                  <span style="font-size:11px;color:${win?'#3fb950':'#f85149'};">${chgStr}</span>
+                  <span style="font-size:11px;color:#8b949e;flex:1;">${l.sectorName}</span>
+                  <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:${win?'#1a3025':'#3d0c0c'};color:${win?'#3fb950':'#f85149'};">${win ? 'Bull Victory' : 'Bear Victory'}</span>
+                </div>`;
+            }).join('')}
+          </div>
+        </div>`;
+
+      const svgHTML = `
+        <div>
+          <div style="font-size:11px;font-weight:800;color:#8b949e;letter-spacing:.08em;margin-bottom:10px;">MAP OVERLAY</div>
+          <div style="max-width:640px;margin:0 auto;">
+            <svg viewBox="0 0 600 400" xmlns="http://www.w3.org/2000/svg"
+              style="width:100%;display:block;border-radius:12px;border:1px solid #21262d;">
+              <defs>
+                <radialGradient id="wm-ocean" cx="40%" cy="40%" r="70%">
+                  <stop offset="0%" stop-color="#0c1a30"/>
+                  <stop offset="100%" stop-color="#050c18"/>
+                </radialGradient>
+                <pattern id="wm-wave" x="0" y="0" width="60" height="30" patternUnits="userSpaceOnUse">
+                  <path d="M0,15 Q15,10 30,15 Q45,20 60,15" stroke="#0f2040" stroke-width="0.7" fill="none"/>
+                </pattern>
+                <filter id="wm-drop">
+                  <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#000" flood-opacity="0.7"/>
+                </filter>
+              </defs>
+              <rect width="600" height="400" fill="url(#wm-ocean)"/>
+              <rect width="600" height="400" fill="url(#wm-wave)" opacity="0.45"/>
+              <path d="M62,82 C70,68 74,60 78,55 L168,26 L296,20 L418,26 L516,58 C524,68 528,96 530,116 L540,170 L532,248 L490,322 L406,360 L275,370 L150,358 L95,310 C70,285 62,215 65,190 Z"
+                fill="#080e16" filter="url(#wm-drop)"/>
+              ${regionsSVG}
+              <g stroke="#2a3140" stroke-width="0.9" stroke-dasharray="4,3" opacity="0.6">
+                <line x1="95" y1="120" x2="280" y2="118"/>
+                <line x1="280" y1="118" x2="285" y2="262"/>
+                <line x1="108" y1="258" x2="285" y2="262"/>
+                <line x1="285" y1="262" x2="462" y2="272"/>
+              </g>
+              <text x="22" y="392" font-size="8" font-weight="800" fill="#3fb950" font-family="monospace" opacity="0.55">BULLORIA</text>
+              <text x="504" y="392" font-size="8" font-weight="800" fill="#f85149" font-family="monospace" opacity="0.55">BEARHEIM</text>
+              <rect x="0" y="0" width="600" height="22" fill="#0d1117" opacity="0.88"/>
+              <text x="300" y="14" text-anchor="middle" font-size="9" font-weight="800"
+                fill="${overallColor}" font-family="monospace" letter-spacing="1.8">${overallLabel}  ·  BULL ${bullPct}%  vs  BEAR ${bearPct}%</text>
+            </svg>
+          </div>
+        </div>`;
+
+      return warRoomHTML + frontlineHTML + cardsHTML + logHTML + svgHTML;
     }
 
     // 세션 당 1회 "댓글 참여 가능" 토스트 알림
