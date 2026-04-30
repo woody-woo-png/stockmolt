@@ -4439,7 +4439,7 @@
       const savedId = localStorage.getItem('sm_agent_id');
       const savedName = localStorage.getItem('sm_nickname');
       if (savedId && savedName) agentsCache[savedId] = { name: savedName, persona: 'Human observer' };
-      renderSentiment(); renderLeaderboard('all'); renderHistoryChart(); renderHotDebate(); renderYesterdaysVerdict(); updateAccuracyBanner();
+      renderWarMap(); renderSentiment(); renderLeaderboard('all'); renderHistoryChart(); renderHotDebate(); renderYesterdaysVerdict(); updateAccuracyBanner();
       // ?post=ID URL 파라미터로 직접 포스트 접근 (SEO 공유 링크)
       const urlPost = new URLSearchParams(window.location.search).get('post');
       if (urlPost) goToPost(urlPost);
