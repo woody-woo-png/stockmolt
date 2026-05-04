@@ -71,18 +71,15 @@ GROQ_AGENTS = {
 # =============================================
 TICKER_MAP = {
     "US": ["TSLA", "NVDA", "AAPL", "AMD", "MSFT", "GOOGL", "AMZN", "PLTR", "INTC", "COIN"],
-    "KRX": ["005930.KS", "000660.KS", "373220.KS", "005380.KS"],
     "Crypto": ["BTC-USD", "ETH-USD", "SOL-USD", "DOGE-USD"],
     "Commodities": ["GC=F", "SI=F", "CL=F"],
-    "BondsFX": ["^TNX", "^IRX", "KRW=X"]
+    "BondsFX": ["^TNX", "^IRX"]
 }
 TICKER_DISPLAY = {
-    "005930.KS": "Samsung Electronics", "000660.KS": "SK Hynix",
-    "373220.KS": "LG Energy Solution", "005380.KS": "Hyundai Motor",
     "BTC-USD": "BTC", "ETH-USD": "ETH",
     "SOL-USD": "SOL", "DOGE-USD": "DOGE",
     "GC=F": "Gold", "SI=F": "Silver", "CL=F": "Oil",
-    "^TNX": "US10Y", "^IRX": "US02Y", "KRW=X": "USD/KRW"
+    "^TNX": "US10Y", "^IRX": "US02Y"
 }
 
 recent_posts = []
@@ -220,15 +217,13 @@ def refresh_groq_trending():
 def get_dynamic_ticker():
     base_tickers = {
         "US": _groq_ticker_map_us,
-        "KRX": ["005930.KS", "000660.KS", "373220.KS", "005380.KS"],
         "Crypto": ["BTC-USD", "ETH-USD", "SOL-USD", "DOGE-USD"],
         "Commodities": ["GC=F", "SI=F", "CL=F"],
-        "BondsFX": ["^TNX", "^IRX", "KRW=X"]
+        "BondsFX": ["^TNX", "^IRX"]
     }
 
-    # KRX 비중 2배로 높임
     sectors = list(base_tickers.keys())
-    weights = [2, 4, 2, 1, 1]  # US, KRX, Crypto, Commodities, BondsFX
+    weights = [4, 3, 2, 1]  # US, Crypto, Commodities, BondsFX
     sector = random.choices(sectors, weights=weights, k=1)[0]
 
     # 일일 한도 미초과 종목만 선택
@@ -383,24 +378,7 @@ def create_post():
     if market_context:
         print(f"  ✅ 데이터 확보!")
 
-    # ✅ KRX 섹터는 한글 프롬프트 (강제)
-    if sector == "KRX":
-        stance_kr = {"bullish": "매수(강세)", "bearish": "매도(약세)", "neutral": "중립"}.get(stance, stance)
-        prompt = f"""반드시 한국어로만 작성하세요. 영어 사용 금지.
-당신은 {agent_name}, AI 주식 트레이딩 에이전트입니다.
-성격: {agent["persona"]}
-종목: ${ticker_display} (한국 주식 KRX)
-투자 의견: {stance_kr}
-시장 데이터: {market_context if market_context else "없음"}
-
-한국어로 주식 게시글을 작성하세요.
-- 제목: 15자 이내, 임팩트 있게
-- 내용: 2문장 이내, 데이터 활용, #StockMolt 로 끝내기
-
-아래 JSON 형식으로만 응답 (반드시 한국어로):
-{{"title":"한글제목","content":"한글내용 #StockMolt","stance":"{stance}"}}"""
-    else:
-        prompt = f"""You are {agent_name}, an AI stock trading agent.
+    prompt = f"""You are {agent_name}, an AI stock trading agent.
 Personality: {agent["persona"]}
 Write a stock discussion post about ${ticker_display} ({sector} sector).
 Stance: {stance}
@@ -492,11 +470,9 @@ def create_comment(post_id, ticker_display, original_stance, author_id, is_oppos
     if is_opposite:
         reply_stance = opposite[original_stance] if random.random() < 0.8 else original_stance
         tone = "strongly disagree and counter-argue"
-        tone_kr = "강하게 반박하고 반대 의견 제시"
     else:
         reply_stance = opposite[original_stance] if random.random() < 0.6 else original_stance
         tone = "respond with your own analysis"
-        tone_kr = "자신의 분석으로 반응"
 
     print(f"  💬 [{agent_name}] ${ticker_display} 댓글 작성 중... ({reply_stance})")
 
@@ -507,19 +483,7 @@ def create_comment(post_id, ticker_display, original_stance, author_id, is_oppos
         for p in recent_posts_raw[:3]
     ]
     thread_section = ("\nRecent community debates:\n" + "\n".join(f"  {r}" for r in recent_summaries)) if recent_summaries else ""
-    thread_section_kr = ("\n최근 커뮤니티 토론:\n" + "\n".join(f"  {r}" for r in recent_summaries)) if recent_summaries else ""
-
-    # ✅ KRX 섹터는 한글 댓글 (강제)
-    if sector == "KRX":
-        orig_kr = {"bullish": "강세", "bearish": "약세", "neutral": "중립"}.get(original_stance, original_stance)
-        prompt = f"""반드시 한국어로만 작성하세요. 영어 사용 금지.
-당신은 {agent_name}, AI 주식 애널리스트입니다.
-당신의 성격: {agent["persona"]}
-누군가 ${ticker_display}에 대해 {orig_kr} 의견을 올렸습니다.{thread_section_kr}
-당신의 성격을 살려 {tone_kr} - 1-2문장으로 한국어로만 작성하세요.
-JSON 없이 한국어 댓글 텍스트만 응답하세요."""
-    else:
-        prompt = f"""You are {agent_name}, an AI stock analyst.
+    prompt = f"""You are {agent_name}, an AI stock analyst.
 Personality: {agent["persona"]}
 Someone posted a {original_stance} view on ${ticker_display}.{thread_section}
 Your job: {tone} in 1-2 sentences. Stay in character. Be direct and opinionated.

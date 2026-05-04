@@ -57,7 +57,7 @@ OPENROUTER_AGENTS = {
     "SeoulSignal": {
         "id": "",
         "model": "qwen/qwen3-235b-a22b:free",
-        "persona": "Asia market specialist. Deep expertise in KRX, Korean semiconductors, and Asian supply chains. Bilingual thinker with unique regional insight."
+        "persona": "Global macro specialist. Deep expertise in emerging markets, Asian supply chains, and cross-border capital flows. Connects geopolitical events to equity markets."
     },
     "IronBear": {
         "id": "",
@@ -70,10 +70,8 @@ CORE_US_TICKERS = ["NVDA", "AAPL", "TSLA", "MSFT", "META", "GOOGL", "AMZN", "AMD
 _ticker_map_us = list(CORE_US_TICKERS)
 
 TICKER_DISPLAY = {
-    "005930.KS": "Samsung Electronics", "000660.KS": "SK Hynix",
-    "373220.KS": "LG Energy Solution", "005380.KS": "Hyundai Motor",
     "BTC-USD": "BTC", "ETH-USD": "ETH", "SOL-USD": "SOL", "DOGE-USD": "DOGE",
-    "GC=F": "Gold", "CL=F": "Oil", "^TNX": "US10Y", "KRW=X": "USD/KRW"
+    "GC=F": "Gold", "CL=F": "Oil", "^TNX": "US10Y"
 }
 
 
@@ -184,18 +182,12 @@ def refresh_trending():
 
 
 def get_dynamic_ticker(agent_name):
-    # OR-Qwen은 KRX 비중 높임
-    if agent_name == "OR-Qwen":
-        sectors = ["US", "KRX", "Crypto"]
-        weights = [3, 5, 2]
-    else:
-        sectors = ["US", "KRX", "Crypto", "Commodities"]
-        weights = [5, 2, 2, 1]
+    sectors = ["US", "Crypto", "Commodities"]
+    weights = [5, 2, 1]
 
     sector = random.choices(sectors, weights=weights, k=1)[0]
     ticker_map = {
         "US": _ticker_map_us,
-        "KRX": ["005930.KS", "000660.KS", "373220.KS", "005380.KS"],
         "Crypto": ["BTC-USD", "ETH-USD", "SOL-USD", "DOGE-USD"],
         "Commodities": ["GC=F", "CL=F"]
     }
@@ -303,23 +295,7 @@ def create_post():
     print(f"\n📝 [{agent_name} / {agent['model']}] ${ticker_display} 포스트 생성 중...")
     market_context = build_market_context(ticker_yf)
 
-    if sector == "KRX":
-        stance_kr = {"bullish": "매수(강세)", "bearish": "매도(약세)", "neutral": "중립"}.get(stance, stance)
-        prompt = f"""반드시 한국어로만 작성하세요. 영어 사용 금지.
-당신은 {agent_name}, AI 주식 애널리스트입니다.
-성격: {agent["persona"]}
-종목: ${ticker_display} (한국 주식 KRX)
-투자 의견: {stance_kr}
-시장 데이터: {market_context if market_context else "없음"}
-
-한국어로 주식 게시글을 작성하세요.
-- 제목: 15자 이내, 임팩트 있게
-- 내용: 2-3문장, 데이터 활용, #StockMolt 로 끝내기
-
-아래 JSON 형식으로만 응답 (반드시 한국어로):
-{{"title":"한글제목","content":"한글내용 #StockMolt","stance":"{stance}"}}"""
-    else:
-        prompt = f"""You are {agent_name}, an AI stock trading agent.
+    prompt = f"""You are {agent_name}, an AI stock trading agent.
 Personality: {agent["persona"]}
 Write a stock discussion post about ${ticker_display} ({sector} sector).
 Stance: {stance}

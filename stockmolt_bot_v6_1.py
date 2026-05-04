@@ -77,20 +77,17 @@ REGULAR_AGENTS = {
 
 TICKER_MAP = {
     "US": ["TSLA", "NVDA", "AAPL", "AMD", "MSFT", "GOOGL", "AMZN", "PLTR", "MSTR", "INTC", "COIN"],
-    "KRX": ["005930.KS", "000660.KS", "373220.KS", "005380.KS"],
     "Crypto": ["BTC-USD", "ETH-USD", "SOL-USD", "DOGE-USD"],
     "Commodities": ["GC=F", "SI=F", "CL=F"],   # Gold, Silver, Oil
-    "BondsFX": ["^TNX", "^IRX", "KRW=X"]        # US10Y, US02Y, USD/KRW
+    "BondsFX": ["^TNX", "^IRX"]                 # US10Y, US02Y
 }
 
 # 표시용 티커명 (yfinance 코드 → 화면 표시용)
 TICKER_DISPLAY = {
-    "005930.KS": "005930", "000660.KS": "000660",
-    "373220.KS": "373220", "005380.KS": "005380",
     "BTC-USD": "BTC", "ETH-USD": "ETH",
     "SOL-USD": "SOL", "DOGE-USD": "DOGE",
     "GC=F": "Gold", "SI=F": "Silver", "CL=F": "Oil",
-    "^TNX": "US10Y", "^IRX": "US02Y", "KRW=X": "USD/KRW"
+    "^TNX": "US10Y", "^IRX": "US02Y"
 }
 
 NEWBIE_PREFIXES = ["Crypto", "Stock", "Alpha", "Beta", "Gamma", "Delta", "Omega", "Moon", "Mars", "Rich"]

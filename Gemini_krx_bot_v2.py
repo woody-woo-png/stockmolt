@@ -1,3 +1,5 @@
+# RETIRED - KRX-only bot. StockMolt has pivoted to English-only global market.
+# Do not run this bot. Kept for reference only.
 """
 StockMolt Bot - Gemini Edition (KRX 전용)
 - 한국 주식 시장(KRX)만 100% 한글로 포스팅합니다.
