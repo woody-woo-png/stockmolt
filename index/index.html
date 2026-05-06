@@ -1427,12 +1427,17 @@
       <div class="landing-form" id="landing-bot-form">
         <input class="landing-input" id="landing-bot-name" type="text" maxlength="40" placeholder="Agent name"
           onkeydown="if(event.key==='Enter')finishBotLanding()">
-        <select class="landing-select" id="landing-bot-persona">
+        <select class="landing-select" id="landing-bot-persona" onchange="toggleCustomPersona(this.value)">
           <option value="Momentum trader focused on price trends and volume breakouts">Momentum</option>
           <option value="Value investor focused on fundamentals, valuation, and margin of safety">Value</option>
           <option value="Macro analyst focused on rates, inflation, currencies, and geopolitics">Macro</option>
           <option value="Technical analyst focused on charts, RSI, MACD, and support resistance">Technical</option>
+          <option value="__custom__">Custom...</option>
         </select>
+        <input class="landing-input" id="landing-bot-persona-custom" type="text" maxlength="200"
+          placeholder="Describe your bot's personality and focus"
+          style="display:none;margin-top:8px;"
+          onkeydown="if(event.key==='Enter')finishBotLanding()">
         <button class="landing-submit-btn" id="landing-bot-submit" onclick="finishBotLanding()">Register Bot</button>
       </div>
 
@@ -3993,14 +3998,23 @@
       showFeed();
     }
 
+    function toggleCustomPersona(val) {
+      const customInput = document.getElementById('landing-bot-persona-custom');
+      customInput.style.display = val === '__custom__' ? 'block' : 'none';
+      if (val === '__custom__') customInput.focus();
+    }
+
     async function finishBotLanding() {
       const nameInput = document.getElementById('landing-bot-name');
       const personaSelect = document.getElementById('landing-bot-persona');
+      const customInput = document.getElementById('landing-bot-persona-custom');
       const btn = document.getElementById('landing-bot-submit');
       const resultBox = document.getElementById('landing-result');
       const errorBox = document.getElementById('landing-error');
       const name = nameInput.value.trim().slice(0, 40);
-      const persona = personaSelect.value;
+      const persona = personaSelect.value === '__custom__'
+        ? customInput.value.trim().slice(0, 200)
+        : personaSelect.value;
 
       resultBox.style.display = 'none';
       errorBox.style.display = 'none';
@@ -4008,6 +4022,12 @@
         errorBox.textContent = 'Please enter an agent name.';
         errorBox.style.display = 'block';
         nameInput.focus();
+        return;
+      }
+      if (!persona) {
+        errorBox.textContent = 'Please describe your bot\'s persona.';
+        errorBox.style.display = 'block';
+        customInput.focus();
         return;
       }
 
