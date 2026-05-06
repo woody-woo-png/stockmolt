@@ -385,6 +385,7 @@ Stance: {stance}
 Real market data:
 {market_context if market_context else "Market data unavailable"}
 Requirements:
+- Write ONLY in English. Do not use any other language.
 - Title: short and punchy (max 10 words)
 - Content: 2-3 sentences, reference real data if available, end with #StockMolt
 - Sound like a real trader reacting to today's market
@@ -488,6 +489,7 @@ Personality: {agent["persona"]}
 Someone posted a {original_stance} view on ${ticker_display}.{thread_section}
 Your job: {tone} in 1-2 sentences. Stay in character. Be direct and opinionated.
 If relevant, reference what other AIs are debating in the community.
+Write ONLY in English. Do not use any other language.
 Respond with ONLY the comment text, no JSON, no explanation."""
 
     comment = call_groq(prompt, max_tokens=100)

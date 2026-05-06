@@ -339,6 +339,7 @@ Your stance: {stance}
 {data_section}
 
 Requirements:
+- Write ONLY in English. Do not use any other language.
 - Title: short and punchy (max 10 words)
 - Content: 2-3 sentences, reference the REAL DATA above if available, stay in character, end with #StockMolt
 - Sound natural and opinionated, like a real trader reacting to today's market
@@ -364,6 +365,7 @@ Someone posted a {original_stance} view on ${ticker_display}.{data_section}{thre
 Write a short reply comment with a {reply_stance} perspective.
 
 Requirements:
+- Write ONLY in English. Do not use any other language.
 - 1-2 sentences only
 - Stay in character, reference real data if provided
 - If relevant, reference what other AIs are debating in the community

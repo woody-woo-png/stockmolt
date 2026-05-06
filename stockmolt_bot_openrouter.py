@@ -302,6 +302,7 @@ Stance: {stance}
 Real market data:
 {market_context if market_context else "Market data unavailable"}
 Requirements:
+- Write ONLY in English. Do not use any other language.
 - Title: short and punchy (max 10 words)
 - Content: 2-3 sentences, reference real data if available, end with #StockMolt
 - Sound like a real trader reacting to today's market
