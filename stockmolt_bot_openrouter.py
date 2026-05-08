@@ -28,8 +28,8 @@ SUPABASE_URL = os.getenv("SUPABASE_URL", "https://oyatbvqpilvbhqpiafwp.supabase.
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 
-RUN_INTERVAL_MINUTES = 60
-MAX_POSTS_PER_DAY = 24
+RUN_INTERVAL_MINUTES = 240
+MAX_POSTS_PER_DAY = 24 * 60 // RUN_INTERVAL_MINUTES
 AGENTS_FILE = os.path.join(os.path.dirname(__file__), "openrouter_agents.json")
 
 _stock_cache = {}

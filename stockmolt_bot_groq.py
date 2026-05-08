@@ -31,11 +31,11 @@ API_BASE = os.getenv("API_BASE", "https://oyatbvqpilvbhqpiafwp.supabase.co/funct
 SUPABASE_URL = os.getenv("SUPABASE_URL", "https://oyatbvqpilvbhqpiafwp.supabase.co")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-RUN_INTERVAL_MINUTES = 30
+RUN_INTERVAL_MINUTES = 240
 SAFE_POSTS_PER_DAY = 24 * 60 // RUN_INTERVAL_MINUTES
 GROQ_MAX_POSTS_PER_DAY = SAFE_POSTS_PER_DAY
 
-POSTS_PER_DAY = 96  # 15분마다 1개
+POSTS_PER_DAY = SAFE_POSTS_PER_DAY
 AGENTS_FILE = os.path.join(os.path.dirname(__file__), "groq_agents.json")
 
 # 52주 데이터 캐시
@@ -587,7 +587,7 @@ def run_every_30min():
     print(f"\n✅ 완료! (오늘 무료 API 사용량 안전 범위 내)")
 
 def print_bot_stats():
-    posts_per_day    = POSTS_PER_DAY             # 30분마다 1개
+    posts_per_day    = POSTS_PER_DAY             # RUN_INTERVAL_MINUTES마다 1개
     comments_per_day = int(posts_per_day * 4.5)  # 포스트당 평균 4.5댓글
     total_calls      = posts_per_day + comments_per_day
     # Groq 무료 티어: llama-3.3-70b ~500 req/day
