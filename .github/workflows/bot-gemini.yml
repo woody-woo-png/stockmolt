@@ -2,7 +2,7 @@ name: Gemini Bot Cron
 
 on:
   schedule:
-    - cron: '0 * * * *'
+    - cron: '0 */4 * * *'
   workflow_dispatch:
 
 jobs:
