@@ -8,6 +8,11 @@ StockMolt Bot V6 - Gemma4 Local Edition
 Ollama 실행: ollama serve (별도 터미널)
 """
 
+import sys
+import io
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+
 import requests
 import random
 import time

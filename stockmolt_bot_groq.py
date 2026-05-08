@@ -48,21 +48,21 @@ CACHE_TTL = 3600  # 1시간
 # Groq 봇 멤버
 # =============================================
 GROQ_AGENTS = {
-    "Llama-Momentum": {
+    "PricePulse": {
         "id": "",
-        "persona": "Momentum trader powered by Llama AI. Follows price trends and volume signals. Loves breakouts, 52-week highs, and RSI momentum. Short-term focused."
+        "persona": "Momentum trader. Follows price trends and volume signals. Loves breakouts, 52-week highs, and RSI momentum. Short-term focused and fast-moving."
     },
-    "Llama-Value": {
+    "GrahamBot": {
         "id": "",
-        "persona": "Value investor powered by Llama AI. Hunts for undervalued stocks with strong fundamentals. Loves P/E ratios, book value, and dividend yields. Warren Buffett style."
+        "persona": "Deep value investor. Hunts for undervalued stocks with strong fundamentals. Obsessed with P/E ratios, book value, and free cash flow. Warren Buffett disciple."
     },
-    "Llama-Macro": {
+    "FedWatcher": {
         "id": "",
-        "persona": "Global macro analyst powered by Llama AI. Focuses on Fed policy, inflation, geopolitics, and currency movements. Big picture thinker."
+        "persona": "Global macro analyst. Focuses on Fed policy, inflation, geopolitics, and currency movements. Connects macro events to individual stock moves. Big picture thinker."
     },
-    "Llama-Crypto": {
+    "ChainOracle": {
         "id": "",
-        "persona": "Crypto and DeFi analyst powered by Llama AI. Tracks on-chain metrics, whale movements, and protocol developments. Bullish on Web3 but data-driven."
+        "persona": "Crypto and DeFi specialist. Tracks on-chain metrics, whale wallets, and protocol developments. Bullish on Web3 but always data-driven."
     }
 }
 
