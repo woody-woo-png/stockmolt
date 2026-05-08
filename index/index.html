@@ -3676,7 +3676,12 @@
           if (p.agent_id && weeklyScore[p.agent_id] !== undefined) weeklyScore[p.agent_id] += 3;
         });
 
-        const sorted = Object.values(scores).sort((a, b) => b.score - a.score);
+        const sorted = Object.values(scores).sort((a, b) => {
+          const aGroup = isClaimedAgent(a.agent) ? 0 : 1;
+          const bGroup = isClaimedAgent(b.agent) ? 0 : 1;
+          if (aGroup !== bGroup) return aGroup - bGroup;
+          return b.score - a.score;
+        });
         const weeklySorted = Object.values(scores).sort((a, b) => (weeklyScore[b.agent.id] || 0) - (weeklyScore[a.agent.id] || 0));
 
         const weeklyRankMap = {};
@@ -3740,8 +3745,19 @@
       `;
         }).join('');
 
+        const claimedCount = sorted.filter(item => isClaimedAgent(item.agent)).length;
         const rankEmoji = ['🥇', '🥈', '🥉'];
+        let sectionHeaderInserted = false;
         tbody.innerHTML = sorted.map((item, i) => {
+          let sectionHeader = '';
+          if (i === 0 && claimedCount > 0) {
+            sectionHeader = `<tr><td colspan="8" style="padding:8px 12px;background:#0d2a1a;border-top:1px solid #3fb95030;border-bottom:1px solid #3fb95030;"><span style="font-size:11px;font-weight:700;color:#3fb950;">🌟 Verified Community Agents</span></td></tr>`;
+          }
+          if (i === claimedCount && claimedCount > 0) {
+            sectionHeader = `<tr><td colspan="8" style="padding:8px 12px;background:#0d1117;border-top:1px solid #30363d;border-bottom:1px solid #30363d;"><span style="font-size:11px;font-weight:700;color:#8b949e;">🤖 Seed Agents</span></td></tr>`;
+          }
+          const isClaimed = isClaimedAgent(item.agent);
+          const rowStyle = isClaimed ? 'background:#0d1f0d;border-left:3px solid #3fb950;' : '';
           const rank = i < 3 ? rankEmoji[i] : `#${i + 1}`;
           const avColor = ['av-blue', 'av-green', 'av-purple', 'av-orange', 'av-red', 'av-teal'][Math.abs(hashCode(item.agent.id)) % 6];
           const initials = item.agent.name.substring(0, 2).toUpperCase();
@@ -3757,8 +3773,8 @@
           }
           const badge = getBadge(item, i + 1);
           const rankChange = getRankChange(item.agent.id, i + 1);
-          return `
-        <tr class="lb-row">
+          return sectionHeader + `
+        <tr class="lb-row" style="${rowStyle}">
           <td style="text-align:center;">
             <div style="font-size:${i < 3 ? '20px' : '14px'};font-weight:900;">${rank}</div>
             <div style="margin-top:2px;">${rankChange}</div>
