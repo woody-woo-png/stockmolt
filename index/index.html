@@ -4599,16 +4599,16 @@
     // ── WAR MAP ──────────────────────────────────────────────
 
     const WAR_SECTORS = [
-      { key: 'US',          name: 'Golden Plains',   icon: '🌾', subtitle: 'US Stocks' },
-      { key: 'Crypto',      name: 'Crypto Badlands', icon: '⚡', subtitle: 'Crypto' },
-      { key: 'Commodities', name: 'Ancient Mines',   icon: '⛏️', subtitle: 'Gold / Oil' },
+      { key: 'US',          name: 'North America',     icon: '🌎', subtitle: 'US Stocks' },
+      { key: 'Crypto',      name: 'Digital Zone',      icon: '⚡', subtitle: 'Crypto' },
+      { key: 'Commodities', name: 'Resource Lands',    icon: '⛏️', subtitle: 'Gold / Oil' },
     ];
 
     const WAR_SECTORS_V2 = [
-      { key: 'US',          name: 'Golden Plains',   icon: '🌾', subtitle: 'US Stocks' },
-      { key: 'Crypto',      name: 'Crypto Badlands', icon: '⚡', subtitle: 'Crypto' },
-      { key: 'Commodities', name: 'Ancient Mines',   icon: '⛏️', subtitle: 'Gold / Oil' },
-      { key: 'BondsFX',     name: 'Bond Citadel',    icon: '🏰', subtitle: 'Bonds / Dollar' },
+      { key: 'US',          name: 'North America',     icon: '🌎', subtitle: 'US Stocks' },
+      { key: 'Crypto',      name: 'Digital Zone',      icon: '⚡', subtitle: 'Crypto' },
+      { key: 'Commodities', name: 'Resource Lands',    icon: '⛏️', subtitle: 'Gold / Oil' },
+      { key: 'BondsFX',     name: 'European Markets',  icon: '🏛️', subtitle: 'Bonds / FX' },
     ];
 
     async function renderWarMap() {
@@ -4901,20 +4901,34 @@
         ? `${hottestFront.name} has the most action right now, so that is the frontline to watch.`
         : 'As more predictions settle, the hottest frontline will appear here.';
 
-      const REGIONS = [
-        { key:'Crypto',      poly:'62,82 78,55 108,40 168,26 228,18 296,20 368,18 418,26 462,40 516,58 526,88 530,116 480,122 422,106 385,114 340,106 280,118 224,108 178,114 128,108 95,120',      cx:300, cy:72,  lw:114, name:'CRYPTO BADLANDS', sub:'Crypto' },
-        { key:'US',          poly:'62,82 95,120 128,108 178,114 224,108 280,118 285,262 210,280 145,268 108,258 65,190',                                                                              cx:172, cy:195, lw:102, name:'GOLDEN PLAINS',   sub:'US Stocks' },
-        { key:'Commodities', poly:'108,258 145,268 210,280 285,262 350,262 400,272 478,268 490,322 406,360 275,370 150,358 95,310',                                                                   cx:292, cy:322, lw:108, name:'ANCIENT MINES',   sub:'Gold / Oil' },
-        { key:'BondsFX',     poly:'500,286 530,280 554,292 560,322 548,348 520,356 492,340 488,312',                                                                                                   cx:524, cy:319, lw:84,  name:'BOND CITADEL',    sub:'Bonds / FX' },
+      const WORLD_REGIONS = [
+        { key:'US',          poly:'20,44 50,26 90,30 140,13 175,18 192,37 208,58 213,72 180,86 170,102 165,120 140,120 148,148 108,148 100,110 87,62 72,52', cx:130, cy:88, lw:110, name:'NORTH AMERICA',   sub:'US Stocks' },
+        { key:'BondsFX',     poly:'238,55 248,40 262,33 298,22 325,22 360,38 370,58 358,70 345,82 320,98 295,108 278,108 258,95 248,75 240,62',               cx:305, cy:65, lw:88,  name:'EUROPE',           sub:'Bonds / FX' },
+        { key:'Commodities', poly:'252,115 285,115 312,115 345,120 352,105 378,95 398,108 415,138 405,158 388,165 368,182 352,225 318,278 308,282 278,255 268,188 268,168 252,138', cx:318, cy:192, lw:110, name:'AFRICA & MIDEAST', sub:'Gold / Oil' },
+        { key:'Crypto',      poly:'560,123 581,134 581,156 560,168 539,156 539,134',                                                                             cx:560, cy:145, lw:74,  name:'DIGITAL ZONE',    sub:'Crypto' },
       ];
 
-      const regionsSVG = REGIONS.map(r => {
+      const decoContSVG = `
+        <polygon points="193,12 218,8 238,18 240,35 225,48 202,50 190,37" fill="#111d2d" stroke="#1c2940" stroke-width="0.8" stroke-linejoin="round"/>
+        <polygon points="240,30 250,24 260,30 257,40 244,42" fill="#111d2d" stroke="#1c2940" stroke-width="0.6"/>
+        <polygon points="120,170 155,155 172,165 178,205 170,255 152,278 130,308 112,308 108,262 108,228 110,195 115,172" fill="#111d2d" stroke="#1c2940" stroke-width="0.9" stroke-linejoin="round"/>
+        <polygon points="375,55 580,42 560,72 535,88 520,112 512,138 510,155 432,180 412,158 408,128 398,95 372,82" fill="#111d2d" stroke="#1c2940" stroke-width="0.9" stroke-linejoin="round"/>
+        <polygon points="530,75 540,68 552,73 550,86 538,90 528,85" fill="#111d2d" stroke="#1c2940" stroke-width="0.6"/>
+        <polygon points="445,215 510,205 542,218 558,245 548,272 520,283 482,282 455,268 442,242" fill="#111d2d" stroke="#1c2940" stroke-width="0.9" stroke-linejoin="round"/>
+        <polygon points="568,255 576,248 582,260 575,270 565,268" fill="#111d2d" stroke="#1c2940" stroke-width="0.6"/>
+      `;
+
+      const cryptoT = tMap['Crypto'];
+      const cryptoPulseStroke = (cryptoT && !cryptoT.noData) ? cryptoT.style.stroke : '#30363d';
+
+      const regionsSVG = WORLD_REGIONS.map(r => {
         const t = tMap[r.key];
         const ratio = t ? t.ratio : 0.5;
         const pct = t ? t.pct : 50;
         const noData = !t || t.noData;
         const s = t ? t.style : getStyle(ratio, true);
-        const gid = 'wg2' + r.key;
+        const gid = 'wg3' + r.key;
+        const isCrypto = r.key === 'Crypto';
         return `
           <defs>
             <linearGradient id="${gid}" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -4922,14 +4936,16 @@
               <stop offset="100%" stop-color="${s.fill}" stop-opacity="0.75"/>
             </linearGradient>
           </defs>
-          <polygon points="${r.poly}" fill="url(#${gid})" stroke="${s.stroke}" stroke-width="1.6" stroke-linejoin="round"/>
-          ${!noData ? `<polygon points="${r.poly}" fill="${s.stroke}" opacity="0.05"/>` : ''}
-          <rect x="${r.cx - r.lw/2}" y="${r.cy - 21}" width="${r.lw}" height="44" rx="5" fill="#000" opacity="0.58"/>
-          <text x="${r.cx}" y="${r.cy - 8}" text-anchor="middle" font-size="8.5" font-weight="800"
-            fill="${s.lc}" font-family="monospace" letter-spacing="0.8">${r.name}</text>
-          <text x="${r.cx}" y="${r.cy + 4}" text-anchor="middle" font-size="7.5"
+          <polygon points="${r.poly}" fill="url(#${gid})" stroke="${s.stroke}" stroke-width="1.5" stroke-linejoin="round"/>
+          ${!noData ? `<polygon points="${r.poly}" fill="${s.stroke}" opacity="0.06"/>` : ''}
+          ${isCrypto ? `<circle cx="${r.cx}" cy="${r.cy}" r="30" fill="none" stroke="${s.stroke}" stroke-width="0.6" opacity="0.28" stroke-dasharray="2,3"/>
+          <circle cx="${r.cx}" cy="${r.cy}" r="44" fill="none" stroke="${s.stroke}" stroke-width="0.4" opacity="0.15" stroke-dasharray="1,4"/>` : ''}
+          <rect x="${r.cx - r.lw/2}" y="${r.cy - 20}" width="${r.lw}" height="42" rx="4" fill="#000" opacity="0.65"/>
+          <text x="${r.cx}" y="${r.cy - 7}" text-anchor="middle" font-size="8" font-weight="800"
+            fill="${s.lc}" font-family="monospace" letter-spacing="0.6">${r.name}</text>
+          <text x="${r.cx}" y="${r.cy + 5}" text-anchor="middle" font-size="7"
             fill="#6e7681" font-family="monospace">${r.sub}</text>
-          <text x="${r.cx}" y="${r.cy + 18}" text-anchor="middle" font-size="8" font-weight="700"
+          <text x="${r.cx}" y="${r.cy + 17}" text-anchor="middle" font-size="7.5" font-weight="700"
             fill="${s.lc}" font-family="monospace">${noData ? 'SCOUTING...' : pct + '%  ' + s.short.toUpperCase()}</text>`;
       }).join('');
 
@@ -5025,42 +5041,82 @@
         </div>`;
 
       const svgHTML = `
-        <div>
-          <div style="font-size:11px;font-weight:800;color:#8b949e;letter-spacing:.08em;margin-bottom:10px;">MAP OVERLAY</div>
+        <div style="margin-bottom:16px;">
+          <div style="font-size:11px;font-weight:800;color:#8b949e;letter-spacing:.08em;margin-bottom:10px;">🌍 WORLD MAP</div>
           <div style="max-width:640px;margin:0 auto;">
-            <svg viewBox="0 0 600 400" xmlns="http://www.w3.org/2000/svg"
+            <svg viewBox="0 0 600 315" xmlns="http://www.w3.org/2000/svg"
               style="width:100%;display:block;border-radius:12px;border:1px solid #21262d;">
               <defs>
-                <radialGradient id="wm-ocean" cx="40%" cy="40%" r="70%">
-                  <stop offset="0%" stop-color="#0c1a30"/>
-                  <stop offset="100%" stop-color="#050c18"/>
+                <radialGradient id="wm-ocean2" cx="40%" cy="40%" r="70%">
+                  <stop offset="0%" stop-color="#0a1628"/>
+                  <stop offset="100%" stop-color="#040c18"/>
                 </radialGradient>
-                <pattern id="wm-wave" x="0" y="0" width="60" height="30" patternUnits="userSpaceOnUse">
-                  <path d="M0,15 Q15,10 30,15 Q45,20 60,15" stroke="#0f2040" stroke-width="0.7" fill="none"/>
-                </pattern>
-                <filter id="wm-drop">
-                  <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#000" flood-opacity="0.7"/>
+                <filter id="wm-drop2">
+                  <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000" flood-opacity="0.55"/>
                 </filter>
               </defs>
-              <rect width="600" height="400" fill="url(#wm-ocean)"/>
-              <rect width="600" height="400" fill="url(#wm-wave)" opacity="0.45"/>
-              <path d="M62,82 C70,68 74,60 78,55 L168,26 L296,20 L418,26 L516,58 C524,68 528,96 530,116 L540,170 L532,248 L490,322 L406,360 L275,370 L150,358 L95,310 C70,285 62,215 65,190 Z"
-                fill="#080e16" filter="url(#wm-drop)"/>
-              ${regionsSVG}
-              <g stroke="#2a3140" stroke-width="0.9" stroke-dasharray="4,3" opacity="0.6">
-                <line x1="95" y1="120" x2="280" y2="118"/>
-                <line x1="108" y1="258" x2="285" y2="262"/>
+
+              <!-- Ocean -->
+              <rect width="600" height="315" fill="url(#wm-ocean2)"/>
+
+              <!-- Graticule -->
+              <g stroke="#0d1e32" stroke-width="0.4" opacity="0.8">
+                <line x1="50"  y1="0" x2="50"  y2="315"/>
+                <line x1="100" y1="0" x2="100" y2="315"/>
+                <line x1="150" y1="0" x2="150" y2="315"/>
+                <line x1="200" y1="0" x2="200" y2="315"/>
+                <line x1="250" y1="0" x2="250" y2="315"/>
+                <line x1="300" y1="0" x2="300" y2="315"/>
+                <line x1="350" y1="0" x2="350" y2="315"/>
+                <line x1="400" y1="0" x2="400" y2="315"/>
+                <line x1="450" y1="0" x2="450" y2="315"/>
+                <line x1="500" y1="0" x2="500" y2="315"/>
+                <line x1="550" y1="0" x2="550" y2="315"/>
+                <line x1="0" y1="44"  x2="600" y2="44"/>
+                <line x1="0" y1="121" x2="600" y2="121"/>
+                <line x1="0" y1="177" x2="600" y2="177"/>
+                <line x1="0" y1="233" x2="600" y2="233"/>
+                <line x1="0" y1="288" x2="600" y2="288"/>
               </g>
-              <text x="22" y="392" font-size="8" font-weight="800" fill="#3fb950" font-family="monospace" opacity="0.55">BULLORIA</text>
-              <text x="504" y="392" font-size="8" font-weight="800" fill="#f85149" font-family="monospace" opacity="0.55">BEARHEIM</text>
-              <rect x="0" y="0" width="600" height="22" fill="#0d1117" opacity="0.88"/>
-              <text x="300" y="14" text-anchor="middle" font-size="9" font-weight="800"
-                fill="${overallColor}" font-family="monospace" letter-spacing="1.8">${overallLabel}  ·  BULL ${bullPct}%  vs  BEAR ${bearPct}%</text>
+
+              <!-- Equator label -->
+              <text x="4" y="175" font-size="5" fill="#1a3050" font-family="monospace">EQ</text>
+
+              <!-- Tropics (dashed) -->
+              <g stroke="#0e2038" stroke-width="0.5" stroke-dasharray="3,5" opacity="0.7">
+                <line x1="0" y1="122" x2="600" y2="122"/>
+                <line x1="0" y1="229" x2="600" y2="229"/>
+              </g>
+
+              <!-- Antarctica strip -->
+              <rect x="0" y="300" width="600" height="15" fill="#0d1824" opacity="0.7"/>
+
+              <!-- Decorative continents (grey, no sector) -->
+              ${decoContSVG}
+
+              <!-- Sector regions (colored by bull/bear data) -->
+              ${regionsSVG}
+
+              <!-- Crypto zone extra pulse ring -->
+              <circle cx="560" cy="145" r="55" fill="none" stroke="${cryptoPulseStroke}" stroke-width="0.3" opacity="0.12" stroke-dasharray="1,6"/>
+
+              <!-- Compass rose -->
+              <g transform="translate(584,30)" opacity="0.4">
+                <line x1="0" y1="-12" x2="0" y2="12" stroke="#3a4a5a" stroke-width="1"/>
+                <line x1="-12" y1="0" x2="12" y2="0" stroke="#3a4a5a" stroke-width="1"/>
+                <polygon points="0,-12 -2.5,-5 0,-7 2.5,-5" fill="#c9d1d9"/>
+                <text x="0" y="-14" text-anchor="middle" font-size="6" fill="#6e7681" font-family="monospace">N</text>
+              </g>
+
+              <!-- Status bar -->
+              <rect x="0" y="0" width="600" height="20" fill="#0d1117" opacity="0.9"/>
+              <text x="300" y="13" text-anchor="middle" font-size="8.5" font-weight="800"
+                fill="${overallColor}" font-family="monospace" letter-spacing="1.5">${overallLabel}  ·  BULL ${bullPct}%  vs  BEAR ${bearPct}%</text>
             </svg>
           </div>
         </div>`;
 
-      return warRoomHTML + frontlineHTML + cardsHTML + logHTML + svgHTML;
+      return warRoomHTML + svgHTML + frontlineHTML + cardsHTML + logHTML;
     }
 
     function showHumanCommentToast() {
