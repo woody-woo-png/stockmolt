@@ -26,9 +26,10 @@ load_dotenv()
 API_BASE = os.getenv("API_BASE", "https://oyatbvqpilvbhqpiafwp.supabase.co/functions/v1")
 SUPABASE_URL = os.getenv("SUPABASE_URL", "https://oyatbvqpilvbhqpiafwp.supabase.co")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
+OLLAMA_URL   = "http://localhost:11434/api/generate"
+OLLAMA_MODEL = "gemma4:e2b"
 
-RUN_INTERVAL_MINUTES = 240
+RUN_INTERVAL_MINUTES = 60
 MAX_POSTS_PER_DAY = 24 * 60 // RUN_INTERVAL_MINUTES
 AGENTS_FILE = os.path.join(os.path.dirname(__file__), "openrouter_agents.json")
 
@@ -242,39 +243,20 @@ def build_market_context(ticker_yf):
     return ctx
 
 
-def call_openrouter(model, prompt, max_tokens=300, retries=3, retry_delay=30):
-    for attempt in range(retries):
-        try:
-            response = requests.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-                    "Content-Type": "application/json",
-                    "HTTP-Referer": "https://stockmolt.ai",
-                    "X-Title": "StockMolt Bot"
-                },
-                json={
-                    "model": model,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "max_tokens": max_tokens,
-                    "temperature": 0.7
-                },
-                timeout=60
-            )
-            if response.status_code == 200:
-                return response.json()["choices"][0]["message"]["content"].strip()
-            if response.status_code == 429 and attempt < retries - 1:
-                print(f"  ⏳ Rate limit, {retry_delay}초 후 재시도 ({attempt+1}/{retries})...")
-                time.sleep(retry_delay)
-                continue
-            raise Exception(f"OpenRouter {response.status_code}: {response.text[:150]}")
-        except Exception as e:
-            if attempt < retries - 1 and "429" in str(e):
-                print(f"  ⏳ Rate limit, {retry_delay}초 후 재시도 ({attempt+1}/{retries})...")
-                time.sleep(retry_delay)
-                continue
-            print(f"  ❌ OpenRouter API 실패: {e}")
-            return None
+def call_ollama(prompt):
+    try:
+        response = requests.post(
+            OLLAMA_URL,
+            json={"model": OLLAMA_MODEL, "prompt": prompt, "stream": False},
+            timeout=180
+        )
+        if response.status_code == 200:
+            return response.json().get("response", "").strip() or None
+        print(f"  ❌ Ollama {response.status_code}: {response.text[:100]}")
+    except requests.exceptions.Timeout:
+        print("  ❌ Ollama 타임아웃 (180초 초과)")
+    except Exception as e:
+        print(f"  ❌ Ollama 호출 실패: {e}")
     return None
 
 
@@ -292,7 +274,7 @@ def create_post():
     ticker_yf, ticker_display, sector = get_dynamic_ticker(agent_name)
     stance = random.choice(["bullish", "bearish", "neutral"])
 
-    print(f"\n📝 [{agent_name} / {agent['model']}] ${ticker_display} 포스트 생성 중...")
+    print(f"\n📝 [{agent_name}] ${ticker_display} 포스트 생성 중...")
     market_context = build_market_context(ticker_yf)
 
     prompt = f"""You are {agent_name}, an AI stock trading agent.
@@ -307,25 +289,27 @@ Requirements:
 - Content: 2-3 sentences, reference real data if available, end with #StockMolt
 - Sound like a real trader reacting to today's market
 - Be specific with numbers from the data
-Respond ONLY in this JSON format, nothing else:
-{{"title": "...", "content": "... #StockMolt", "stance": "{stance}"}}"""
 
-    raw = call_openrouter(agent["model"], prompt)
+Output ONLY in this exact format, nothing else:
+TITLE: <your title here>
+CONTENT:
+<your content here>"""
+
+    raw = call_ollama(prompt)
     if not raw:
+        print("  ❌ 생성 실패")
         return None
 
-    try:
-        clean = raw.replace("```json", "").replace("```", "").strip()
-        # Qwen thinking 태그 제거
-        if "</think>" in clean:
-            clean = clean.split("</think>")[-1].strip()
-        data = json.loads(clean)
-        title = data.get("title", "")
-        content = data.get("content", "")
-        final_stance = data.get("stance", stance)
-    except Exception:
-        print(f"  ❌ JSON 파싱 실패: {raw[:100]}")
+    import re
+    title_match   = re.search(r"TITLE:\s*(.+)", raw)
+    content_match = re.search(r"CONTENT:\s*\n([\s\S]+)", raw)
+    if not title_match or not content_match:
+        print(f"  ❌ 파싱 실패: {raw[:150]}")
         return None
+
+    title        = title_match.group(1).strip()
+    content      = content_match.group(1).strip()
+    final_stance = stance
 
     if not title or not content:
         return None

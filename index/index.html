@@ -4600,14 +4600,12 @@
 
     const WAR_SECTORS = [
       { key: 'US',          name: 'Golden Plains',   icon: '🌾', subtitle: 'US Stocks' },
-      { key: 'KRX',         name: 'Eastern Reaches', icon: '🏯', subtitle: 'Eastern Markets' },
       { key: 'Crypto',      name: 'Crypto Badlands', icon: '⚡', subtitle: 'Crypto' },
       { key: 'Commodities', name: 'Ancient Mines',   icon: '⛏️', subtitle: 'Gold / Oil' },
     ];
 
     const WAR_SECTORS_V2 = [
       { key: 'US',          name: 'Golden Plains',   icon: '🌾', subtitle: 'US Stocks' },
-      { key: 'KRX',         name: 'Eastern Reaches', icon: '🏯', subtitle: 'Eastern Markets' },
       { key: 'Crypto',      name: 'Crypto Badlands', icon: '⚡', subtitle: 'Crypto' },
       { key: 'Commodities', name: 'Ancient Mines',   icon: '⛏️', subtitle: 'Gold / Oil' },
       { key: 'BondsFX',     name: 'Bond Citadel',    icon: '🏰', subtitle: 'Bonds / Dollar' },
@@ -4720,7 +4718,6 @@
       const REGIONS = [
         { key:'Crypto',      poly:'62,82 78,55 108,40 168,26 228,18 296,20 368,18 418,26 462,40 516,58 526,88 530,116 480,122 422,106 385,114 340,106 280,118 224,108 178,114 128,108 95,120',      cx:300, cy:72,  lw:114, name:'CRYPTO BADLANDS', sub:'Crypto'    },
         { key:'US',          poly:'62,82 95,120 128,108 178,114 224,108 280,118 285,262 210,280 145,268 108,258 65,190',                                                                              cx:172, cy:195, lw:102, name:'GOLDEN PLAINS',   sub:'US Stocks' },
-        { key:'KRX',         poly:'280,118 340,106 385,114 422,106 480,122 530,116 540,170 532,248 478,268 400,272 350,262 285,262',                                                                  cx:410, cy:192, lw:102, name:'EASTERN REACHES', sub:'KRX'       },
         { key:'Commodities', poly:'108,258 145,268 210,280 285,262 350,262 400,272 478,268 490,322 406,360 275,370 150,358 95,310',                                                                   cx:292, cy:322, lw:108, name:'ANCIENT MINES',   sub:'Gold / Oil' },
       ];
 
@@ -4784,9 +4781,7 @@
             <!-- Internal borders (dashed) -->
             <g stroke="#2a3140" stroke-width="0.9" stroke-dasharray="4,3" opacity="0.6">
               <line x1="95" y1="120" x2="280" y2="118"/>
-              <line x1="280" y1="118" x2="285" y2="262"/>
               <line x1="108" y1="258" x2="285" y2="262"/>
-              <line x1="285" y1="262" x2="462" y2="272"/>
             </g>
 
             <!-- Terrain: mountains in Ancient Mines -->
@@ -4800,12 +4795,6 @@
             <g fill="none" stroke="#2a3850" stroke-width="0.8" opacity="0.4">
               <polyline points="105,92 115,74 125,92"/>
               <polyline points="455,90 468,70 481,90"/>
-            </g>
-            <!-- Terrain: rice fields in Eastern Reaches -->
-            <g stroke="#1a3020" stroke-width="0.7" opacity="0.35">
-              <line x1="490" y1="195" x2="520" y2="195"/>
-              <line x1="490" y1="205" x2="520" y2="205"/>
-              <line x1="505" y1="188" x2="505" y2="212"/>
             </g>
             <!-- Terrain: wheat in Golden Plains -->
             <g stroke="#3a3010" stroke-width="0.7" opacity="0.35">
@@ -4915,7 +4904,6 @@
       const REGIONS = [
         { key:'Crypto',      poly:'62,82 78,55 108,40 168,26 228,18 296,20 368,18 418,26 462,40 516,58 526,88 530,116 480,122 422,106 385,114 340,106 280,118 224,108 178,114 128,108 95,120',      cx:300, cy:72,  lw:114, name:'CRYPTO BADLANDS', sub:'Crypto' },
         { key:'US',          poly:'62,82 95,120 128,108 178,114 224,108 280,118 285,262 210,280 145,268 108,258 65,190',                                                                              cx:172, cy:195, lw:102, name:'GOLDEN PLAINS',   sub:'US Stocks' },
-        { key:'KRX',         poly:'280,118 340,106 385,114 422,106 480,122 530,116 540,170 532,248 478,268 400,272 350,262 285,262',                                                                  cx:410, cy:192, lw:102, name:'EASTERN REACHES', sub:'KRX' },
         { key:'Commodities', poly:'108,258 145,268 210,280 285,262 350,262 400,272 478,268 490,322 406,360 275,370 150,358 95,310',                                                                   cx:292, cy:322, lw:108, name:'ANCIENT MINES',   sub:'Gold / Oil' },
         { key:'BondsFX',     poly:'500,286 530,280 554,292 560,322 548,348 520,356 492,340 488,312',                                                                                                   cx:524, cy:319, lw:84,  name:'BOND CITADEL',    sub:'Bonds / FX' },
       ];
@@ -5061,9 +5049,7 @@
               ${regionsSVG}
               <g stroke="#2a3140" stroke-width="0.9" stroke-dasharray="4,3" opacity="0.6">
                 <line x1="95" y1="120" x2="280" y2="118"/>
-                <line x1="280" y1="118" x2="285" y2="262"/>
                 <line x1="108" y1="258" x2="285" y2="262"/>
-                <line x1="285" y1="262" x2="462" y2="272"/>
               </g>
               <text x="22" y="392" font-size="8" font-weight="800" fill="#3fb950" font-family="monospace" opacity="0.55">BULLORIA</text>
               <text x="504" y="392" font-size="8" font-weight="800" fill="#f85149" font-family="monospace" opacity="0.55">BEARHEIM</text>
