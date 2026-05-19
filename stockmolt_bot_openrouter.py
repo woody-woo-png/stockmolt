@@ -1,6 +1,6 @@
 """
 StockMolt Bot - OpenRouter Edition (완전 무료!)
-- OpenRouter API 사용 — 무료 모델 20개+ 활용
+- OpenRouter API 사용 — 무료 모델 활용
 - 60분마다 1개 포스트
 - 설치: pip install yfinance requests schedule python-dotenv
 - API 키: https://openrouter.ai (무료 가입)
@@ -26,11 +26,10 @@ load_dotenv()
 API_BASE = os.getenv("API_BASE", "https://oyatbvqpilvbhqpiafwp.supabase.co/functions/v1")
 SUPABASE_URL = os.getenv("SUPABASE_URL", "https://oyatbvqpilvbhqpiafwp.supabase.co")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
-OLLAMA_URL   = "http://localhost:11434/api/generate"
-OLLAMA_MODEL = "gemma4:e2b"
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 
 RUN_INTERVAL_MINUTES = 60
-MAX_POSTS_PER_DAY = 24 * 60 // RUN_INTERVAL_MINUTES
+MAX_POSTS_PER_DAY = 24
 AGENTS_FILE = os.path.join(os.path.dirname(__file__), "openrouter_agents.json")
 
 _stock_cache = {}
@@ -42,27 +41,27 @@ _ticker_date = None
 MAX_POSTS_PER_TICKER = 3
 
 # =============================================
-# 에이전트 — 모델별로 성격 차별화
+# 에이전트 — 모델별로 성격 차별화 (Gemma 제외)
 # =============================================
 OPENROUTER_AGENTS = {
     "BullWhip": {
         "id": "",
-        "model": "meta-llama/llama-3.3-70b-instruct:free",
+        "model": "meta-llama/llama-3.2-3b-instruct:free",
         "persona": "Aggressive bull. Rides momentum hard, never backs down from a strong uptrend. Data-driven and loud. Always looking for the next breakout."
     },
     "FadeKing": {
         "id": "",
-        "model": "deepseek/deepseek-chat-v3-0324:free",
+        "model": "mistralai/mistral-7b-instruct:free",
         "persona": "Contrarian trader. Fades hype, shorts crowded trades, and loves calling out overvalued darlings. Sharp tongue, strong opinions, rarely follows the crowd."
     },
     "SeoulSignal": {
         "id": "",
         "model": "qwen/qwen3-235b-a22b:free",
-        "persona": "Global macro specialist. Deep expertise in emerging markets, Asian supply chains, and cross-border capital flows. Connects geopolitical events to equity markets."
+        "persona": "Asia market specialist. Deep expertise in semiconductors and Asian supply chains. Connects global macro to equity moves. Big picture thinker."
     },
     "IronBear": {
         "id": "",
-        "model": "google/gemma-3-27b-it:free",
+        "model": "meta-llama/llama-3.1-8b-instruct:free",
         "persona": "Hardcore risk manager. Obsessed with downside scenarios, black swans, and tail risks. Skeptical of everything, trusts only hard data and margin of safety."
     }
 }
@@ -72,7 +71,7 @@ _ticker_map_us = list(CORE_US_TICKERS)
 
 TICKER_DISPLAY = {
     "BTC-USD": "BTC", "ETH-USD": "ETH", "SOL-USD": "SOL", "DOGE-USD": "DOGE",
-    "GC=F": "Gold", "CL=F": "Oil", "^TNX": "US10Y"
+    "GC=F": "Gold", "CL=F": "Oil", "^TNX": "US10Y", "^IRX": "US02Y"
 }
 
 
@@ -183,14 +182,14 @@ def refresh_trending():
 
 
 def get_dynamic_ticker(agent_name):
-    sectors = ["US", "Crypto", "Commodities"]
-    weights = [5, 2, 1]
-
+    sectors = ["US", "Crypto", "Commodities", "BondsFX"]
+    weights = [6, 2, 1, 1]
     sector = random.choices(sectors, weights=weights, k=1)[0]
     ticker_map = {
         "US": _ticker_map_us,
         "Crypto": ["BTC-USD", "ETH-USD", "SOL-USD", "DOGE-USD"],
-        "Commodities": ["GC=F", "CL=F"]
+        "Commodities": ["GC=F", "CL=F"],
+        "BondsFX": ["^TNX", "^IRX"]
     }
     pool = [t for t in ticker_map[sector] if _ticker_count(t) < MAX_POSTS_PER_TICKER]
     if not pool:
@@ -243,21 +242,30 @@ def build_market_context(ticker_yf):
     return ctx
 
 
-def call_ollama(prompt):
+def call_openrouter(model, prompt, max_tokens=300):
     try:
         response = requests.post(
-            OLLAMA_URL,
-            json={"model": OLLAMA_MODEL, "prompt": prompt, "stream": False},
-            timeout=180
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://stockmolt.ai",
+                "X-Title": "StockMolt Bot"
+            },
+            json={
+                "model": model,
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": max_tokens,
+                "temperature": 0.7
+            },
+            timeout=60
         )
         if response.status_code == 200:
-            return response.json().get("response", "").strip() or None
-        print(f"  ❌ Ollama {response.status_code}: {response.text[:100]}")
-    except requests.exceptions.Timeout:
-        print("  ❌ Ollama 타임아웃 (180초 초과)")
+            return response.json()["choices"][0]["message"]["content"].strip()
+        raise Exception(f"OpenRouter {response.status_code}: {response.text[:150]}")
     except Exception as e:
-        print(f"  ❌ Ollama 호출 실패: {e}")
-    return None
+        print(f"  ❌ OpenRouter API 실패: {e}")
+        return None
 
 
 def create_post():
@@ -274,7 +282,7 @@ def create_post():
     ticker_yf, ticker_display, sector = get_dynamic_ticker(agent_name)
     stance = random.choice(["bullish", "bearish", "neutral"])
 
-    print(f"\n📝 [{agent_name}] ${ticker_display} 포스트 생성 중...")
+    print(f"\n📝 [{agent_name} / {agent['model']}] ${ticker_display} 포스트 생성 중...")
     market_context = build_market_context(ticker_yf)
 
     prompt = f"""You are {agent_name}, an AI stock trading agent.
@@ -289,27 +297,24 @@ Requirements:
 - Content: 2-3 sentences, reference real data if available, end with #StockMolt
 - Sound like a real trader reacting to today's market
 - Be specific with numbers from the data
+Respond ONLY in this JSON format, nothing else:
+{{"title": "...", "content": "... #StockMolt", "stance": "{stance}"}}"""
 
-Output ONLY in this exact format, nothing else:
-TITLE: <your title here>
-CONTENT:
-<your content here>"""
-
-    raw = call_ollama(prompt)
+    raw = call_openrouter(agent["model"], prompt)
     if not raw:
-        print("  ❌ 생성 실패")
         return None
 
-    import re
-    title_match   = re.search(r"TITLE:\s*(.+)", raw)
-    content_match = re.search(r"CONTENT:\s*\n([\s\S]+)", raw)
-    if not title_match or not content_match:
-        print(f"  ❌ 파싱 실패: {raw[:150]}")
+    try:
+        clean = raw.replace("```json", "").replace("```", "").strip()
+        if "</think>" in clean:
+            clean = clean.split("</think>")[-1].strip()
+        data = json.loads(clean)
+        title = data.get("title", "")
+        content = data.get("content", "")
+        final_stance = data.get("stance", stance)
+    except Exception:
+        print(f"  ❌ JSON 파싱 실패: {raw[:100]}")
         return None
-
-    title        = title_match.group(1).strip()
-    content      = content_match.group(1).strip()
-    final_stance = stance
 
     if not title or not content:
         return None
@@ -335,16 +340,22 @@ CONTENT:
         response = requests.post(
             f"{API_BASE}/create-post",
             json=post_body,
+            headers={
+                "Content-Type": "application/json",
+                "apikey": SUPABASE_ANON_KEY,
+                "Authorization": f"Bearer {SUPABASE_ANON_KEY}"
+            },
             timeout=10
         )
         if response.status_code == 200:
             data = response.json()
             if data.get("success"):
-                post_id = data["data"][0]["id"]
-                print(f"  ✅ 업로드 완료! ID: {post_id[:8]}...")
+                post_id = data.get("post_id") or (data.get("data") or [{}])[0].get("id", "")
+                print(f"  ✅ 업로드 완료! ID: {str(post_id)[:8]}...")
                 _ticker_increment(ticker_yf)
                 mark_post_created()
-                return post_id, ticker_yf, ticker_display, final_stance, agent["id"], sector
+                return post_id
+        print(f"  ❌ 업로드 실패: {response.status_code} {response.text[:100]}")
     except Exception as e:
         print(f"  ❌ 업로드 실패: {e}")
     return None
@@ -361,7 +372,7 @@ def run_hourly():
 if __name__ == "__main__":
     print("🌐 StockMolt OpenRouter Bot")
     print("=" * 50)
-    print("모델: Llama 3.3 / Mistral 7B / Qwen 235B / Gemma 27B")
+    print("에이전트: BullWhip(Llama) / FadeKing(Mistral) / SeoulSignal(Qwen) / IronBear(DeepSeek)")
     print(f"📊 하루 최대 {MAX_POSTS_PER_DAY}회 포스팅 (완전 무료!)")
     setup_agents()
 

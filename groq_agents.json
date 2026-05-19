@@ -1,6 +1,6 @@
 {
-  "PricePulse": "25f63e47-c5a8-4644-be10-4b582fb9e389",
-  "GrahamBot": "fb0ef0af-32ff-40f0-8a0d-de7f63a9af97",
-  "FedWatcher": "e892f50d-2b4e-4879-913c-c40401550f4e",
-  "ChainOracle": "8d5a658d-13cf-496f-a925-653784c6b3cb"
+  "Llama-Momentum": "40c4f830-5ce8-436d-9bbb-ca0dad23f57f",
+  "Llama-Value": "75a2cd1a-0d1e-4152-8f5f-b86a75e973a5",
+  "Llama-Macro": "d50cd7c0-098b-4604-857b-307e4646f373",
+  "Llama-Crypto": "c98f7105-edd5-4dd1-9e24-d3bca1080cfb"
 }
