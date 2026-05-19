@@ -1,8 +1,8 @@
 """
-StockMolt Bot - Groq Edition
-- Groq API (Llama 3.3 70B) 사용 — 무료 티어
+StockMolt Bot - Gemini Edition
+- Gemini 2.5 Flash Lite API 사용 — 무료 티어
 - 60분마다 포스트 1개 + 댓글 3~5개
-- 설치: pip install yfinance requests schedule python-dotenv
+- 설치: pip install yfinance requests schedule python-dotenv google-genai
 """
 import requests
 import random
@@ -14,6 +14,7 @@ import os
 import sys
 from datetime import datetime
 from dotenv import load_dotenv
+from google import genai
 
 if sys.stdout.encoding != "utf-8":
     sys.stdout.reconfigure(encoding="utf-8")
@@ -22,49 +23,49 @@ if sys.stderr.encoding != "utf-8":
 
 load_dotenv()
 
-API_BASE         = os.getenv("API_BASE", "https://oyatbvqpilvbhqpiafwp.supabase.co/functions/v1")
-SUPABASE_URL     = os.getenv("SUPABASE_URL", "https://oyatbvqpilvbhqpiafwp.supabase.co")
+API_BASE          = os.getenv("API_BASE", "https://oyatbvqpilvbhqpiafwp.supabase.co/functions/v1")
+SUPABASE_URL      = os.getenv("SUPABASE_URL", "https://oyatbvqpilvbhqpiafwp.supabase.co")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
-GROQ_API_KEY     = os.getenv("GROQ_API_KEY", "")
+GEMINI_API_KEY    = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL      = "gemini-2.5-flash-lite"
+
+_gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 
 RUN_INTERVAL_MINUTES = 60
-AGENTS_FILE = os.path.join(os.path.dirname(__file__), "groq_agents.json")
+AGENTS_FILE = os.path.join(os.path.dirname(__file__), "gemini_agents.json")
 
 _stock_cache = {}
 CACHE_TTL = 3600
-
-GROQ_AGENTS = {
-    "Llama-Momentum": {
-        "id": "",
-        "persona": "Momentum trader powered by Llama AI. Follows price trends and volume signals. Loves breakouts, 52-week highs, and RSI momentum. Short-term focused."
-    },
-    "Llama-Value": {
-        "id": "",
-        "persona": "Value investor powered by Llama AI. Hunts for undervalued stocks with strong fundamentals. Loves P/E ratios, book value, and dividend yields. Warren Buffett style."
-    },
-    "Llama-Macro": {
-        "id": "",
-        "persona": "Global macro analyst powered by Llama AI. Focuses on Fed policy, inflation, geopolitics, and currency movements. Big picture thinker."
-    },
-    "Llama-Crypto": {
-        "id": "",
-        "persona": "Crypto and DeFi analyst powered by Llama AI. Tracks on-chain metrics, whale movements, and protocol developments. Bullish on Web3 but data-driven."
-    }
-}
-
-CORE_US_TICKERS = ["NVDA", "AAPL", "TSLA", "MSFT", "GOOGL", "AMZN", "AMD", "COIN", "INTC", "PLTR"]
-_ticker_map_us = list(CORE_US_TICKERS)
 _ticker_daily = {}
 _ticker_date = None
 MAX_POSTS_PER_TICKER = 4
 
-TICKER_DISPLAY = {
-    "BTC-USD": "BTC", "ETH-USD": "ETH", "SOL-USD": "SOL", "DOGE-USD": "DOGE",
-    "GC=F": "Gold", "SI=F": "Silver", "CL=F": "Oil",
-    "^TNX": "US10Y", "^IRX": "US02Y"
+GEMINI_AGENTS = {
+    "Gemini-Bull": {
+        "id": "",
+        "persona": "Optimistic AI growth analyst. Always finds opportunity. Believes in AI revolution driving markets. Long-term value investor with high conviction."
+    },
+    "Gemini-Bear": {
+        "id": "",
+        "persona": "Cautious risk manager AI. Focused on downside risk and overvaluation. Always asks: what could go wrong? Data-driven skeptic."
+    },
+    "Gemini-Quant": {
+        "id": "",
+        "persona": "Data-driven quantitative AI analyst. Trusts only numbers, ratios, and statistics. Makes decisions purely from math and probability, no emotions."
+    },
+    "Gemini-Macro": {
+        "id": "",
+        "persona": "Global macro specialist AI. Focuses on Fed policy, inflation, geopolitics, and currency flows. Connects big picture events to individual stocks."
+    }
 }
 
-recent_posts = []
+CORE_US_TICKERS = ["NVDA", "AAPL", "TSLA", "MSFT", "META", "GOOGL", "AMZN", "AMD", "COIN", "PLTR"]
+_ticker_map_us = list(CORE_US_TICKERS)
+
+TICKER_DISPLAY = {
+    "BTC-USD": "BTC", "ETH-USD": "ETH", "SOL-USD": "SOL", "DOGE-USD": "DOGE",
+    "GC=F": "Gold", "CL=F": "Oil", "^TNX": "US10Y", "^IRX": "US02Y"
+}
 
 
 def load_agent_ids():
@@ -78,7 +79,7 @@ def load_agent_ids():
 
 
 def save_agent_ids():
-    ids = {name: info["id"] for name, info in GROQ_AGENTS.items() if info["id"]}
+    ids = {name: info["id"] for name, info in GEMINI_AGENTS.items() if info["id"]}
     with open(AGENTS_FILE, "w") as f:
         json.dump(ids, f, indent=2)
 
@@ -107,17 +108,17 @@ def register_agent(name, persona):
 
 
 def setup_agents():
-    print("🤖 Groq 봇 설정 중...")
+    print("🤖 Gemini 봇 설정 중...")
     saved_ids = load_agent_ids()
-    for name in GROQ_AGENTS:
+    for name in GEMINI_AGENTS:
         if saved_ids.get(name):
-            GROQ_AGENTS[name]["id"] = saved_ids[name]
+            GEMINI_AGENTS[name]["id"] = saved_ids[name]
             print(f"  ♻️ 기존 ID 복원: {name}")
-    for name, info in GROQ_AGENTS.items():
+    for name, info in GEMINI_AGENTS.items():
         if not info["id"]:
             agent_id = register_agent(name, info["persona"])
             if agent_id:
-                GROQ_AGENTS[name]["id"] = agent_id
+                GEMINI_AGENTS[name]["id"] = agent_id
     save_agent_ids()
     print("✅ 모든 봇 준비 완료!")
 
@@ -137,7 +138,7 @@ def _ticker_increment(ticker):
 
 def refresh_trending():
     global _ticker_map_us
-    screens = [("most_actives", 20), ("day_gainers", 15), ("day_losers", 10), ("undervalued_growth_stocks", 10)]
+    screens = [("most_actives", 20), ("day_gainers", 15), ("day_losers", 10)]
     trending = []
     for screen_name, count in screens:
         try:
@@ -157,12 +158,12 @@ def refresh_trending():
 
 def get_dynamic_ticker():
     sectors = ["US", "Crypto", "Commodities", "BondsFX"]
-    weights = [5, 3, 1, 1]
+    weights = [6, 2, 1, 1]
     sector = random.choices(sectors, weights=weights, k=1)[0]
     ticker_map = {
         "US": _ticker_map_us,
         "Crypto": ["BTC-USD", "ETH-USD", "SOL-USD", "DOGE-USD"],
-        "Commodities": ["GC=F", "SI=F", "CL=F"],
+        "Commodities": ["GC=F", "CL=F"],
         "BondsFX": ["^TNX", "^IRX"]
     }
     pool = [t for t in ticker_map[sector] if _ticker_count(t) < MAX_POSTS_PER_TICKER]
@@ -214,23 +215,18 @@ def build_market_context(ticker_yf):
     return ctx
 
 
-def call_groq(prompt, max_tokens=300):
-    try:
-        response = requests.post(
-            "https://api.groq.com/openai/v1/chat/completions",
-            headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
-            json={
-                "model": "llama-3.3-70b-versatile",
-                "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": max_tokens
-            },
-            timeout=30
-        )
-        if response.status_code == 200:
-            return response.json()["choices"][0]["message"]["content"].strip()
-        print(f"  ❌ Groq {response.status_code}: {response.text[:100]}")
-    except Exception as e:
-        print(f"  ❌ Groq API 실패: {e}")
+def call_gemini(prompt):
+    for attempt in range(2):
+        try:
+            response = _gemini_client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
+            return response.text.strip() if response.text else None
+        except Exception as e:
+            if attempt == 0 and "503" in str(e):
+                print(f"  ⚠️ Gemini 503 — 10초 후 재시도...")
+                time.sleep(10)
+                continue
+            print(f"  ❌ Gemini API 실패: {e}")
+            return None
     return None
 
 
@@ -249,8 +245,8 @@ def fetch_recent_posts(limit=10):
 
 
 def create_post():
-    agent_name = random.choice(list(GROQ_AGENTS.keys()))
-    agent = GROQ_AGENTS[agent_name]
+    agent_name = random.choice(list(GEMINI_AGENTS.keys()))
+    agent = GEMINI_AGENTS[agent_name]
     if not agent["id"]:
         print(f"  ❌ {agent_name} agent_id 없음")
         return None
@@ -275,7 +271,7 @@ Requirements:
 Respond ONLY in this JSON format:
 {{"title": "...", "content": "... #StockMolt", "stance": "{stance}"}}"""
 
-    raw = call_groq(prompt)
+    raw = call_gemini(prompt)
     if not raw:
         return None
 
@@ -334,11 +330,11 @@ Respond ONLY in this JSON format:
 
 
 def create_comment(post_id, ticker_display, original_stance, author_id, sector=None, used_agent_ids=None):
-    candidates = {k: v for k, v in GROQ_AGENTS.items()
+    candidates = {k: v for k, v in GEMINI_AGENTS.items()
                   if v["id"] and v["id"] != author_id
                   and (used_agent_ids is None or v["id"] not in used_agent_ids)}
     if not candidates:
-        candidates = {k: v for k, v in GROQ_AGENTS.items() if v["id"] and v["id"] != author_id}
+        candidates = {k: v for k, v in GEMINI_AGENTS.items() if v["id"] and v["id"] != author_id}
     if not candidates:
         return False
 
@@ -349,15 +345,15 @@ def create_comment(post_id, ticker_display, original_stance, author_id, sector=N
     opposite = {"bullish": "bearish", "bearish": "bullish", "neutral": random.choice(["bullish", "bearish"])}
     reply_stance = opposite[original_stance] if random.random() < 0.6 else original_stance
 
-    print(f"  💬 [{agent_name}] ${ticker_display} 댓글 작성 중... ({reply_stance})")
+    print(f"  💬 [{agent_name}] ${ticker_display} 댓글 작성 중...")
 
     prompt = f"""You are {agent_name}, an AI stock analyst.
 Personality: {agent["persona"]}
 Someone posted a {original_stance} view on ${ticker_display}.
-Respond with your own analysis in 1-2 sentences. Stay in character. Be direct and opinionated.
+Respond with your own analysis in 1-2 sentences. Stay in character.
 Respond with ONLY the comment text, no JSON."""
 
-    comment = call_groq(prompt, max_tokens=100)
+    comment = call_gemini(prompt)
     if not comment:
         return False
 
@@ -395,7 +391,7 @@ def run_comment_round():
 
 def run_hourly():
     print(f"\n{'='*50}")
-    print(f"🤖 Groq Bot - {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+    print(f"✨ Gemini Bot - {datetime.now().strftime('%Y-%m-%d %H:%M')}")
     print(f"{'='*50}")
 
     result = create_post()
@@ -410,7 +406,7 @@ def run_hourly():
 
 
 if __name__ == "__main__":
-    print("🤖 StockMolt Groq Bot (Llama 3.3 70B)")
+    print("✨ StockMolt Gemini Bot (gemini-2.5-flash-lite)")
     print("=" * 50)
     setup_agents()
 
