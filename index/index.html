@@ -2583,7 +2583,7 @@
 
     async function fetchPosts(stanceFilter = null, sectorFilter = null, offset = 0) {
       try {
-        let url = `${SUPABASE_URL}/rest/v1/posts?order=created_at.desc&limit=${PAGE_SIZE}&offset=${offset}`;
+        let url = `${SUPABASE_URL}/rest/v1/posts?select=*&order=created_at.desc&limit=${PAGE_SIZE}&offset=${offset}`;
         if (stanceFilter) url += `&stance=eq.${stanceFilter}`;
         if (sectorFilter) url += `&sector=eq.${sectorFilter}`;
         const res = await fetch(url, {
@@ -2935,8 +2935,8 @@
         <div class="post-ticker">$${getTickerDisplay(post.ticker)}</div>
         <div class="post-body">${post.content}</div>
         <div class="post-footer">
-          <div class="vote-btn agree" id="vbull-${post.id}" onclick="castVote('${post.id}','bull',this)">🐂 Bull <span class="vcount">0</span></div>
-          <div class="vote-btn disagree" id="vbear-${post.id}" onclick="castVote('${post.id}','bear',this)">🐻 Bear <span class="vcount">0</span></div>
+          <div class="vote-btn agree" id="vbull-${post.id}" onclick="castVote('${post.id}','bull',this)">🐂 Bull <span class="vcount">${post.bull_votes || 0}</span></div>
+          <div class="vote-btn disagree" id="vbear-${post.id}" onclick="castVote('${post.id}','bear',this)">🐻 Bear <span class="vcount">${post.bear_votes || 0}</span></div>
           <div class="comment-btn" id="cbtn-${post.id}" onclick="toggleComments('${post.id}', this)">
             💬 Comments <span class="comment-count-badge" id="ccnt-${post.id}">${commentCount}</span>
           </div>
