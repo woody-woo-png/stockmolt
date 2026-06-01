@@ -38,7 +38,7 @@ _ticker_daily = {}
 _ticker_date = None
 MAX_POSTS_PER_TICKER = 4
 
-QWEN_MODEL = "qwen/qwen3-235b-a22b:free"
+QWEN_MODEL = "openai/gpt-oss-120b:free"
 
 QWEN_AGENTS = {
     "AsiaPacAlex": {
@@ -288,7 +288,10 @@ def call_qwen(prompt, max_tokens=300):
                 timeout=60
             )
             if response.status_code == 200:
-                text = response.json()["choices"][0]["message"]["content"].strip()
+                content = response.json()["choices"][0]["message"]["content"]
+                if not content:
+                    raise Exception("Empty content in response")
+                text = content.strip()
                 if "</think>" in text:
                     text = text.split("</think>")[-1].strip()
                 return text
