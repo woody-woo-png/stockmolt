@@ -49,7 +49,7 @@
 const SUPABASE_URL = 'YOUR_SUPABASE_URL';
 const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
 
-// URL 파라미터에서 ticker 추출
+// Extract ticker from URL parameters
 const params = new URLSearchParams(window.location.search);
 const ticker = params.get('ticker') ? params.get('ticker').toUpperCase() : null;
 
@@ -100,7 +100,7 @@ async function loadWidget() {
 }
 
 loadWidget();
-// 5분마다 자동 갱신
+// Auto-refresh every 5 minutes
 setInterval(loadWidget, 300000);
 </script>
 </body>

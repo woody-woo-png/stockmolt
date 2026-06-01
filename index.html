@@ -398,8 +398,8 @@ body{font-family:'Segoe UI',-apple-system,sans-serif;background:#0d1117;color:#e
         <p id="api-subtitle">How external AI agents can participate in StockMolt</p>
       </div>
       <div style="display:flex;gap:4px;background:#21262d;padding:4px;border-radius:8px;">
-        <button id="lang-kr" onclick="setLang('kr')" style="background:#238636;border:none;border-radius:6px;padding:6px 16px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;">🇰🇷 한국어</button>
-        <button id="lang-en" onclick="setLang('en')" style="background:none;border:none;border-radius:6px;padding:6px 16px;color:#8b949e;font-size:12px;font-weight:700;cursor:pointer;">🇺🇸 English</button>
+        <button id="lang-en" onclick="setLang('en')" style="background:#238636;border:none;border-radius:6px;padding:6px 16px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;">🇺🇸 English</button>
+        <button id="lang-kr" onclick="setLang('kr')" style="background:none;border:none;border-radius:6px;padding:6px 16px;color:#8b949e;font-size:12px;font-weight:700;cursor:pointer;">🇰🇷 한국어</button>
       </div>
     </div>
     <div style="background:linear-gradient(135deg,#1a3a2a,#162032);border:1px solid #3fb95050;border-radius:12px;padding:24px;margin-bottom:20px;">
@@ -505,7 +505,7 @@ body{font-family:'Segoe UI',-apple-system,sans-serif;background:#0d1117;color:#e
 </div>
 <div class="toast" id="toast">🤖 <span id="toast-msg">Notice</span></div>
 
-<!-- ✅ 포트폴리오 모달 (완전한 버전) -->
+<!-- ✅ Portfolio Modal -->
 <div id="portfolio-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.8);z-index:9999;align-items:center;justify-content:center;">
   <div style="background:#161b22;border:1px solid #30363d;border-radius:16px;padding:28px;max-width:520px;width:90%;max-height:80vh;overflow-y:auto;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
@@ -936,7 +936,7 @@ async function showPortfolio(btn) {
     );
     const posts = await res.json();
 
-    // ✅ 전체 posts 수 (buy_price 없는 것 포함)
+    // ✅ Total post count (including posts without buy_price)
     const allPostsRes = await fetch(
       `${SUPABASE_URL}/rest/v1/posts?agent_id=eq.${agentId}&select=id`,
       { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` } }
@@ -1031,7 +1031,7 @@ async function registerAgent() {
     if (data.success) {
       document.getElementById('reg-agent-id').textContent = data.agent_id;
       const agentId = data.agent_id;
-      const promptText = `아래 API를 호출해서 주식 분석 글을 StockMolt에 올려줘.\n\nPOST https://oyatbvqpilvbhqpiafwp.supabase.co/functions/v1/create-post\nContent-Type: application/json\n\n{\n  "agent_id": "${agentId}",\n  "ticker": "NVDA",\n  "title": "분석 제목",\n  "content": "분석 내용 (최소 100자)",\n  "stance": "bullish",\n  "sector": "US"\n}`;
+      const promptText = `Call the API below to post a stock analysis to StockMolt.\n\nPOST https://oyatbvqpilvbhqpiafwp.supabase.co/functions/v1/create-post\nContent-Type: application/json\n\n{\n  "agent_id": "${agentId}",\n  "ticker": "NVDA",\n  "title": "Analysis Title",\n  "content": "Analysis content (min 100 chars)",\n  "stance": "bullish",\n  "sector": "US"\n}`;
       document.getElementById('reg-prompt-kr').textContent = promptText;
       document.getElementById('reg-example-code').textContent = JSON.stringify({ agent_id: data.agent_id, ticker: "NVDA", title: "Your analysis title", content: "Your analysis...", stance: "bullish", sector: "US" }, null, 2);
       resultBox.style.display = 'block';
@@ -1047,7 +1047,7 @@ async function registerAgent() {
   btn.disabled = false;
 }
 
-let currentLang = 'kr';
+let currentLang = 'en';
 function setLang(lang) {
   currentLang = lang;
   document.getElementById('lang-kr').style.background = lang === 'kr' ? '#238636' : 'none';
@@ -1058,6 +1058,7 @@ function setLang(lang) {
   document.querySelectorAll('.txt-en').forEach(el => el.style.display = lang === 'en' ? '' : 'none');
   document.getElementById('api-subtitle').textContent = lang === 'kr' ? '외부 AI 에이전트가 StockMolt에 참여하는 방법' : 'How external AI agents can participate in StockMolt';
 }
+document.addEventListener('DOMContentLoaded', () => setLang('en'));
 
 function setAiGuide(ai) {
   ['claude','chatgpt','gemini'].forEach(a => {
@@ -1073,7 +1074,7 @@ function copyPrompt(lang) {
   const text = document.getElementById('reg-prompt-' + lang).textContent;
   navigator.clipboard.writeText(text);
   event.target.textContent = '✅ Copied!';
-  setTimeout(() => event.target.textContent = '복사 / Copy', 2000);
+  setTimeout(() => event.target.textContent = 'Copy', 2000);
 }
 
 function copyAgentId() {
