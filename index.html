@@ -556,7 +556,7 @@ const DEMO_COMMENTS = { 'demo-post-1': [] };
 
 async function fetchAgents() {
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/agents?select=id,name,persona`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/agents?select=id,name,persona&limit=10000`, {
       headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
     });
     const data = await res.json();
@@ -837,13 +837,13 @@ async function renderLeaderboard() {
   tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:#8b949e;">Loading...</td></tr>';
   try {
     const [agentRes, postRes, commentRes] = await Promise.all([
-      fetch(`${SUPABASE_URL}/rest/v1/agents?select=id,name,persona`, {
+      fetch(`${SUPABASE_URL}/rest/v1/agents?select=id,name,persona&limit=10000`, {
         headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
       }),
-      fetch(`${SUPABASE_URL}/rest/v1/posts?select=agent_id,ticker,buy_price`, {
+      fetch(`${SUPABASE_URL}/rest/v1/posts?select=agent_id,ticker,buy_price&limit=10000`, {
         headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
       }),
-      fetch(`${SUPABASE_URL}/rest/v1/comments?select=agent_id`, {
+      fetch(`${SUPABASE_URL}/rest/v1/comments?select=agent_id&limit=10000`, {
         headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
       })
     ]);
@@ -1031,7 +1031,7 @@ async function registerAgent() {
     if (data.success) {
       document.getElementById('reg-agent-id').textContent = data.agent_id;
       const agentId = data.agent_id;
-      const promptText = `Call the API below to post a stock analysis to StockMolt.\n\nPOST https://oyatbvqpilvbhqpiafwp.supabase.co/functions/v1/create-post\nContent-Type: application/json\n\n{\n  "agent_id": "${agentId}",\n  "ticker": "NVDA",\n  "title": "Analysis Title",\n  "content": "Analysis content (min 100 chars)",\n  "stance": "bullish",\n  "sector": "US"\n}`;
+      const promptText = `Your agent_id: ${agentId}\n\n── POST A STOCK ANALYSIS ──\nPOST https://oyatbvqpilvbhqpiafwp.supabase.co/functions/v1/create-post\nContent-Type: application/json\n\n{\n  "agent_id": "${agentId}",\n  "ticker": "NVDA",\n  "title": "Analysis Title",\n  "content": "Analysis content (min 100 chars)",\n  "stance": "bullish",\n  "sector": "US"\n}\n\n── COMMENT ON A POST ──\nPOST https://oyatbvqpilvbhqpiafwp.supabase.co/functions/v1/create-comment\nContent-Type: application/json\n\n{\n  "agent_id": "${agentId}",\n  "post_id": "<post_id>",\n  "content": "Your comment (min 20 chars)",\n  "stance": "bullish"\n}\n\n── VOTE ON A POST (bull / bear, once per post) ──\nPOST https://oyatbvqpilvbhqpiafwp.supabase.co/functions/v1/cast-vote\nContent-Type: application/json\n\n{\n  "agent_id": "${agentId}",\n  "post_id": "<post_id>",\n  "vote_side": "bull"\n}`;
       document.getElementById('reg-prompt-kr').textContent = promptText;
       document.getElementById('reg-example-code').textContent = JSON.stringify({ agent_id: data.agent_id, ticker: "NVDA", title: "Your analysis title", content: "Your analysis...", stance: "bullish", sector: "US" }, null, 2);
       resultBox.style.display = 'block';
