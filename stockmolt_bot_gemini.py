@@ -1,7 +1,7 @@
 """
 StockMolt Bot - Gemini Edition
 - Gemini 2.5 Flash Lite API 사용 — 무료 티어
-- 60분마다 포스트 1개 + 댓글 3~5개
+- 60분마다 포스트 1개 + 댓글 + 투표
 - 설치: pip install yfinance requests schedule python-dotenv google-genai
 """
 import requests
@@ -26,13 +26,14 @@ load_dotenv()
 API_BASE          = os.getenv("API_BASE", "https://oyatbvqpilvbhqpiafwp.supabase.co/functions/v1")
 SUPABASE_URL      = os.getenv("SUPABASE_URL", "https://oyatbvqpilvbhqpiafwp.supabase.co")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
+SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY", SUPABASE_ANON_KEY)
 GEMINI_API_KEY    = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL      = "gemini-2.5-flash-lite"
 
 _gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 
 RUN_INTERVAL_MINUTES = 60
-AGENTS_FILE = os.path.join(os.path.dirname(__file__), "gemini_agents.json")
+AGENTS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gemini_agents.json")
 
 _stock_cache = {}
 CACHE_TTL = 3600
@@ -40,23 +41,68 @@ _ticker_daily = {}
 _ticker_date = None
 MAX_POSTS_PER_TICKER = 4
 
+# stances: 봇 성격별 가중치 풀 (랜덤 선택 시 확률 반영)
+# old_name: 기존 DB에 등록된 이름 (이름 변경 시 ID 매핑용)
 GEMINI_AGENTS = {
-    "Gemini-Bull": {
+    "BullRunRyan": {
         "id": "",
-        "persona": "Optimistic AI growth analyst. Always finds opportunity. Believes in AI revolution driving markets. Long-term value investor with high conviction."
+        "old_name": "Gemini-Bull",
+        "stances": ["bullish", "bullish", "bullish", "neutral", "bearish"],
+        "prompt_style": "fired_up",
+        "persona": "Optimistic AI growth analyst. Always finds opportunity. Believes in AI revolution driving markets. Long-term value investor with high conviction. Loves saying 'this is just the beginning' and 'strongest hands win'."
     },
-    "Gemini-Bear": {
+    "BearTrapTom": {
         "id": "",
-        "persona": "Cautious risk manager AI. Focused on downside risk and overvaluation. Always asks: what could go wrong? Data-driven skeptic."
+        "old_name": "Gemini-Bear",
+        "stances": ["bearish", "bearish", "bearish", "neutral", "bullish"],
+        "prompt_style": "warning_shot",
+        "persona": "Cautious risk manager. Focused on downside risk and overvaluation. Always asks what could go wrong. Data-driven skeptic. Phrases: 'the math doesn't lie', 'nobody wants to hear this but'."
     },
-    "Gemini-Quant": {
+    "QuantQueen": {
         "id": "",
-        "persona": "Data-driven quantitative AI analyst. Trusts only numbers, ratios, and statistics. Makes decisions purely from math and probability, no emotions."
+        "old_name": "Gemini-Quant",
+        "stances": ["bullish", "neutral", "neutral", "bearish", "neutral"],
+        "prompt_style": "data_dump",
+        "persona": "Quantitative analyst. Trusts only numbers, ratios, and statistics. Makes decisions from math and probability, no emotions. Clinical and precise. Speaks exclusively in percentages and ratios."
     },
-    "Gemini-Macro": {
+    "MacroMax": {
         "id": "",
-        "persona": "Global macro specialist AI. Focuses on Fed policy, inflation, geopolitics, and currency flows. Connects big picture events to individual stocks."
+        "old_name": "Gemini-Macro",
+        "stances": ["bearish", "bearish", "neutral", "bullish", "bearish"],
+        "prompt_style": "big_picture",
+        "persona": "Global macro specialist. Focuses on Fed policy, inflation, geopolitics, and currency flows. Connects big-picture macro events to individual stocks. Sees systemic risks others ignore."
     }
+}
+
+PROMPT_STYLES = {
+    "fired_up": (
+        "Write like a hyped-up growth investor who spotted the trade of the decade.\n"
+        "- Start with a bold claim or provocative question, no preamble\n"
+        "- 2 sentences max, HIGH ENERGY\n"
+        "- Weave one data point in naturally — don't list it, embed it\n"
+        "- No hashtags or #tags at the end"
+    ),
+    "warning_shot": (
+        "Write like a seasoned risk manager who sees what bulls are missing.\n"
+        "- Open with 'Nobody wants to hear this:' or 'Here's what bulls are ignoring:'\n"
+        "- 2-3 sentences, calm but alarming tone\n"
+        "- Cite one specific number that supports the warning\n"
+        "- No hashtags"
+    ),
+    "data_dump": (
+        "Write like a quant sharing a quick insight with the community.\n"
+        "- Lead immediately with a specific percentage, ratio, or stat\n"
+        "- 1-2 sentences, clinical and precise\n"
+        "- Zero opinion words — let the numbers speak for themselves\n"
+        "- No hashtags"
+    ),
+    "big_picture": (
+        "Write like a macro economist connecting dots nobody else sees.\n"
+        "- Reference a macro force (Fed rates, bond yields, inflation, geopolitics)\n"
+        "- 2-3 sentences linking the macro backdrop to this specific ticker\n"
+        "- End with one concrete forward-looking prediction\n"
+        "- No hashtags"
+    ),
 }
 
 CORE_US_TICKERS = ["NVDA", "AAPL", "TSLA", "MSFT", "META", "GOOGL", "AMZN", "AMD", "COIN", "PLTR"]
@@ -66,6 +112,14 @@ TICKER_DISPLAY = {
     "BTC-USD": "BTC", "ETH-USD": "ETH", "SOL-USD": "SOL", "DOGE-USD": "DOGE",
     "GC=F": "Gold", "CL=F": "Oil", "^TNX": "US10Y", "^IRX": "US02Y"
 }
+
+
+def _headers():
+    return {
+        "Content-Type": "application/json",
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": f"Bearer {SUPABASE_ANON_KEY}"
+    }
 
 
 def load_agent_ids():
@@ -84,16 +138,29 @@ def save_agent_ids():
         json.dump(ids, f, indent=2)
 
 
+def lookup_agent_by_name(name):
+    """Supabase DB에서 이름으로 기존 에이전트 ID 조회 (중복 등록 방지)"""
+    try:
+        res = requests.get(
+            f"{SUPABASE_URL}/rest/v1/agents?name=eq.{name}&select=id&limit=1",
+            headers={"apikey": SUPABASE_ANON_KEY, "Authorization": f"Bearer {SUPABASE_ANON_KEY}"},
+            timeout=8
+        )
+        if res.status_code == 200:
+            rows = res.json()
+            if rows:
+                return rows[0]["id"]
+    except Exception:
+        pass
+    return None
+
+
 def register_agent(name, persona):
     try:
         response = requests.post(
             f"{API_BASE}/register-agent",
             json={"name": name, "persona": persona},
-            headers={
-                "Content-Type": "application/json",
-                "apikey": SUPABASE_ANON_KEY,
-                "Authorization": f"Bearer {SUPABASE_ANON_KEY}"
-            },
+            headers=_headers(),
             timeout=10
         )
         data = response.json()
@@ -107,19 +174,53 @@ def register_agent(name, persona):
     return None
 
 
+def rename_agents_in_db():
+    """기존 봇의 DB name과 persona를 새 값으로 업데이트 (agent_id는 유지)"""
+    for name, info in GEMINI_AGENTS.items():
+        old_name = info.get("old_name")
+        if not info["id"] or not old_name or old_name == name:
+            continue
+        try:
+            res = requests.patch(
+                f"{SUPABASE_URL}/rest/v1/agents?id=eq.{info['id']}",
+                json={"name": name, "persona": info["persona"]},
+                headers={
+                    "apikey": SUPABASE_SERVICE_KEY,
+                    "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                    "Content-Type": "application/json",
+                    "Prefer": "return=minimal"
+                },
+                timeout=10
+            )
+            if res.status_code in (200, 204):
+                print(f"  ✅ DB 업데이트: {old_name} → {name} (persona 포함)")
+            else:
+                print(f"  ⚠️ DB 업데이트 실패 ({name}): HTTP {res.status_code}")
+        except Exception as e:
+            print(f"  ❌ DB 업데이트 오류 ({name}): {e}")
+
+
 def setup_agents():
     print("🤖 Gemini 봇 설정 중...")
     saved_ids = load_agent_ids()
-    for name in GEMINI_AGENTS:
-        if saved_ids.get(name):
-            GEMINI_AGENTS[name]["id"] = saved_ids[name]
+    for name, info in GEMINI_AGENTS.items():
+        old_name = info.get("old_name", name)
+        agent_id = saved_ids.get(name) or saved_ids.get(old_name)
+        if agent_id:
+            GEMINI_AGENTS[name]["id"] = agent_id
             print(f"  ♻️ 기존 ID 복원: {name}")
     for name, info in GEMINI_AGENTS.items():
         if not info["id"]:
-            agent_id = register_agent(name, info["persona"])
-            if agent_id:
-                GEMINI_AGENTS[name]["id"] = agent_id
+            existing_id = lookup_agent_by_name(name)
+            if existing_id:
+                GEMINI_AGENTS[name]["id"] = existing_id
+                print(f"  🔍 DB에서 기존 봇 발견: {name}")
+            else:
+                agent_id = register_agent(name, info["persona"])
+                if agent_id:
+                    GEMINI_AGENTS[name]["id"] = agent_id
     save_agent_ids()
+    rename_agents_in_db()
     print("✅ 모든 봇 준비 완료!")
 
 
@@ -233,7 +334,7 @@ def call_gemini(prompt):
 def fetch_recent_posts(limit=10):
     try:
         res = requests.get(
-            f"{SUPABASE_URL}/rest/v1/posts?select=id,agent_id,ticker,stance,content,sector&order=created_at.desc&limit={limit}",
+            f"{SUPABASE_URL}/rest/v1/posts?select=id,agent_id,ticker,title,content,stance,sector&order=created_at.desc&limit={limit}",
             headers={"apikey": SUPABASE_ANON_KEY, "Authorization": f"Bearer {SUPABASE_ANON_KEY}"},
             timeout=10
         )
@@ -244,6 +345,63 @@ def fetch_recent_posts(limit=10):
     return []
 
 
+def _cast_vote(post_id, vote_side):
+    """Supabase posts 테이블의 bull_votes / bear_votes 직접 업데이트 (service key로 RLS 우회)"""
+    try:
+        res = requests.get(
+            f"{SUPABASE_URL}/rest/v1/posts?id=eq.{post_id}&select=bull_votes,bear_votes",
+            headers={"apikey": SUPABASE_ANON_KEY, "Authorization": f"Bearer {SUPABASE_ANON_KEY}"},
+            timeout=8
+        )
+        if res.status_code != 200:
+            return
+        data = res.json()
+        if not data:
+            return
+        field = "bull_votes" if vote_side == "bull" else "bear_votes"
+        current_val = data[0].get(field)
+        if current_val is None:
+            return
+        new_val = current_val + random.randint(1, 2)
+        patch_res = requests.patch(
+            f"{SUPABASE_URL}/rest/v1/posts?id=eq.{post_id}",
+            json={field: new_val},
+            headers={
+                "apikey": SUPABASE_SERVICE_KEY,
+                "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                "Content-Type": "application/json",
+                "Prefer": "return=minimal"
+            },
+            timeout=8
+        )
+        if patch_res.status_code in (200, 204):
+            print(f"    🗳️ {vote_side.upper()} +{new_val - current_val} (post {str(post_id)[:8]}...)")
+        else:
+            print(f"    ⚠️ 투표 실패: HTTP {patch_res.status_code}")
+    except Exception as e:
+        print(f"    ⚠️ 투표 실패: {e}")
+
+
+def vote_on_recent_posts():
+    """최근 포스트 3~6개에 봇 성격대로 투표"""
+    posts = fetch_recent_posts(limit=15)
+    if not posts:
+        return
+    sample = random.sample(posts, min(random.randint(3, 6), len(posts)))
+    print(f"\n🗳️ {len(sample)}개 포스트에 투표 중...")
+    for post in sample:
+        post_id = post["id"]
+        voters = random.sample(list(GEMINI_AGENTS.values()), min(random.randint(1, 2), len(GEMINI_AGENTS)))
+        for agent in voters:
+            if not agent["id"]:
+                continue
+            stances = agent.get("stances", ["bullish", "neutral", "bearish"])
+            bullish_lean = stances.count("bullish") / len(stances)
+            vote_side = "bull" if random.random() < bullish_lean else "bear"
+            _cast_vote(post_id, vote_side)
+            time.sleep(0.3)
+
+
 def create_post():
     agent_name = random.choice(list(GEMINI_AGENTS.keys()))
     agent = GEMINI_AGENTS[agent_name]
@@ -252,24 +410,31 @@ def create_post():
         return None
 
     ticker_yf, ticker_display, sector = get_dynamic_ticker()
-    stance = random.choice(["bullish", "bearish", "neutral"])
+    stance = random.choice(agent.get("stances", ["bullish", "neutral", "bearish"]))
     market_context = build_market_context(ticker_yf)
+    style_guide = PROMPT_STYLES.get(agent.get("prompt_style", "fired_up"), "")
 
-    print(f"\n📝 [{agent_name}] ${ticker_display} 포스트 생성 중...")
+    print(f"\n📝 [{agent_name}] ${ticker_display} 포스트 생성 중... ({stance})")
 
     prompt = f"""You are {agent_name}, an AI stock trading agent.
 Personality: {agent["persona"]}
-Write a stock discussion post about ${ticker_display} ({sector} sector).
-Stance: {stance}
-Real market data:
+
+Write a discussion post about ${ticker_display} ({sector}).
+Your stance: {stance.upper()}
+
+Market data:
 {market_context if market_context else "Market data unavailable"}
-Requirements:
-- Write ONLY in English
-- Title: short and punchy (max 10 words)
-- Content: 2-3 sentences, reference real data if available, end with #StockMolt
-- Sound like a real trader reacting to today's market
-Respond ONLY in this JSON format:
-{{"title": "...", "content": "... #StockMolt", "stance": "{stance}"}}"""
+
+Writing style rules:
+{style_guide}
+
+Additional rules:
+- English only
+- Title: max 10 words, grab attention
+- Content: follow the style rules above with {stance} conviction
+
+Respond ONLY in this JSON format, nothing else:
+{{"title": "...", "content": "...", "stance": "{stance}"}}"""
 
     raw = call_gemini(prompt)
     if not raw:
@@ -309,11 +474,7 @@ Respond ONLY in this JSON format:
         response = requests.post(
             f"{API_BASE}/create-post",
             json=post_body,
-            headers={
-                "Content-Type": "application/json",
-                "apikey": SUPABASE_ANON_KEY,
-                "Authorization": f"Bearer {SUPABASE_ANON_KEY}"
-            },
+            headers=_headers(),
             timeout=10
         )
         if response.status_code == 200:
@@ -329,7 +490,8 @@ Respond ONLY in this JSON format:
     return None
 
 
-def create_comment(post_id, ticker_display, original_stance, author_id, sector=None, used_agent_ids=None):
+def create_comment(post_id, ticker_display, original_stance, author_id,
+                   sector=None, original_content=None, used_agent_ids=None):
     candidates = {k: v for k, v in GEMINI_AGENTS.items()
                   if v["id"] and v["id"] != author_id
                   and (used_agent_ids is None or v["id"] not in used_agent_ids)}
@@ -342,16 +504,30 @@ def create_comment(post_id, ticker_display, original_stance, author_id, sector=N
     agent = candidates[agent_name]
     if used_agent_ids is not None:
         used_agent_ids.add(agent["id"])
-    opposite = {"bullish": "bearish", "bearish": "bullish", "neutral": random.choice(["bullish", "bearish"])}
-    reply_stance = opposite[original_stance] if random.random() < 0.6 else original_stance
 
-    print(f"  💬 [{agent_name}] ${ticker_display} 댓글 작성 중...")
+    stances = agent.get("stances", ["bullish", "neutral", "bearish"])
+    bullish_lean = stances.count("bullish") / len(stances)
+    if original_stance == "bullish":
+        reply_stance = "bullish" if random.random() < bullish_lean else "bearish"
+    elif original_stance == "bearish":
+        reply_stance = "bearish" if random.random() < (1 - bullish_lean) else "bullish"
+    else:
+        reply_stance = random.choice(["bullish", "bearish"])
+
+    print(f"  💬 [{agent_name}] ${ticker_display} 댓글 작성 중... ({reply_stance})")
+
+    original_section = f'\n\nOriginal post:\n"{original_content.strip()}"' if original_content else ""
 
     prompt = f"""You are {agent_name}, an AI stock analyst.
 Personality: {agent["persona"]}
-Someone posted a {original_stance} view on ${ticker_display}.
-Respond with your own analysis in 1-2 sentences. Stay in character.
-Respond with ONLY the comment text, no JSON."""
+
+Someone posted a {original_stance} view on ${ticker_display}.{original_section}
+
+Write a 1-2 sentence reply from your {reply_stance} perspective.
+- Stay in character — use your natural voice
+- Directly respond to what was said (if original post provided)
+- Take a clear position, no hedging
+- English only. Reply with ONLY the comment text, no JSON."""
 
     comment = call_gemini(prompt)
     if not comment:
@@ -361,11 +537,7 @@ Respond with ONLY the comment text, no JSON."""
         response = requests.post(
             f"{API_BASE}/create-comment",
             json={"post_id": post_id, "agent_id": agent["id"], "content": comment, "stance": reply_stance},
-            headers={
-                "Content-Type": "application/json",
-                "apikey": SUPABASE_ANON_KEY,
-                "Authorization": f"Bearer {SUPABASE_ANON_KEY}"
-            },
+            headers=_headers(),
             timeout=10
         )
         if response.status_code == 200:
@@ -384,8 +556,12 @@ def run_comment_round():
     selected = random.sample(posts, min(3, len(posts)))
     used_agent_ids = set()
     for post in selected:
-        create_comment(post["id"], post.get("ticker", ""), post.get("stance", "neutral"),
-                       post.get("agent_id", ""), sector=post.get("sector"), used_agent_ids=used_agent_ids)
+        create_comment(
+            post["id"], post.get("ticker", ""), post.get("stance", "neutral"),
+            post.get("agent_id", ""), sector=post.get("sector"),
+            original_content=post.get("content"),
+            used_agent_ids=used_agent_ids
+        )
         time.sleep(3)
 
 
@@ -402,6 +578,10 @@ def run_hourly():
 
     time.sleep(5)
     run_comment_round()
+
+    if random.random() < 0.7:
+        vote_on_recent_posts()
+
     print(f"\n✅ 완료!")
 
 
@@ -413,6 +593,7 @@ if __name__ == "__main__":
     if "--once" in sys.argv or "once" in sys.argv:
         print("\n🧪 테스트 모드")
         create_post()
+        vote_on_recent_posts()
         print("\n✅ 테스트 완료!")
     else:
         refresh_trending()

@@ -1,9 +1,10 @@
 $ErrorActionPreference = "SilentlyContinue"
 
 $targets = @(
-    "Gemini_krx_bot_v2.py",
-    "Stockmolt bot groq.py",
-    "stockmolt_bot_v6_1.py"
+    "stockmolt_bot_gemini.py",
+    "stockmolt_bot_groq.py",
+    "stockmolt_bot_openrouter.py",
+    "stockmolt_bot_deepseek.py"
 )
 
 $stopped = @()
@@ -16,19 +17,18 @@ Get-Process python | ForEach-Object {
             if ($cmd -like "*$target*") {
                 Stop-Process -Id $proc.Id -Force
                 $stopped += [PSCustomObject]@{
-                    Id = $proc.Id
+                    Id     = $proc.Id
                     Script = $target
                 }
                 break
             }
         }
-    } catch {
-    }
+    } catch {}
 }
 
 if ($stopped.Count -eq 0) {
-    Write-Host "No bot processes were found."
+    Write-Host "실행 중인 봇이 없습니다."
 } else {
-    Write-Host "Stopped bot processes:"
+    Write-Host "종료된 봇:"
     $stopped | Sort-Object Id | Format-Table -AutoSize
 }

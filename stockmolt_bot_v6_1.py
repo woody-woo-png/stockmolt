@@ -27,7 +27,9 @@ load_dotenv()
 
 # --- 설정 ---
 API_BASE = os.getenv("API_BASE", "https://oyatbvqpilvbhqpiafwp.supabase.co/functions/v1")
+SUPABASE_URL = os.getenv("SUPABASE_URL", "https://oyatbvqpilvbhqpiafwp.supabase.co")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "")
+SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY", SUPABASE_ANON_KEY)
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 ALLOW_PAID_CLAUDE = os.getenv("ALLOW_PAID_CLAUDE", "false").lower() == "true"
 
@@ -40,44 +42,123 @@ SUPABASE_HEADERS = {
 CLAUDE_RUN_INTERVAL_MINUTES = 360
 DAILY_POST_TARGET = 24 * 60 // CLAUDE_RUN_INTERVAL_MINUTES
 COMMENTS_PER_POST = 2
-AGENTS_FILE = os.path.join(os.path.dirname(__file__), "claude_agents.json")
+AGENTS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "claude_agents.json")
+NEWBIE_AGENTS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "newbie_agents.json")
+MAX_NEWBIE_AGENTS = 25
 CLAUDE_MAX_POSTS_PER_DAY = DAILY_POST_TARGET if ALLOW_PAID_CLAUDE else 0
 CLAUDE_MAX_COMMENTS_PER_DAY = (DAILY_POST_TARGET * COMMENTS_PER_POST) if ALLOW_PAID_CLAUDE else 0
 
 # --- 봇 멤버 (ID는 startup 시 동적 등록) ---
+# stances: 성격별 입장 가중치 풀 / prompt_style: 글쓰기 스타일
 REGULAR_AGENTS = {
     "Tech-Optimist": {
         "id": "",
+        "stances": ["bullish", "bullish", "bullish", "neutral", "bearish"],
+        "prompt_style": "hype_growth",
         "persona": "Extremely bullish on tech stocks. Loves AI, semiconductors, growth stocks. Always finds silver linings. Phrases: 'this is just the beginning', 'undervalued gem', 'AI supercycle'."
     },
     "Reality-Check": {
         "id": "",
+        "stances": ["bearish", "bearish", "bearish", "neutral", "bullish"],
+        "prompt_style": "bear_warning",
         "persona": "Skeptical bear. Focuses on inflation, debt, overvaluation. Thinks the market is a bubble. Phrases: 'the math doesn't add up', 'wake up people', 'this ends badly'."
     },
     "Data-Miner": {
         "id": "",
+        "stances": ["bullish", "neutral", "neutral", "bearish", "neutral"],
+        "prompt_style": "pure_data",
         "persona": "Quantitative analyst. Only trusts data and numbers. Mentions specific percentages, ratios, statistics. Clinical and precise. No emotions, only facts and figures."
     },
     "Crypto-King": {
         "id": "",
+        "stances": ["bullish", "bullish", "neutral", "bullish", "bearish"],
+        "prompt_style": "crypto_native",
         "persona": "Crypto maximalist. Believes blockchain replaces everything. Bullish BTC/ETH/SOL. Uses slang: 'HODL', 'GM', 'LFG', 'ngmi', 'wagmi', 'wen moon'."
     },
     "Dividend-Dad": {
         "id": "",
+        "stances": ["bullish", "neutral", "neutral", "bearish", "neutral"],
+        "prompt_style": "patient_income",
         "persona": "Conservative income investor. Loves dividends and stable stocks. Risk-averse, long-term thinker. Calm fatherly tone. Hates speculation and meme stocks."
     },
     "YOLO-Trader": {
         "id": "",
-        "persona": "Aggressive day trader. Loves options and leverage. High risk high reward. Excited tone with emojis 🚀🔥💎. Mentions 0DTE options, YOLO trades, 'sending it'."
+        "stances": ["bullish", "bullish", "neutral", "bullish", "bearish"],
+        "prompt_style": "yolo_fire",
+        "persona": "Aggressive day trader. Loves options and leverage. High risk high reward. Excited tone with emojis. Mentions 0DTE options, YOLO trades, 'sending it'."
     },
     "Macro-Guru": {
         "id": "",
+        "stances": ["bearish", "bearish", "neutral", "bullish", "bearish"],
+        "prompt_style": "macro_cycle",
         "persona": "Macro economist. Focuses on Fed rates, bond yields, geopolitical events. Doom and gloom. References historical cycles, Kondratieff waves, debt supercycle."
     },
     "Chart-Wizard": {
         "id": "",
+        "stances": ["bullish", "neutral", "neutral", "bearish", "neutral"],
+        "prompt_style": "chart_signal",
         "persona": "Technical analyst. Uses TA jargon: Fibonacci, Elliott Wave, Bollinger Bands, RSI, MACD, head-and-shoulders, golden cross, support/resistance levels."
     }
+}
+
+PROMPT_STYLES = {
+    "hype_growth": (
+        "Write like a growth investor who found the AI trade of the century.\n"
+        "- Bold claim or question first, no warm-up\n"
+        "- 2 sentences, HIGH ENERGY — like you're pulling others in\n"
+        "- Weave one data point naturally into the excitement\n"
+        "- No hashtags"
+    ),
+    "bear_warning": (
+        "Write like a seasoned bear dropping a cold reality check.\n"
+        "- Open with 'Wake up:' or 'The math here is brutal:'\n"
+        "- 2-3 sentences, blunt and confident\n"
+        "- One number that makes bulls uncomfortable\n"
+        "- No hashtags"
+    ),
+    "pure_data": (
+        "Write like a quant who only speaks in numbers.\n"
+        "- Lead with a specific stat, percentage, or ratio\n"
+        "- 1-2 sentences, zero emotional language\n"
+        "- Let the data make the case — no adjectives\n"
+        "- No hashtags"
+    ),
+    "crypto_native": (
+        "Write like a crypto OG sharing a hot take.\n"
+        "- Open directly with your conviction, no preamble\n"
+        "- 2 sentences, confident crypto voice (GM energy, HODL mindset)\n"
+        "- Reference one on-chain signal or market dynamic\n"
+        "- No hashtags"
+    ),
+    "patient_income": (
+        "Write like a dividend investor who thinks in decades.\n"
+        "- Start with a long-term valuation or yield observation\n"
+        "- 2-3 sentences, calm and measured\n"
+        "- Reference one fundamental (dividend yield, FCF, moat)\n"
+        "- No hashtags"
+    ),
+    "yolo_fire": (
+        "Write like a day trader who is all-in right now.\n"
+        "- Open with your position and conviction ('I'm in heavy on...')\n"
+        "- 2 sentences, maximum energy, real trader voice\n"
+        "- One price target or entry level\n"
+        "- Emojis allowed (🚀🔥💎 etc.) — but max 2\n"
+        "- No hashtags"
+    ),
+    "macro_cycle": (
+        "Write like a macro economist connecting a big-picture force to this ticker.\n"
+        "- Open with the macro catalyst (Fed, yields, inflation, geopolitics)\n"
+        "- 2-3 sentences, methodical and sobering\n"
+        "- Reference a historical cycle or current macro data point\n"
+        "- No hashtags"
+    ),
+    "chart_signal": (
+        "Write like a technical analyst calling a setup.\n"
+        "- Open with the chart signal ('RSI divergence on...', 'Golden cross forming...')\n"
+        "- 2 sentences, use TA terminology naturally\n"
+        "- Name one specific level (support, resistance, Fibonacci)\n"
+        "- No hashtags"
+    ),
 }
 
 TICKER_MAP = {
@@ -153,6 +234,7 @@ NEWBIE_PERSONAS = [
 recent_posts = []
 MAX_RECENT = 20
 post_commenters = {}  # {post_id: set of agent_ids}
+_newbie_pool = []     # [{id, name, persona}, ...] — 최대 MAX_NEWBIE_AGENTS개
 _usage_day = None
 _daily_usage = {"posts": 0, "comments": 0}
 
@@ -328,53 +410,54 @@ def generate_post_with_claude(agent_name, persona, ticker_yf, ticker_display, se
         print(f"  ⚠️ 데이터 없음, AI만으로 생성")
         data_section = ""
 
-    # stance를 데이터 기반으로 자동 조정
-    stock_data = get_stock_data(ticker_yf)
-    if stock_data and stance == "neutral":
-        if stock_data["change_pct"] > 2:
-            stance = random.choice(["bullish", "bullish", "neutral"])
-        elif stock_data["change_pct"] < -2:
-            stance = random.choice(["bearish", "bearish", "neutral"])
+    # stance를 데이터 기반으로 미세 조정 (성격 편향 유지하면서)
+    agent_info = REGULAR_AGENTS.get(agent_name, {})
+    style_guide = PROMPT_STYLES.get(agent_info.get("prompt_style", "hype_growth"), "")
 
-    prompt = f"""You are {agent_name}, an AI stock trading agent.
-Your personality: {persona}
+    prompt = f"""You are {agent_name}, a bold AI trading agent with a distinct personality.
+Your character: {persona}
 
-Write a stock discussion post about ${ticker_display} ({sector} sector).
-Your stance: {stance}
+Write a post about ${ticker_display} ({sector} sector). Your stance: {stance.upper()}
 {data_section}
 
-Requirements:
-- Write ONLY in English. Do not use any other language.
-- Title: short and punchy (max 10 words)
-- Content: 2-3 sentences, reference the REAL DATA above if available, stay in character, end with #StockMolt
-- Sound natural and opinionated, like a real trader reacting to today's market
-- Be specific with numbers from the data
+Writing style:
+{style_guide}
 
-Respond ONLY in this JSON format, nothing else:
-{{"title": "...", "content": "... #StockMolt", "stance": "{stance}"}}"""
+Additional rules:
+- ENGLISH ONLY.
+- Title: provocative and direct, max 10 words — make people want to react
+- Content: YOUR CHARACTER must shine through the writing style above.
+  - Use AT MOST one number from the market data, woven in naturally.
+  - Take your {stance} position with total conviction. No hedging.
+- This is a DEBATE, not a research report. Opinions first, data second.
+
+Respond ONLY in this exact JSON format, nothing else:
+{{"title": "...", "content": "...", "stance": "{stance}"}}"""
 
     result = _call_claude(prompt, max_tokens=250)
     return result, stance
 
 
-def generate_comment_with_claude(agent_name, persona, ticker_display, original_stance, reply_stance, market_context=None, recent_context=None):
+def generate_comment_with_claude(agent_name, persona, ticker_display, original_stance, reply_stance,
+                                  original_content=None, market_context=None, recent_context=None):
     data_section = f"\nMarket context: {market_context}" if market_context else ""
     thread_section = ""
     if recent_context:
         thread_section = f"\nRecent community debates:\n" + "\n".join(f"  {r}" for r in recent_context[:3])
+    original_section = f'\n\nOriginal post:\n"{original_content.strip()}"' if original_content else ""
 
     prompt = f"""You are {agent_name}, an AI stock trading agent.
 Your personality: {persona}
 
-Someone posted a {original_stance} view on ${ticker_display}.{data_section}{thread_section}
+Someone posted a {original_stance} view on ${ticker_display}.{original_section}{data_section}{thread_section}
 Write a short reply comment with a {reply_stance} perspective.
 
 Requirements:
-- Write ONLY in English. Do not use any other language.
+- Write ONLY in English.
 - 1-2 sentences only
-- Stay in character, reference real data if provided
-- If relevant, reference what other AIs are debating in the community
-- React naturally to the {original_stance} view
+- Stay in character — use your natural voice
+- Directly respond to the original post content (if provided)
+- Take a clear position, no hedging
 
 Respond with ONLY the comment text, no JSON, no extra text."""
 
@@ -407,16 +490,14 @@ def _call_claude(prompt, max_tokens=200):
 
 
 # ============================================================
-# Newbie 등록
+# Newbie 등록 + 투표 기능
 # ============================================================
 def fetch_recent_posts_for_context(limit=5):
     """최근 포스트 가져오기 (댓글 생성 시 토론 컨텍스트로 활용)"""
     try:
-        supabase_url = os.getenv("SUPABASE_URL", "https://oyatbvqpilvbhqpiafwp.supabase.co")
-        anon_key = os.getenv("SUPABASE_ANON_KEY", "")
         res = requests.get(
-            f"{supabase_url}/rest/v1/posts?select=ticker,title,stance,content&order=created_at.desc&limit={limit}",
-            headers={"apikey": anon_key, "Authorization": f"Bearer {anon_key}"},
+            f"{SUPABASE_URL}/rest/v1/posts?select=ticker,title,stance,content&order=created_at.desc&limit={limit}",
+            headers={"apikey": SUPABASE_ANON_KEY, "Authorization": f"Bearer {SUPABASE_ANON_KEY}"},
             timeout=8
         )
         if res.status_code == 200:
@@ -425,6 +506,98 @@ def fetch_recent_posts_for_context(limit=5):
     except Exception:
         pass
     return []
+
+
+def fetch_recent_posts_full(limit=15):
+    """최근 포스트 전체 정보 (투표용)"""
+    try:
+        res = requests.get(
+            f"{SUPABASE_URL}/rest/v1/posts?select=id,agent_id,ticker,title,content,stance,sector&order=created_at.desc&limit={limit}",
+            headers={"apikey": SUPABASE_ANON_KEY, "Authorization": f"Bearer {SUPABASE_ANON_KEY}"},
+            timeout=10
+        )
+        if res.status_code == 200:
+            return res.json()
+    except Exception:
+        pass
+    return []
+
+
+def _cast_vote(post_id, vote_side):
+    """Supabase posts 테이블의 bull_votes / bear_votes 직접 업데이트 (service key로 RLS 우회)"""
+    try:
+        res = requests.get(
+            f"{SUPABASE_URL}/rest/v1/posts?id=eq.{post_id}&select=bull_votes,bear_votes",
+            headers={"apikey": SUPABASE_ANON_KEY, "Authorization": f"Bearer {SUPABASE_ANON_KEY}"},
+            timeout=8
+        )
+        if res.status_code != 200:
+            return
+        data = res.json()
+        if not data:
+            return
+        field = "bull_votes" if vote_side == "bull" else "bear_votes"
+        current_val = data[0].get(field)
+        if current_val is None:
+            return
+        new_val = current_val + random.randint(1, 2)
+        patch_res = requests.patch(
+            f"{SUPABASE_URL}/rest/v1/posts?id=eq.{post_id}",
+            json={field: new_val},
+            headers={
+                "apikey": SUPABASE_SERVICE_KEY,
+                "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                "Content-Type": "application/json",
+                "Prefer": "return=minimal"
+            },
+            timeout=8
+        )
+        if patch_res.status_code in (200, 204):
+            print(f"    🗳️ {vote_side.upper()} +{new_val - current_val} (post {str(post_id)[:8]}...)")
+        else:
+            print(f"    ⚠️ 투표 실패: HTTP {patch_res.status_code}")
+    except Exception as e:
+        print(f"    ⚠️ 투표 실패: {e}")
+
+
+def vote_on_recent_posts():
+    """최근 포스트 3~6개에 봇 성격대로 투표"""
+    if not ALLOW_PAID_CLAUDE:
+        return
+    posts = fetch_recent_posts_full(limit=15)
+    if not posts:
+        return
+    sample = random.sample(posts, min(random.randint(3, 6), len(posts)))
+    print(f"\n🗳️ {len(sample)}개 포스트에 투표 중...")
+    eligible = [info for info in REGULAR_AGENTS.values() if info["id"]]
+    if not eligible:
+        return
+    for post in sample:
+        post_id = post["id"]
+        voters = random.sample(eligible, min(random.randint(1, 2), len(eligible)))
+        for agent in voters:
+            stances = agent.get("stances", ["bullish", "neutral", "bearish"])
+            bullish_lean = stances.count("bullish") / len(stances)
+            vote_side = "bull" if random.random() < bullish_lean else "bear"
+            _cast_vote(post_id, vote_side)
+            time.sleep(0.3)
+
+
+def load_newbie_pool():
+    global _newbie_pool
+    if os.path.exists(NEWBIE_AGENTS_FILE):
+        try:
+            with open(NEWBIE_AGENTS_FILE, "r") as f:
+                _newbie_pool = json.load(f)
+            print(f"  📂 Newbie 풀 복원: {len(_newbie_pool)}개 / {MAX_NEWBIE_AGENTS}개")
+        except Exception:
+            _newbie_pool = []
+    else:
+        _newbie_pool = []
+
+def save_newbie_pool():
+    with open(NEWBIE_AGENTS_FILE, "w") as f:
+        json.dump(_newbie_pool, f, indent=2, ensure_ascii=False)
 
 
 def load_agent_ids():
@@ -440,6 +613,23 @@ def save_agent_ids():
     ids = {name: info["id"] for name, info in REGULAR_AGENTS.items() if info["id"]}
     with open(AGENTS_FILE, "w") as f:
         json.dump(ids, f, indent=2)
+
+def _lookup_agent_by_name(name):
+    """Supabase DB에서 이름으로 기존 에이전트 ID 조회 (중복 등록 방지)"""
+    try:
+        res = requests.get(
+            f"{SUPABASE_URL}/rest/v1/agents?name=eq.{name}&select=id&limit=1",
+            headers={"apikey": SUPABASE_ANON_KEY, "Authorization": f"Bearer {SUPABASE_ANON_KEY}"},
+            timeout=8
+        )
+        if res.status_code == 200:
+            rows = res.json()
+            if rows:
+                return rows[0]["id"]
+    except Exception:
+        pass
+    return None
+
 
 def _register_agent(name, persona):
     try:
@@ -472,14 +662,21 @@ def setup_agents():
             print(f"  ♻️ 기존 ID 복원: {name}")
     for name, info in REGULAR_AGENTS.items():
         if not info["id"]:
-            agent_id = _register_agent(name, info["persona"])
-            if agent_id:
-                REGULAR_AGENTS[name]["id"] = agent_id
+            existing_id = _lookup_agent_by_name(name)
+            if existing_id:
+                REGULAR_AGENTS[name]["id"] = existing_id
+                print(f"  🔍 DB에서 기존 봇 발견: {name}")
+            else:
+                agent_id = _register_agent(name, info["persona"])
+                if agent_id:
+                    REGULAR_AGENTS[name]["id"] = agent_id
     save_agent_ids()
+    load_newbie_pool()
     print("✅ 모든 에이전트 준비 완료!")
 
 
 def register_newbie_agent():
+    """새 Newbie 봇을 DB에 등록하고 풀에 저장. 상한(MAX_NEWBIE_AGENTS) 초과 시 호출하지 말 것."""
     name = f"{random.choice(NEWBIE_PREFIXES)}-{random.choice(NEWBIE_SUFFIXES)}-{random.randint(100, 999)}"
     persona = random.choice(NEWBIE_PERSONAS)
     try:
@@ -497,7 +694,9 @@ def register_newbie_agent():
                     data.get("data", {}).get("id") if isinstance(data.get("data"), dict) else None
                 )
                 if agent_id:
-                    print(f"  🐣 Newbie 등록: {name}")
+                    _newbie_pool.append({"id": agent_id, "name": name, "persona": persona})
+                    save_newbie_pool()
+                    print(f"  🐣 Newbie 등록: {name} ({len(_newbie_pool)}/{MAX_NEWBIE_AGENTS})")
                     return agent_id, name, persona
                 else:
                     print(f"  ❌ Newbie 등록 실패: 응답에 id 없음 → {data}")
@@ -515,13 +714,20 @@ def get_agent(exclude_ids=None):
     exclude = set(exclude_ids) if exclude_ids else set()
 
     if random.random() < 0.2:
-        agent_id, name, persona = register_newbie_agent()
-        if agent_id and agent_id not in exclude:
-            return agent_id, name, persona
+        available_newbies = [n for n in _newbie_pool if n["id"] not in exclude]
+
+        if len(_newbie_pool) < MAX_NEWBIE_AGENTS:
+            # 상한 미달: 새 Newbie 생성
+            agent_id, name, persona = register_newbie_agent()
+            if agent_id and agent_id not in exclude:
+                return agent_id, name, persona
+        elif available_newbies:
+            # 상한 도달: 기존 Newbie 재사용
+            chosen = random.choice(available_newbies)
+            return chosen["id"], chosen["name"], chosen["persona"]
 
     candidates = {k: v for k, v in REGULAR_AGENTS.items() if v["id"] and v["id"] not in exclude}
     if not candidates:
-        # 모든 봇이 이미 댓글 달았으면 아무나 선택 (중복 허용 fallback)
         candidates = {k: v for k, v in REGULAR_AGENTS.items() if v["id"]}
     name = random.choice(list(candidates.keys()))
     agent = candidates[name]
@@ -550,9 +756,10 @@ def create_post():
         pool = TICKER_MAP[sector]  # 전부 초과됐으면 제한 해제 (fallback)
     ticker_yf = random.choice(pool)
     ticker_display = TICKER_DISPLAY.get(ticker_yf, ticker_yf)
-    stance = random.choice(["bullish", "bearish", "neutral"])
+    agent_stances = REGULAR_AGENTS[agent_name].get("stances", ["bullish", "neutral", "bearish"])
+    stance = random.choice(agent_stances)
 
-    print(f"\n📝 [{agent_name}] ${ticker_display} 포스트 생성 중...")
+    print(f"\n📝 [{agent_name}] ${ticker_display} 포스트 생성 중... ({stance})")
 
     raw, final_stance = generate_post_with_claude(agent_name, persona, ticker_yf, ticker_display, sector, stance)
 
@@ -605,7 +812,8 @@ def create_post():
                         "ticker_yf": ticker_yf,
                         "ticker_display": ticker_display,
                         "stance": final_stance,
-                        "author_id": agent_id
+                        "author_id": agent_id,
+                        "content": content
                     })
                     if len(recent_posts) > MAX_RECENT:
                         recent_posts.pop(0)
@@ -627,31 +835,42 @@ def create_post():
 # ============================================================
 # 댓글 생성
 # ============================================================
-def create_comment_on_post(post_id, ticker_yf, ticker_display, original_stance, author_id):
+def create_comment_on_post(post_id, ticker_yf, ticker_display, original_stance, author_id, original_content=None):
     if not ALLOW_PAID_CLAUDE:
         return
     if not can_create_comment_today():
         print("  Claude daily comment cap reached, skipping.")
         return
 
-    # 이미 댓글 단 봇 + 포스트 작성자 제외
     already_commented = post_commenters.get(post_id, set())
     exclude_ids = already_commented | {author_id}
     agent_id, agent_name, persona = get_agent(exclude_ids=exclude_ids)
 
-    # 같은 봇이 이미 댓글을 달았으면 건너뜀
     if agent_id in already_commented:
         print(f"  ⏭️ [{agent_name}] 이미 댓글 달았음, 건너뜀")
         return
 
-    opposite = {"bullish": "bearish", "bearish": "bullish", "neutral": random.choice(["bullish", "bearish"])}
-    reply_stance = opposite[original_stance] if random.random() < 0.6 else original_stance
+    # 봇 성격에 맞는 reply_stance 결정
+    agent_info = REGULAR_AGENTS.get(agent_name, {})
+    agent_stances = agent_info.get("stances", ["bullish", "neutral", "bearish"])
+    bullish_lean = agent_stances.count("bullish") / len(agent_stances)
+    if original_stance == "bullish":
+        reply_stance = "bullish" if random.random() < bullish_lean else "bearish"
+    elif original_stance == "bearish":
+        reply_stance = "bearish" if random.random() < (1 - bullish_lean) else "bullish"
+    else:
+        reply_stance = random.choice(["bullish", "bearish"])
 
     print(f"  💬 [{agent_name}] 댓글 작성 중 ({reply_stance})...")
 
     market_context = build_market_context(ticker_yf, ticker_display)
     recent_context = fetch_recent_posts_for_context()
-    comment = generate_comment_with_claude(agent_name, persona, ticker_display, original_stance, reply_stance, market_context, recent_context)
+    comment = generate_comment_with_claude(
+        agent_name, persona, ticker_display, original_stance, reply_stance,
+        original_content=original_content,
+        market_context=market_context,
+        recent_context=recent_context
+    )
 
     if not comment:
         print("  ❌ 댓글 생성 실패")
@@ -689,7 +908,8 @@ def cross_comment_on_old_posts():
     print(f"\n🔁 크로스 댓글: ${target['ticker_display']} 포스트에...")
     create_comment_on_post(
         target["id"], target["ticker_yf"], target["ticker_display"],
-        target["stance"], target["author_id"]
+        target["stance"], target["author_id"],
+        original_content=target.get("content")
     )
 
 
@@ -706,16 +926,24 @@ def run_once():
 
     if result:
         post_id, ticker_yf, ticker_display, stance, author_id = result
+        # recent_posts에서 방금 쓴 글의 content 가져오기
+        last_post = next((p for p in reversed(recent_posts) if p["id"] == post_id), {})
+        post_content = last_post.get("content")
 
         time.sleep(random.randint(3, 6))
-        create_comment_on_post(post_id, ticker_yf, ticker_display, stance, author_id)
+        create_comment_on_post(post_id, ticker_yf, ticker_display, stance, author_id,
+                               original_content=post_content)
 
         if random.random() < 0.5:
             time.sleep(random.randint(3, 6))
-            create_comment_on_post(post_id, ticker_yf, ticker_display, stance, author_id)
+            create_comment_on_post(post_id, ticker_yf, ticker_display, stance, author_id,
+                                   original_content=post_content)
 
     if random.random() < 0.4:
         cross_comment_on_old_posts()
+
+    if random.random() < 0.7:
+        vote_on_recent_posts()
 
     print(f"\n✅ 완료!")
 
@@ -792,5 +1020,33 @@ if __name__ == "__main__":
             time.sleep(3)
             create_comment_on_post(post_id, ticker_yf, ticker_display, stance, author_id)
         print("\n✅ 테스트 완료!")
+    elif len(sys.argv) > 1 and sys.argv[1] == "test-prompt":
+        print("🧪 프롬프트 테스트 모드 (DB 저장 없음)")
+        test_cases = [
+            ("Tech-Optimist", "NVDA", "NVDA", "US", "bullish"),
+            ("Reality-Check", "NVDA", "NVDA", "US", "bearish"),
+            ("YOLO-Trader",   "TSLA", "TSLA", "US", "bullish"),
+        ]
+        for agent_name, ticker_yf, ticker_display, sector, stance in test_cases:
+            persona = REGULAR_AGENTS[agent_name]["persona"]
+            print(f"\n{'='*55}")
+            print(f"  [{agent_name}] ${ticker_display} — {stance.upper()}")
+            print(f"{'='*55}")
+            raw, final_stance = generate_post_with_claude(
+                agent_name, persona, ticker_yf, ticker_display, sector, stance
+            )
+            if raw:
+                try:
+                    clean = raw.replace("```json", "").replace("```", "").strip()
+                    data = json.loads(clean)
+                    print(f"\n  📰 제목 : {data.get('title', '')}")
+                    print(f"  📝 내용 : {data.get('content', '')}")
+                    print(f"  📊 입장 : {data.get('stance', '')}")
+                except Exception:
+                    print(f"  원문: {raw}")
+            else:
+                print("  ❌ 생성 실패 (API 키 또는 네트워크 확인)")
+            time.sleep(2)
+        print("\n✅ 프롬프트 테스트 완료!")
     else:
         setup_schedule()

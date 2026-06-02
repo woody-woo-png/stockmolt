@@ -1,7 +1,7 @@
 """
 StockMolt Bot - Gemma Local Edition
 - 로컬 Ollama + gemma4:e2b 모델 사용 (완전 무료, 무제한)
-- 120분마다 포스트 1개 + 댓글 3~5개
+- 60분마다 포스트 1개 + 댓글 + 투표
 - 실행 전: ollama serve 확인
 설치: pip install yfinance requests schedule python-dotenv
 """
@@ -23,9 +23,6 @@ if sys.stderr.encoding != "utf-8":
 
 load_dotenv()
 
-# =============================================
-# 설정
-# =============================================
 API_BASE        = os.getenv("API_BASE",        "https://oyatbvqpilvbhqpiafwp.supabase.co/functions/v1")
 SUPABASE_URL    = os.getenv("SUPABASE_URL",    "https://oyatbvqpilvbhqpiafwp.supabase.co")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
@@ -34,34 +31,68 @@ OLLAMA_URL      = "http://localhost:11434/api/generate"
 OLLAMA_MODEL    = "gemma4:e2b"
 RUN_INTERVAL_MINUTES = 60
 
-AGENTS_FILE = os.path.join(os.path.dirname(__file__), "gemma_agents.json")
-CACHE_TTL   = 3600  # 1시간
+AGENTS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gemma_agents.json")
+CACHE_TTL   = 3600
 
-# =============================================
-# 봇 멤버
-# =============================================
+# stances: 성격별 입장 가중치 풀
 GEMMA_AGENTS = {
     "QuantEdge": {
         "id": "",
-        "persona": "Quantitative analyst. Uses data-driven models, statistical patterns, and historical backtests. Trusts numbers over narratives. Speaks in precise percentages and ratios."
+        "stances": ["bullish", "neutral", "neutral", "bearish", "neutral"],
+        "prompt_style": "quant_signal",
+        "persona": "Quantitative analyst. Uses data-driven models, statistical patterns, and historical backtests. Trusts numbers over narratives. Speaks in precise percentages and ratios. No emotions."
     },
     "RiskHunter": {
         "id": "",
-        "persona": "Risk-focused portfolio manager. Always weighs upside vs downside. Highlights tail risks, volatility, and hedging strategies. Never blindly bullish or bearish."
+        "stances": ["bearish", "bearish", "neutral", "bullish", "bearish"],
+        "prompt_style": "risk_scan",
+        "persona": "Risk-focused portfolio manager. Always weighs upside vs downside. Highlights tail risks, volatility, and hedging strategies. Never blindly bullish or bearish — always risk-adjusted."
     },
     "TrendSurfer": {
         "id": "",
-        "persona": "Technical momentum trader. Reads price action, moving averages, and chart patterns. Lives for breakouts and trend continuations. Fast-moving and decisive."
+        "stances": ["bullish", "bullish", "neutral", "bullish", "bearish"],
+        "prompt_style": "trend_call",
+        "persona": "Technical momentum trader. Reads price action, moving averages, and chart patterns. Lives for breakouts and trend continuations. Fast-moving and decisive. Loves 52-week highs and volume surges."
     },
     "ValueVault": {
         "id": "",
-        "persona": "Long-term value investor. Hunts for quality businesses at fair prices. Focuses on free cash flow, moats, and compounding returns. Ignores short-term noise."
+        "stances": ["bullish", "neutral", "neutral", "bearish", "neutral"],
+        "prompt_style": "value_find",
+        "persona": "Long-term value investor. Hunts quality businesses at fair prices. Focuses on free cash flow, economic moats, and compounding returns. Ignores short-term noise completely."
     },
 }
 
-# =============================================
-# 종목 목록 (KRX 제외)
-# =============================================
+PROMPT_STYLES = {
+    "quant_signal": (
+        "Write like a quant sharing a statistical finding.\n"
+        "- Lead with a specific number or ratio from the market data\n"
+        "- 1-2 sentences, zero emotion, all precision\n"
+        "- Let the math speak — no adjectives like 'great' or 'terrible'\n"
+        "- No hashtags"
+    ),
+    "risk_scan": (
+        "Write like a risk manager flagging a concern or a clearing signal.\n"
+        "- Frame it as risk/reward: 'The downside here is X, but upside is Y'\n"
+        "- 2 sentences, calibrated and balanced\n"
+        "- Reference one specific risk metric or price level\n"
+        "- No hashtags"
+    ),
+    "trend_call": (
+        "Write like a momentum trader who just spotted a chart signal.\n"
+        "- Open with the technical trigger ('Breaking above...', 'Volume is confirming...')\n"
+        "- 2 sentences, fast and decisive\n"
+        "- Reference the price level or % move that matters\n"
+        "- No hashtags"
+    ),
+    "value_find": (
+        "Write like a patient value investor making a long-term case.\n"
+        "- Open with a valuation or quality observation\n"
+        "- 2-3 sentences, calm and confident, thinking in years not weeks\n"
+        "- Reference one fundamental metric naturally\n"
+        "- No hashtags"
+    ),
+}
+
 CORE_US_TICKERS = ["NVDA", "AAPL", "TSLA", "MSFT", "GOOGL", "AMZN", "AMD", "COIN", "INTC", "PLTR"]
 
 TICKER_DISPLAY = {
@@ -78,9 +109,15 @@ _ticker_date        = None
 MAX_POSTS_PER_TICKER = 3
 recent_posts        = []
 
-# =============================================
-# 에이전트 등록
-# =============================================
+
+def _headers():
+    return {
+        "Content-Type": "application/json",
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": f"Bearer {SUPABASE_ANON_KEY}"
+    }
+
+
 def load_agent_ids():
     if os.path.exists(AGENTS_FILE):
         try:
@@ -95,16 +132,29 @@ def save_agent_ids():
     with open(AGENTS_FILE, "w") as f:
         json.dump(ids, f, indent=2)
 
+def lookup_agent_by_name(name):
+    """Supabase DB에서 이름으로 기존 에이전트 ID 조회 (중복 등록 방지)"""
+    try:
+        res = requests.get(
+            f"{SUPABASE_URL}/rest/v1/agents?name=eq.{name}&select=id&limit=1",
+            headers={"apikey": SUPABASE_ANON_KEY, "Authorization": f"Bearer {SUPABASE_ANON_KEY}"},
+            timeout=8
+        )
+        if res.status_code == 200:
+            rows = res.json()
+            if rows:
+                return rows[0]["id"]
+    except Exception:
+        pass
+    return None
+
+
 def register_agent(name, persona):
     try:
         response = requests.post(
             f"{API_BASE}/register-agent",
             json={"name": name, "persona": persona},
-            headers={
-                "Content-Type": "application/json",
-                "apikey": SUPABASE_ANON_KEY,
-                "Authorization": f"Bearer {SUPABASE_ANON_KEY}"
-            },
+            headers=_headers(),
             timeout=10
         )
         data = response.json()
@@ -126,15 +176,18 @@ def setup_agents():
             print(f"  ♻️ 기존 ID 복원: {name}")
     for name, info in GEMMA_AGENTS.items():
         if not info["id"]:
-            agent_id = register_agent(name, info["persona"])
-            if agent_id:
-                GEMMA_AGENTS[name]["id"] = agent_id
+            existing_id = lookup_agent_by_name(name)
+            if existing_id:
+                GEMMA_AGENTS[name]["id"] = existing_id
+                print(f"  🔍 DB에서 기존 봇 발견: {name}")
+            else:
+                agent_id = register_agent(name, info["persona"])
+                if agent_id:
+                    GEMMA_AGENTS[name]["id"] = agent_id
     save_agent_ids()
     print("✅ 모든 봇 준비 완료!")
 
-# =============================================
-# 트렌딩 종목 갱신
-# =============================================
+
 def refresh_trending():
     global _dynamic_us_tickers
     screens = [("most_actives", 20), ("day_gainers", 15), ("day_losers", 10)]
@@ -180,9 +233,7 @@ def get_dynamic_ticker():
     print(f"  선택: ${ticker_display} ({sector})")
     return ticker_yf, ticker_display, sector
 
-# =============================================
-# 주가 데이터
-# =============================================
+
 def get_stock_data(ticker_yf):
     now = time.time()
     if ticker_yf in _stock_cache and now - _stock_cache[ticker_yf]["ts"] < CACHE_TTL:
@@ -223,11 +274,8 @@ def build_market_context(ticker_yf, ticker_display):
         context += f"\nFrom 52w high: {pct_from_high:+.1f}%"
     return context
 
-# =============================================
-# Ollama API 호출
-# =============================================
+
 def call_ollama(prompt):
-    """Ollama 로컬 API 호출 (native /api/generate 엔드포인트)"""
     try:
         response = requests.post(
             OLLAMA_URL,
@@ -243,14 +291,12 @@ def call_ollama(prompt):
         print(f"  ❌ Ollama 호출 실패: {e}")
     return None
 
-# =============================================
-# Supabase 헬퍼
-# =============================================
+
 def fetch_recent_posts(limit=10):
     try:
         res = requests.get(
             f"{SUPABASE_URL}/rest/v1/posts"
-            f"?select=id,agent_id,ticker,stance,content,sector"
+            f"?select=id,agent_id,ticker,title,content,stance,sector"
             f"&order=created_at.desc&limit={limit}",
             headers={"apikey": SUPABASE_ANON_KEY, "Authorization": f"Bearer {SUPABASE_ANON_KEY}"},
             timeout=10
@@ -279,9 +325,62 @@ def fetch_comment_counts(post_ids):
         print(f"  ⚠️ 댓글 수 가져오기 실패: {e}")
     return {}
 
-# =============================================
-# 포스트 생성
-# =============================================
+
+def _cast_vote(post_id, vote_side):
+    """Supabase posts 테이블의 bull_votes / bear_votes 업데이트"""
+    try:
+        res = requests.get(
+            f"{SUPABASE_URL}/rest/v1/posts?id=eq.{post_id}&select=bull_votes,bear_votes",
+            headers={"apikey": SUPABASE_ANON_KEY, "Authorization": f"Bearer {SUPABASE_ANON_KEY}"},
+            timeout=8
+        )
+        if res.status_code != 200:
+            return
+        data = res.json()
+        if not data:
+            return
+        field = "bull_votes" if vote_side == "bull" else "bear_votes"
+        current_val = data[0].get(field)
+        if current_val is None:
+            return  # 컬럼 미존재 — 조용히 스킵
+        new_val = current_val + random.randint(1, 2)
+        patch_res = requests.patch(
+            f"{SUPABASE_URL}/rest/v1/posts?id=eq.{post_id}",
+            json={field: new_val},
+            headers={
+                "apikey": SUPABASE_ANON_KEY,
+                "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
+                "Content-Type": "application/json",
+                "Prefer": "return=minimal"
+            },
+            timeout=8
+        )
+        if patch_res.status_code in (200, 204):
+            print(f"    🗳️ {vote_side.upper()} +{new_val - current_val} (post {str(post_id)[:8]}...)")
+    except Exception as e:
+        print(f"    ⚠️ 투표 실패: {e}")
+
+
+def vote_on_recent_posts():
+    """최근 포스트 3~6개에 봇 성격대로 투표"""
+    posts = fetch_recent_posts(limit=15)
+    if not posts:
+        return
+    sample = random.sample(posts, min(random.randint(3, 6), len(posts)))
+    print(f"\n🗳️ {len(sample)}개 포스트에 투표 중...")
+    for post in sample:
+        post_id = post["id"]
+        voters = random.sample(list(GEMMA_AGENTS.values()), min(random.randint(1, 2), len(GEMMA_AGENTS)))
+        for agent in voters:
+            if not agent["id"]:
+                continue
+            stances = agent.get("stances", ["bullish", "neutral", "bearish"])
+            bullish_lean = stances.count("bullish") / len(stances)
+            vote_side = "bull" if random.random() < bullish_lean else "bear"
+            _cast_vote(post_id, vote_side)
+            time.sleep(0.3)
+
+
 def create_post():
     agent_name = random.choice(list(GEMMA_AGENTS.keys()))
     agent      = GEMMA_AGENTS[agent_name]
@@ -290,9 +389,10 @@ def create_post():
         return None
 
     ticker_yf, ticker_display, sector = get_dynamic_ticker()
-    stance = random.choice(["bullish", "bearish", "neutral"])
+    stance = random.choice(agent.get("stances", ["bullish", "neutral", "bearish"]))
+    style_guide = PROMPT_STYLES.get(agent.get("prompt_style", "quant_signal"), "")
 
-    print(f"\n📝 [{agent_name}] ${ticker_display} 포스트 생성 중...")
+    print(f"\n📝 [{agent_name}] ${ticker_display} 포스트 생성 중... ({stance})")
     market_context = build_market_context(ticker_yf, ticker_display)
 
     prompt = f"""You are {agent_name}, an AI stock trading agent.
@@ -303,11 +403,13 @@ Stance: {stance}
 Market data:
 {market_context if market_context else "Market data unavailable"}
 
-Rules:
+Writing style:
+{style_guide}
+
+Additional rules:
 - English only
-- Title: max 10 words, punchy
-- Content: 2-3 sentences using real data, ends with #StockMolt
-- Sound like a real trader
+- Title: max 10 words, attention-grabbing
+- Content: follow the style above with {stance} conviction
 
 Output ONLY in this exact format, nothing else:
 TITLE: <your title here>
@@ -354,11 +456,7 @@ CONTENT:
         response = requests.post(
             f"{API_BASE}/create-post",
             json=post_body,
-            headers={
-                "Content-Type": "application/json",
-                "apikey": SUPABASE_ANON_KEY,
-                "Authorization": f"Bearer {SUPABASE_ANON_KEY}"
-            },
+            headers=_headers(),
             timeout=10
         )
         if response.status_code == 200:
@@ -370,7 +468,8 @@ CONTENT:
                 recent_posts.append({
                     "id": post_id, "ticker_yf": ticker_yf,
                     "ticker_display": ticker_display,
-                    "stance": final_stance, "author_id": agent["id"]
+                    "stance": final_stance, "author_id": agent["id"],
+                    "content": content
                 })
                 if len(recent_posts) > 20:
                     recent_posts.pop(0)
@@ -379,10 +478,9 @@ CONTENT:
         print(f"  ❌ 업로드 실패: {e}")
     return None
 
-# =============================================
-# 댓글 생성
-# =============================================
-def create_comment(post_id, ticker_display, original_stance, author_id, is_opposite=False):
+
+def create_comment(post_id, ticker_display, original_stance, author_id,
+                   original_content=None, is_opposite=False):
     candidates = {k: v for k, v in GEMMA_AGENTS.items() if v["id"] and v["id"] != author_id}
     if not candidates:
         return False
@@ -390,28 +488,35 @@ def create_comment(post_id, ticker_display, original_stance, author_id, is_oppos
     agent_name = random.choice(list(candidates.keys()))
     agent      = candidates[agent_name]
 
-    opposite = {"bullish": "bearish", "bearish": "bullish", "neutral": random.choice(["bullish", "bearish"])}
+    stances = agent.get("stances", ["bullish", "neutral", "bearish"])
+    bullish_lean = stances.count("bullish") / len(stances)
     if is_opposite:
-        reply_stance = opposite[original_stance] if random.random() < 0.8 else original_stance
+        reply_stance = ("bearish" if original_stance == "bullish" else "bullish") if random.random() < 0.8 else original_stance
         tone         = "strongly disagree and counter-argue"
     else:
-        reply_stance = opposite[original_stance] if random.random() < 0.6 else original_stance
-        tone         = "respond with your own analysis"
+        if original_stance == "bullish":
+            reply_stance = "bullish" if random.random() < bullish_lean else "bearish"
+        elif original_stance == "bearish":
+            reply_stance = "bearish" if random.random() < (1 - bullish_lean) else "bullish"
+        else:
+            reply_stance = random.choice(["bullish", "bearish"])
+        tone = "respond with your own analysis"
 
     print(f"  💬 [{agent_name}] ${ticker_display} 댓글 작성 중... ({reply_stance})")
+
+    original_section = f'\n\nOriginal post:\n"{original_content.strip()}"' if original_content else ""
 
     prompt = f"""You are {agent_name}, an AI stock analyst.
 Personality: {agent["persona"]}
 
-Someone posted a {original_stance} view on ${ticker_display}.
-Your job: {tone} in 1-2 sentences. Stay in character. Be direct and opinionated.
+Someone posted a {original_stance} view on ${ticker_display}.{original_section}
+Your job: {tone} in 1-2 sentences. Stay in character. Be direct.
 English only. Reply with ONLY the comment text, no JSON."""
 
     comment = call_ollama(prompt)
     if not comment:
         return False
 
-    # 가끔 JSON을 반환하는 경우 처리
     comment = comment.strip().strip('"')
     if comment.startswith("{"):
         try:
@@ -423,11 +528,7 @@ English only. Reply with ONLY the comment text, no JSON."""
         response = requests.post(
             f"{API_BASE}/create-comment",
             json={"post_id": post_id, "agent_id": agent["id"], "content": comment, "stance": reply_stance},
-            headers={
-                "Content-Type": "application/json",
-                "apikey": SUPABASE_ANON_KEY,
-                "Authorization": f"Bearer {SUPABASE_ANON_KEY}"
-            },
+            headers=_headers(),
             timeout=10
         )
         if response.status_code == 200:
@@ -463,14 +564,13 @@ def run_comment_round():
         ticker   = post.get("ticker", "unknown")
         same     = ticker_stance_map.get(ticker, [])
         opposite = (stance == "bullish" and "bearish" in same) or (stance == "bearish" and "bullish" in same)
-        create_comment(post["id"], ticker, stance, post.get("agent_id", ""), is_opposite=opposite)
-        time.sleep(5)  # 로컬 추론 간격
+        create_comment(post["id"], ticker, stance, post.get("agent_id", ""),
+                       original_content=post.get("content"), is_opposite=opposite)
+        time.sleep(5)
 
     print("  ✅ 댓글 라운드 완료!")
 
-# =============================================
-# 메인 루프
-# =============================================
+
 def run_cycle():
     print(f"\n{'='*50}")
     print(f"🤖 Gemma Bot 실행 - {datetime.now().strftime('%Y-%m-%d %H:%M')}")
@@ -480,6 +580,10 @@ def run_cycle():
     if result:
         time.sleep(10)
         run_comment_round()
+
+    if random.random() < 0.7:
+        vote_on_recent_posts()
+
     print(f"\n✅ 사이클 완료!")
 
 if __name__ == "__main__":
@@ -488,7 +592,6 @@ if __name__ == "__main__":
     print(f"📊 {RUN_INTERVAL_MINUTES}분마다 포스팅 (완전 무료, 무제한!)")
     print(f"🔗 Ollama: http://localhost:11434")
 
-    # Ollama 연결 확인
     try:
         test = requests.get("http://localhost:11434/api/tags", timeout=5)
         if test.status_code == 200:
@@ -506,6 +609,7 @@ if __name__ == "__main__":
     if "--once" in sys.argv or "once" in sys.argv:
         print("\n🧪 테스트 모드 (포스트 1개)")
         create_post()
+        vote_on_recent_posts()
         print("\n✅ 테스트 완료!")
     else:
         schedule.every(RUN_INTERVAL_MINUTES).minutes.do(run_cycle)

@@ -19,6 +19,7 @@ import io
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 
 import os
+import re
 import json
 import requests
 from datetime import datetime, timedelta, timezone
@@ -250,10 +251,14 @@ Return valid JSON only:
         messages=[{"role": "user", "content": prompt}],
     )
 
+    raw = msg.content[0].text.strip()
+    # strip markdown code fences if present
+    if raw.startswith("```"):
+        raw = re.sub(r"^```[a-z]*\n?", "", raw)
+        raw = re.sub(r"\n?```$", "", raw).strip()
     try:
-        return json.loads(msg.content[0].text.strip())
+        return json.loads(raw)
     except Exception:
-        raw = msg.content[0].text.strip()
         return {"x_post": raw, "telegram": raw}
 
 

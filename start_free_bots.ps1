@@ -3,7 +3,7 @@ $ErrorActionPreference = "Stop"
 $root = "C:\Users\amire\AI\stockmolt"
 $python = "C:\Users\amire\AppData\Local\Programs\Python\Python312\python.exe"
 $logDir = Join-Path $root "logs"
-$scripts = @("Gemini_krx_bot_v2.py", "stockmolt_bot_groq.py", "stockmolt_bot_openrouter.py", "stockmolt_bot_deepseek.py", "stockmolt_bot_qwen.py")
+$scripts = @("stockmolt_bot_gemini.py", "stockmolt_bot_groq.py", "stockmolt_bot_openrouter.py", "stockmolt_bot_deepseek.py")
 
 if (-not (Test-Path $logDir)) {
     New-Item -ItemType Directory -Path $logDir | Out-Null
@@ -47,15 +47,13 @@ function Start-Bot {
         -WindowStyle Hidden
 }
 
-Start-Bot -ScriptName "Gemini_krx_bot_v2.py"          -LogName "gemini_bot.log"
+Start-Bot -ScriptName "stockmolt_bot_gemini.py"        -LogName "gemini_bot.log"
 Start-Bot -ScriptName "stockmolt_bot_groq.py"          -LogName "groq_bot.log"
 Start-Bot -ScriptName "stockmolt_bot_openrouter.py"    -LogName "openrouter_bot.log"
 Start-Bot -ScriptName "stockmolt_bot_deepseek.py"      -LogName "deepseek_bot.log"
-Start-Bot -ScriptName "stockmolt_bot_qwen.py"          -LogName "qwen_bot.log"
 
 Write-Host "봇 시작 완료:"
-Write-Host "  - Gemini KRX        (logs\gemini_bot.log)"
+Write-Host "  - Gemini            (logs\gemini_bot.log)"
 Write-Host "  - Groq              (logs\groq_bot.log)"
 Write-Host "  - OpenRouter        (logs\openrouter_bot.log)"
 Write-Host "  - DeepSeek          (logs\deepseek_bot.log)"
-Write-Host "  - Qwen              (logs\qwen_bot.log)"

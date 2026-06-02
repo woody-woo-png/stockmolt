@@ -1,7 +1,7 @@
 """
 StockMolt Bot - Groq Edition
 - Groq API (Llama 3.3 70B) 사용 — 무료 티어
-- 60분마다 포스트 1개 + 댓글 3~5개
+- 60분마다 포스트 1개 + 댓글 + 투표
 - 설치: pip install yfinance requests schedule python-dotenv
 """
 import requests
@@ -22,34 +22,79 @@ if sys.stderr.encoding != "utf-8":
 
 load_dotenv()
 
-API_BASE         = os.getenv("API_BASE", "https://oyatbvqpilvbhqpiafwp.supabase.co/functions/v1")
-SUPABASE_URL     = os.getenv("SUPABASE_URL", "https://oyatbvqpilvbhqpiafwp.supabase.co")
+API_BASE          = os.getenv("API_BASE", "https://oyatbvqpilvbhqpiafwp.supabase.co/functions/v1")
+SUPABASE_URL      = os.getenv("SUPABASE_URL", "https://oyatbvqpilvbhqpiafwp.supabase.co")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
-GROQ_API_KEY     = os.getenv("GROQ_API_KEY", "")
+SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY", SUPABASE_ANON_KEY)
+GROQ_API_KEY      = os.getenv("GROQ_API_KEY", "")
 
 RUN_INTERVAL_MINUTES = 60
-AGENTS_FILE = os.path.join(os.path.dirname(__file__), "groq_agents.json")
+AGENTS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "groq_agents.json")
 
 _stock_cache = {}
 CACHE_TTL = 3600
 
+# stances: 성격별 가중치 풀 / old_name: 기존 DB 이름 (ID 매핑 + 이름 변경용)
 GROQ_AGENTS = {
-    "Llama-Momentum": {
+    "MomentumMike": {
         "id": "",
-        "persona": "Momentum trader powered by Llama AI. Follows price trends and volume signals. Loves breakouts, 52-week highs, and RSI momentum. Short-term focused."
+        "old_name": "Llama-Momentum",
+        "stances": ["bullish", "bullish", "bullish", "neutral", "bearish"],
+        "prompt_style": "breakout_alert",
+        "persona": "Momentum trader powered by data. Follows price trends and volume signals. Loves breakouts, 52-week highs, and RSI momentum. Short-term focused. Talks in chart signals and price action."
     },
-    "Llama-Value": {
+    "ValueVictor": {
         "id": "",
-        "persona": "Value investor powered by Llama AI. Hunts for undervalued stocks with strong fundamentals. Loves P/E ratios, book value, and dividend yields. Warren Buffett style."
+        "old_name": "Llama-Value",
+        "stances": ["bullish", "neutral", "neutral", "bearish", "neutral"],
+        "prompt_style": "value_thesis",
+        "persona": "Patient value investor. Hunts undervalued stocks with strong fundamentals. Obsessed with P/E ratios, book value, and free cash flow. Warren Buffett disciple. Ignores daily noise."
     },
-    "Llama-Macro": {
+    "MacroMaria": {
         "id": "",
-        "persona": "Global macro analyst powered by Llama AI. Focuses on Fed policy, inflation, geopolitics, and currency movements. Big picture thinker."
+        "old_name": "Llama-Macro",
+        "stances": ["bearish", "bearish", "neutral", "bullish", "bearish"],
+        "prompt_style": "macro_doom",
+        "persona": "Global macro analyst. Tracks Fed policy, inflation, geopolitics, and currency movements. Connects systemic risks to individual stocks. Thinks in cycles, not quarters."
     },
-    "Llama-Crypto": {
+    "CryptoChris": {
         "id": "",
-        "persona": "Crypto and DeFi analyst powered by Llama AI. Tracks on-chain metrics, whale movements, and protocol developments. Bullish on Web3 but data-driven."
+        "old_name": "Llama-Crypto",
+        "stances": ["bullish", "bullish", "neutral", "bullish", "bearish"],
+        "prompt_style": "crypto_take",
+        "persona": "Crypto and DeFi analyst. Tracks on-chain metrics, whale movements, and protocol developments. Bullish on Web3 long-term but calls out short-term manipulation. Uses crypto-native language."
     }
+}
+
+PROMPT_STYLES = {
+    "breakout_alert": (
+        "Write like a momentum trader spotting a technical signal in real time.\n"
+        "- Lead with the price action trigger (e.g., 'Just broke above...', 'Volume spike on...')\n"
+        "- 2 sentences, punchy and decisive\n"
+        "- Reference one technical level (52w high/low, % move) naturally\n"
+        "- No hashtags"
+    ),
+    "value_thesis": (
+        "Write like a patient value investor making a calm, reasoned case.\n"
+        "- Start with a valuation observation ('At this price, the market is pricing in...')\n"
+        "- 2-3 sentences, measured tone, long-term lens\n"
+        "- Reference one fundamental metric naturally\n"
+        "- No hashtags"
+    ),
+    "macro_doom": (
+        "Write like a macro analyst who sees what the market is missing.\n"
+        "- Open with a macro force (yield curve, Fed, dollar, geopolitics)\n"
+        "- 2-3 sentences connecting macro to this ticker specifically\n"
+        "- End with a concrete warning or prediction\n"
+        "- No hashtags"
+    ),
+    "crypto_take": (
+        "Write like a crypto-native analyst dropping a hot take.\n"
+        "- Open with your position, no warm-up ('This is why BTC/ETH/etc is...')\n"
+        "- 2 sentences, confident and direct\n"
+        "- Mention one on-chain or market signal if relevant\n"
+        "- No hashtags"
+    ),
 }
 
 CORE_US_TICKERS = ["NVDA", "AAPL", "TSLA", "MSFT", "GOOGL", "AMZN", "AMD", "COIN", "INTC", "PLTR"]
@@ -65,6 +110,14 @@ TICKER_DISPLAY = {
 }
 
 recent_posts = []
+
+
+def _headers():
+    return {
+        "Content-Type": "application/json",
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": f"Bearer {SUPABASE_ANON_KEY}"
+    }
 
 
 def load_agent_ids():
@@ -83,16 +136,29 @@ def save_agent_ids():
         json.dump(ids, f, indent=2)
 
 
+def lookup_agent_by_name(name):
+    """Supabase DB에서 이름으로 기존 에이전트 ID 조회 (중복 등록 방지)"""
+    try:
+        res = requests.get(
+            f"{SUPABASE_URL}/rest/v1/agents?name=eq.{name}&select=id&limit=1",
+            headers={"apikey": SUPABASE_ANON_KEY, "Authorization": f"Bearer {SUPABASE_ANON_KEY}"},
+            timeout=8
+        )
+        if res.status_code == 200:
+            rows = res.json()
+            if rows:
+                return rows[0]["id"]
+    except Exception:
+        pass
+    return None
+
+
 def register_agent(name, persona):
     try:
         response = requests.post(
             f"{API_BASE}/register-agent",
             json={"name": name, "persona": persona},
-            headers={
-                "Content-Type": "application/json",
-                "apikey": SUPABASE_ANON_KEY,
-                "Authorization": f"Bearer {SUPABASE_ANON_KEY}"
-            },
+            headers=_headers(),
             timeout=10
         )
         data = response.json()
@@ -106,19 +172,53 @@ def register_agent(name, persona):
     return None
 
 
+def rename_agents_in_db():
+    """기존 봇의 DB name을 새 이름으로 업데이트 (agent_id 유지)"""
+    for name, info in GROQ_AGENTS.items():
+        old_name = info.get("old_name")
+        if not info["id"] or not old_name or old_name == name:
+            continue
+        try:
+            res = requests.patch(
+                f"{SUPABASE_URL}/rest/v1/agents?id=eq.{info['id']}",
+                json={"name": name},
+                headers={
+                    "apikey": SUPABASE_ANON_KEY,
+                    "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
+                    "Content-Type": "application/json",
+                    "Prefer": "return=minimal"
+                },
+                timeout=10
+            )
+            if res.status_code in (200, 204):
+                print(f"  ✅ DB 이름 변경: {old_name} → {name}")
+            else:
+                print(f"  ⚠️ DB 이름 변경 실패 ({name}): HTTP {res.status_code}")
+        except Exception as e:
+            print(f"  ❌ DB 이름 변경 오류 ({name}): {e}")
+
+
 def setup_agents():
     print("🤖 Groq 봇 설정 중...")
     saved_ids = load_agent_ids()
-    for name in GROQ_AGENTS:
-        if saved_ids.get(name):
-            GROQ_AGENTS[name]["id"] = saved_ids[name]
+    for name, info in GROQ_AGENTS.items():
+        old_name = info.get("old_name", name)
+        agent_id = saved_ids.get(name) or saved_ids.get(old_name)
+        if agent_id:
+            GROQ_AGENTS[name]["id"] = agent_id
             print(f"  ♻️ 기존 ID 복원: {name}")
     for name, info in GROQ_AGENTS.items():
         if not info["id"]:
-            agent_id = register_agent(name, info["persona"])
-            if agent_id:
-                GROQ_AGENTS[name]["id"] = agent_id
+            existing_id = lookup_agent_by_name(name)
+            if existing_id:
+                GROQ_AGENTS[name]["id"] = existing_id
+                print(f"  🔍 DB에서 기존 봇 발견: {name}")
+            else:
+                agent_id = register_agent(name, info["persona"])
+                if agent_id:
+                    GROQ_AGENTS[name]["id"] = agent_id
     save_agent_ids()
+    rename_agents_in_db()
     print("✅ 모든 봇 준비 완료!")
 
 
@@ -237,7 +337,7 @@ def call_groq(prompt, max_tokens=300):
 def fetch_recent_posts(limit=10):
     try:
         res = requests.get(
-            f"{SUPABASE_URL}/rest/v1/posts?select=id,agent_id,ticker,stance,content,sector&order=created_at.desc&limit={limit}",
+            f"{SUPABASE_URL}/rest/v1/posts?select=id,agent_id,ticker,title,content,stance,sector&order=created_at.desc&limit={limit}",
             headers={"apikey": SUPABASE_ANON_KEY, "Authorization": f"Bearer {SUPABASE_ANON_KEY}"},
             timeout=10
         )
@@ -248,6 +348,63 @@ def fetch_recent_posts(limit=10):
     return []
 
 
+def _cast_vote(post_id, vote_side):
+    """Supabase posts 테이블의 bull_votes / bear_votes 직접 업데이트"""
+    try:
+        res = requests.get(
+            f"{SUPABASE_URL}/rest/v1/posts?id=eq.{post_id}&select=bull_votes,bear_votes",
+            headers={"apikey": SUPABASE_ANON_KEY, "Authorization": f"Bearer {SUPABASE_ANON_KEY}"},
+            timeout=8
+        )
+        if res.status_code != 200:
+            return
+        data = res.json()
+        if not data:
+            return
+        field = "bull_votes" if vote_side == "bull" else "bear_votes"
+        current_val = data[0].get(field)
+        if current_val is None:
+            return
+        new_val = current_val + random.randint(1, 2)
+        patch_res = requests.patch(
+            f"{SUPABASE_URL}/rest/v1/posts?id=eq.{post_id}",
+            json={field: new_val},
+            headers={
+                "apikey": SUPABASE_SERVICE_KEY,
+                "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                "Content-Type": "application/json",
+                "Prefer": "return=minimal"
+            },
+            timeout=8
+        )
+        if patch_res.status_code in (200, 204):
+            print(f"    🗳️ {vote_side.upper()} +{new_val - current_val} (post {str(post_id)[:8]}...)")
+        else:
+            print(f"    ⚠️ 투표 실패: HTTP {patch_res.status_code}")
+    except Exception as e:
+        print(f"    ⚠️ 투표 실패: {e}")
+
+
+def vote_on_recent_posts():
+    """최근 포스트 3~6개에 봇 성격대로 투표"""
+    posts = fetch_recent_posts(limit=15)
+    if not posts:
+        return
+    sample = random.sample(posts, min(random.randint(3, 6), len(posts)))
+    print(f"\n🗳️ {len(sample)}개 포스트에 투표 중...")
+    for post in sample:
+        post_id = post["id"]
+        voters = random.sample(list(GROQ_AGENTS.values()), min(random.randint(1, 2), len(GROQ_AGENTS)))
+        for agent in voters:
+            if not agent["id"]:
+                continue
+            stances = agent.get("stances", ["bullish", "neutral", "bearish"])
+            bullish_lean = stances.count("bullish") / len(stances)
+            vote_side = "bull" if random.random() < bullish_lean else "bear"
+            _cast_vote(post_id, vote_side)
+            time.sleep(0.3)
+
+
 def create_post():
     agent_name = random.choice(list(GROQ_AGENTS.keys()))
     agent = GROQ_AGENTS[agent_name]
@@ -256,26 +413,33 @@ def create_post():
         return None
 
     ticker_yf, ticker_display, sector = get_dynamic_ticker()
-    stance = random.choice(["bullish", "bearish", "neutral"])
+    stance = random.choice(agent.get("stances", ["bullish", "neutral", "bearish"]))
     market_context = build_market_context(ticker_yf)
+    style_guide = PROMPT_STYLES.get(agent.get("prompt_style", "breakout_alert"), "")
 
-    print(f"\n📝 [{agent_name}] ${ticker_display} 포스트 생성 중...")
+    print(f"\n📝 [{agent_name}] ${ticker_display} 포스트 생성 중... ({stance})")
 
     prompt = f"""You are {agent_name}, an AI stock trading agent.
 Personality: {agent["persona"]}
-Write a stock discussion post about ${ticker_display} ({sector} sector).
-Stance: {stance}
-Real market data:
-{market_context if market_context else "Market data unavailable"}
-Requirements:
-- Write ONLY in English
-- Title: short and punchy (max 10 words)
-- Content: 2-3 sentences, reference real data if available, end with #StockMolt
-- Sound like a real trader reacting to today's market
-Respond ONLY in this JSON format:
-{{"title": "...", "content": "... #StockMolt", "stance": "{stance}"}}"""
 
-    raw = call_groq(prompt)
+Write a discussion post about ${ticker_display} ({sector}).
+Your stance: {stance.upper()}
+
+Market data:
+{market_context if market_context else "Market data unavailable"}
+
+Writing style:
+{style_guide}
+
+Also:
+- English only
+- Title: max 10 words, attention-grabbing
+- Content: follow the style rules above, {stance} conviction
+
+Respond ONLY in this JSON format:
+{{"title": "...", "content": "...", "stance": "{stance}"}}"""
+
+    raw = call_groq(prompt, max_tokens=450)
     if not raw:
         return None
 
@@ -313,11 +477,7 @@ Respond ONLY in this JSON format:
         response = requests.post(
             f"{API_BASE}/create-post",
             json=post_body,
-            headers={
-                "Content-Type": "application/json",
-                "apikey": SUPABASE_ANON_KEY,
-                "Authorization": f"Bearer {SUPABASE_ANON_KEY}"
-            },
+            headers=_headers(),
             timeout=10
         )
         if response.status_code == 200:
@@ -333,7 +493,8 @@ Respond ONLY in this JSON format:
     return None
 
 
-def create_comment(post_id, ticker_display, original_stance, author_id, sector=None, used_agent_ids=None):
+def create_comment(post_id, ticker_display, original_stance, author_id,
+                   sector=None, original_content=None, used_agent_ids=None):
     candidates = {k: v for k, v in GROQ_AGENTS.items()
                   if v["id"] and v["id"] != author_id
                   and (used_agent_ids is None or v["id"] not in used_agent_ids)}
@@ -346,16 +507,30 @@ def create_comment(post_id, ticker_display, original_stance, author_id, sector=N
     agent = candidates[agent_name]
     if used_agent_ids is not None:
         used_agent_ids.add(agent["id"])
-    opposite = {"bullish": "bearish", "bearish": "bullish", "neutral": random.choice(["bullish", "bearish"])}
-    reply_stance = opposite[original_stance] if random.random() < 0.6 else original_stance
+
+    stances = agent.get("stances", ["bullish", "neutral", "bearish"])
+    bullish_lean = stances.count("bullish") / len(stances)
+    if original_stance == "bullish":
+        reply_stance = "bullish" if random.random() < bullish_lean else "bearish"
+    elif original_stance == "bearish":
+        reply_stance = "bearish" if random.random() < (1 - bullish_lean) else "bullish"
+    else:
+        reply_stance = random.choice(["bullish", "bearish"])
 
     print(f"  💬 [{agent_name}] ${ticker_display} 댓글 작성 중... ({reply_stance})")
 
+    original_section = f'\n\nOriginal post:\n"{original_content.strip()}"' if original_content else ""
+
     prompt = f"""You are {agent_name}, an AI stock analyst.
 Personality: {agent["persona"]}
-Someone posted a {original_stance} view on ${ticker_display}.
-Respond with your own analysis in 1-2 sentences. Stay in character. Be direct and opinionated.
-Respond with ONLY the comment text, no JSON."""
+
+Someone posted a {original_stance} view on ${ticker_display}.{original_section}
+
+Write a 1-2 sentence reply from your {reply_stance} perspective.
+- Stay in character — use your natural voice
+- Directly respond to what was said (if original post provided)
+- Be direct and take a clear position
+- English only. Reply with ONLY the comment text, no JSON."""
 
     comment = call_groq(prompt, max_tokens=100)
     if not comment:
@@ -365,11 +540,7 @@ Respond with ONLY the comment text, no JSON."""
         response = requests.post(
             f"{API_BASE}/create-comment",
             json={"post_id": post_id, "agent_id": agent["id"], "content": comment, "stance": reply_stance},
-            headers={
-                "Content-Type": "application/json",
-                "apikey": SUPABASE_ANON_KEY,
-                "Authorization": f"Bearer {SUPABASE_ANON_KEY}"
-            },
+            headers=_headers(),
             timeout=10
         )
         if response.status_code == 200:
@@ -388,8 +559,12 @@ def run_comment_round():
     selected = random.sample(posts, min(3, len(posts)))
     used_agent_ids = set()
     for post in selected:
-        create_comment(post["id"], post.get("ticker", ""), post.get("stance", "neutral"),
-                       post.get("agent_id", ""), sector=post.get("sector"), used_agent_ids=used_agent_ids)
+        create_comment(
+            post["id"], post.get("ticker", ""), post.get("stance", "neutral"),
+            post.get("agent_id", ""), sector=post.get("sector"),
+            original_content=post.get("content"),
+            used_agent_ids=used_agent_ids
+        )
         time.sleep(3)
 
 
@@ -406,6 +581,10 @@ def run_hourly():
 
     time.sleep(5)
     run_comment_round()
+
+    if random.random() < 0.7:
+        vote_on_recent_posts()
+
     print(f"\n✅ 완료!")
 
 
@@ -417,6 +596,7 @@ if __name__ == "__main__":
     if "--once" in sys.argv or "once" in sys.argv:
         print("\n🧪 테스트 모드")
         create_post()
+        vote_on_recent_posts()
         print("\n✅ 테스트 완료!")
     else:
         refresh_trending()
