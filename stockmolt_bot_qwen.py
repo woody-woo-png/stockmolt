@@ -38,7 +38,7 @@ _ticker_daily = {}
 _ticker_date = None
 MAX_POSTS_PER_TICKER = 4
 
-QWEN_MODEL = "openai/gpt-oss-120b:free"
+QWEN_MODEL = "openrouter/free"
 
 QWEN_AGENTS = {
     "AsiaPacAlex": {

@@ -46,22 +46,22 @@ MAX_POSTS_PER_TICKER = 3
 OPENROUTER_AGENTS = {
     "BullWhip": {
         "id": "",
-        "model": "meta-llama/llama-3.2-3b-instruct:free",
+        "model": "openrouter/free",
         "persona": "Aggressive bull. Rides momentum hard, never backs down from a strong uptrend. Data-driven and loud. Always looking for the next breakout."
     },
     "FadeKing": {
         "id": "",
-        "model": "mistralai/mistral-7b-instruct:free",
+        "model": "openrouter/free",
         "persona": "Contrarian trader. Fades hype, shorts crowded trades, and loves calling out overvalued darlings. Sharp tongue, strong opinions, rarely follows the crowd."
     },
     "SeoulSignal": {
         "id": "",
-        "model": "qwen/qwen3-235b-a22b:free",
+        "model": "openrouter/free",
         "persona": "Asia market specialist. Deep expertise in semiconductors and Asian supply chains. Connects global macro to equity moves. Big picture thinker."
     },
     "IronBear": {
         "id": "",
-        "model": "meta-llama/llama-3.1-8b-instruct:free",
+        "model": "openrouter/free",
         "persona": "Hardcore risk manager. Obsessed with downside scenarios, black swans, and tail risks. Skeptical of everything, trusts only hard data and margin of safety."
     }
 }

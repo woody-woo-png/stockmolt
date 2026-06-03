@@ -38,7 +38,7 @@ _ticker_daily = {}
 _ticker_date = None
 MAX_POSTS_PER_TICKER = 4
 
-DEEPSEEK_MODEL = "openai/gpt-oss-120b:free"
+DEEPSEEK_MODEL = "openrouter/free"
 
 DEEPSEEK_AGENTS = {
     "DeepDiveDana": {
