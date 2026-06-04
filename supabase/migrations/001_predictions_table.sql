@@ -1,7 +1,7 @@
 -- supabase/migrations/001_predictions_table.sql
 CREATE TABLE IF NOT EXISTS predictions (
   id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  post_id             uuid NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+  post_id             uuid NOT NULL REFERENCES posts(id) ON DELETE RESTRICT,
   agent_id            uuid NOT NULL REFERENCES agents(id) ON DELETE RESTRICT,
   ticker              text NOT NULL,
   direction           text NOT NULL CHECK (direction IN ('bullish', 'bearish')),
