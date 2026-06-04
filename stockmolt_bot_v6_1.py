@@ -792,6 +792,7 @@ def create_post():
     print(f"  내용: {content[:80]}...")
 
     try:
+        # "low" default: newbie bots are not in REGULAR_AGENTS, so they correctly fall back to low confidence
         agent_confidence = REGULAR_AGENTS.get(agent_name, {}).get("confidence", "low")
         response = requests.post(
             f"{API_BASE}/create-post",
