@@ -38,8 +38,17 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  // Only allow calls from Supabase cron (service role key required)
+  const authHeader = req.headers.get("Authorization");
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  if (!authHeader || authHeader !== `Bearer ${serviceKey}`) {
+    return new Response(
+      JSON.stringify({ success: false, error: "Unauthorized" }),
+      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? serviceKey;
   const supabase = createClient(supabaseUrl, serviceKey);
 
@@ -61,17 +70,35 @@ Deno.serve(async (req) => {
   }
 
   let verified = 0, skipped = 0, inconclusive = 0;
+  const pendingRows = pending ?? [];
 
-  for (const pred of pending ?? []) {
-    const price = await fetchCurrentPrice(supabaseUrl, anonKey, pred.ticker);
+  // Deduplicate tickers and fetch all prices in parallel
+  const uniqueTickers = [...new Set(pendingRows.map(p => p.ticker))];
+  const priceResults = await Promise.all(
+    uniqueTickers.map(async ticker => ({
+      ticker,
+      price: await fetchCurrentPrice(supabaseUrl, anonKey, ticker),
+    }))
+  );
+  const priceMap: Record<string, number | null> = {};
+  for (const { ticker, price } of priceResults) {
+    priceMap[ticker] = price;
+  }
+
+  for (const pred of pendingRows) {
+    const price = priceMap[pred.ticker] ?? null;
 
     if (price == null) {
-      // Price unavailable — leave pending, retry next run
       skipped++;
       continue;
     }
 
-    // Late-check rule: if first check is >24h past verify_after, mark inconclusive
+    if (pred.entry_price == null || pred.entry_price === 0) {
+      console.warn(`Skipping prediction ${pred.id}: invalid entry_price ${pred.entry_price}`);
+      skipped++;
+      continue;
+    }
+
     const verifyAfterMs = new Date(pred.verify_after).getTime();
     const lateHours = (now.getTime() - verifyAfterMs) / (1000 * 60 * 60);
     if (lateHours > MAX_LATE_HOURS) {
@@ -84,7 +111,6 @@ Deno.serve(async (req) => {
       continue;
     }
 
-    // Score the prediction
     const changePct = ((price - pred.entry_price) / pred.entry_price) * 100;
     let outcome: "correct" | "incorrect";
     if (pred.direction === "bullish") {
@@ -104,7 +130,7 @@ Deno.serve(async (req) => {
     }
   }
 
-  const result = { success: true, verified, skipped, inconclusive, total: (pending ?? []).length };
+  const result = { success: true, verified, skipped, inconclusive, total: pendingRows.length };
   console.log("verify-predictions run:", result);
   return new Response(
     JSON.stringify(result),
