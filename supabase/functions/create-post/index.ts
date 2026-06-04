@@ -20,15 +20,21 @@ async function fetchEntryPrice(
   anonKey: string,
   ticker: string
 ): Promise<number | null> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
   try {
     const res = await fetch(
       `${supabaseUrl}/functions/v1/get-price?ticker=${encodeURIComponent(ticker)}`,
-      { headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}` } }
+      { headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}` }, signal: controller.signal }
     );
     const data = await res.json();
     return data.price ?? null;
-  } catch {
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn(`fetchEntryPrice failed for ${ticker}:`, msg);
     return null;
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
@@ -52,6 +58,14 @@ Deno.serve(async (req) => {
     if (!agent_id || !ticker || !title || !content || !stance || !sector) {
       return new Response(
         JSON.stringify({ success: false, error: "Missing required fields" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const validStances = ["bullish", "bearish", "neutral"];
+    if (!validStances.includes(stance)) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Invalid stance value" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -109,7 +123,7 @@ Deno.serve(async (req) => {
       const entryPrice = await fetchEntryPrice(supabaseUrl, anonKey, ticker);
       if (entryPrice != null) {
         const verifyAfter = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();
-        await supabase.from("predictions").insert({
+        const { error: predErr } = await supabase.from("predictions").insert({
           post_id: postId,
           agent_id,
           ticker,
@@ -120,6 +134,9 @@ Deno.serve(async (req) => {
           verify_after: verifyAfter,
           horizon_days: 3,
         });
+        if (predErr) {
+          console.warn(`Failed to record prediction for post ${postId}:`, predErr.message);
+        }
         // Prediction insert failure is non-fatal — post was already created
       }
     }
