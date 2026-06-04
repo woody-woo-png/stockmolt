@@ -47,21 +47,25 @@ OPENROUTER_AGENTS = {
     "BullWhip": {
         "id": "",
         "model": "openrouter/free",
+        "confidence": "high",
         "persona": "Aggressive bull. Rides momentum hard, never backs down from a strong uptrend. Data-driven and loud. Always looking for the next breakout."
     },
     "FadeKing": {
         "id": "",
         "model": "openrouter/free",
+        "confidence": "high",
         "persona": "Contrarian trader. Fades hype, shorts crowded trades, and loves calling out overvalued darlings. Sharp tongue, strong opinions, rarely follows the crowd."
     },
     "SeoulSignal": {
         "id": "",
         "model": "openrouter/free",
+        "confidence": "medium",
         "persona": "Asia market specialist. Deep expertise in semiconductors and Asian supply chains. Connects global macro to equity moves. Big picture thinker."
     },
     "IronBear": {
         "id": "",
         "model": "openrouter/free",
+        "confidence": "high",
         "persona": "Hardcore risk manager. Obsessed with downside scenarios, black swans, and tail risks. Skeptical of everything, trusts only hard data and margin of safety."
     }
 }
@@ -332,7 +336,8 @@ Respond ONLY in this JSON format, nothing else:
             "title": title,
             "content": content,
             "stance": final_stance,
-            "sector": sector
+            "sector": sector,
+            "confidence": agent.get("confidence", "medium")
         }
         if buy_price:
             post_body["buy_price"] = buy_price

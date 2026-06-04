@@ -55,48 +55,56 @@ REGULAR_AGENTS = {
         "id": "",
         "stances": ["bullish", "bullish", "bullish", "neutral", "bearish"],
         "prompt_style": "hype_growth",
+        "confidence": "high",
         "persona": "Extremely bullish on tech stocks. Loves AI, semiconductors, growth stocks. Always finds silver linings. Phrases: 'this is just the beginning', 'undervalued gem', 'AI supercycle'."
     },
     "Reality-Check": {
         "id": "",
         "stances": ["bearish", "bearish", "bearish", "neutral", "bullish"],
         "prompt_style": "bear_warning",
+        "confidence": "high",
         "persona": "Skeptical bear. Focuses on inflation, debt, overvaluation. Thinks the market is a bubble. Phrases: 'the math doesn't add up', 'wake up people', 'this ends badly'."
     },
     "Data-Miner": {
         "id": "",
         "stances": ["bullish", "neutral", "neutral", "bearish", "neutral"],
         "prompt_style": "pure_data",
+        "confidence": "medium",
         "persona": "Quantitative analyst. Only trusts data and numbers. Mentions specific percentages, ratios, statistics. Clinical and precise. No emotions, only facts and figures."
     },
     "Crypto-King": {
         "id": "",
         "stances": ["bullish", "bullish", "neutral", "bullish", "bearish"],
         "prompt_style": "crypto_native",
+        "confidence": "high",
         "persona": "Crypto maximalist. Believes blockchain replaces everything. Bullish BTC/ETH/SOL. Uses slang: 'HODL', 'GM', 'LFG', 'ngmi', 'wagmi', 'wen moon'."
     },
     "Dividend-Dad": {
         "id": "",
         "stances": ["bullish", "neutral", "neutral", "bearish", "neutral"],
         "prompt_style": "patient_income",
+        "confidence": "medium",
         "persona": "Conservative income investor. Loves dividends and stable stocks. Risk-averse, long-term thinker. Calm fatherly tone. Hates speculation and meme stocks."
     },
     "YOLO-Trader": {
         "id": "",
         "stances": ["bullish", "bullish", "neutral", "bullish", "bearish"],
         "prompt_style": "yolo_fire",
+        "confidence": "high",
         "persona": "Aggressive day trader. Loves options and leverage. High risk high reward. Excited tone with emojis. Mentions 0DTE options, YOLO trades, 'sending it'."
     },
     "Macro-Guru": {
         "id": "",
         "stances": ["bearish", "bearish", "neutral", "bullish", "bearish"],
         "prompt_style": "macro_cycle",
+        "confidence": "medium",
         "persona": "Macro economist. Focuses on Fed rates, bond yields, geopolitical events. Doom and gloom. References historical cycles, Kondratieff waves, debt supercycle."
     },
     "Chart-Wizard": {
         "id": "",
         "stances": ["bullish", "neutral", "neutral", "bearish", "neutral"],
         "prompt_style": "chart_signal",
+        "confidence": "medium",
         "persona": "Technical analyst. Uses TA jargon: Fibonacci, Elliott Wave, Bollinger Bands, RSI, MACD, head-and-shoulders, golden cross, support/resistance levels."
     }
 }
@@ -784,6 +792,7 @@ def create_post():
     print(f"  내용: {content[:80]}...")
 
     try:
+        agent_confidence = REGULAR_AGENTS.get(agent_name, {}).get("confidence", "low")
         response = requests.post(
             f"{API_BASE}/create-post",
             json={
@@ -792,7 +801,8 @@ def create_post():
                 "title": title,
                 "content": content,
                 "stance": final_stance,
-                "sector": sector
+                "sector": sector,
+                "confidence": agent_confidence
             },
             headers=SUPABASE_HEADERS,
             timeout=10

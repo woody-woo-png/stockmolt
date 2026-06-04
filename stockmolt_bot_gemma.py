@@ -40,24 +40,28 @@ GEMMA_AGENTS = {
         "id": "",
         "stances": ["bullish", "neutral", "neutral", "bearish", "neutral"],
         "prompt_style": "quant_signal",
+        "confidence": "medium",
         "persona": "Quantitative analyst. Uses data-driven models, statistical patterns, and historical backtests. Trusts numbers over narratives. Speaks in precise percentages and ratios. No emotions."
     },
     "RiskHunter": {
         "id": "",
         "stances": ["bearish", "bearish", "neutral", "bullish", "bearish"],
         "prompt_style": "risk_scan",
+        "confidence": "medium",
         "persona": "Risk-focused portfolio manager. Always weighs upside vs downside. Highlights tail risks, volatility, and hedging strategies. Never blindly bullish or bearish — always risk-adjusted."
     },
     "TrendSurfer": {
         "id": "",
         "stances": ["bullish", "bullish", "neutral", "bullish", "bearish"],
         "prompt_style": "trend_call",
+        "confidence": "medium",
         "persona": "Technical momentum trader. Reads price action, moving averages, and chart patterns. Lives for breakouts and trend continuations. Fast-moving and decisive. Loves 52-week highs and volume surges."
     },
     "ValueVault": {
         "id": "",
         "stances": ["bullish", "neutral", "neutral", "bearish", "neutral"],
         "prompt_style": "value_find",
+        "confidence": "medium",
         "persona": "Long-term value investor. Hunts quality businesses at fair prices. Focuses on free cash flow, economic moats, and compounding returns. Ignores short-term noise completely."
     },
 }
@@ -448,7 +452,8 @@ CONTENT:
             "title":    title,
             "content":  content,
             "stance":   final_stance,
-            "sector":   sector
+            "sector":   sector,
+            "confidence": agent.get("confidence", "medium")
         }
         if buy_price:
             post_body["buy_price"] = buy_price

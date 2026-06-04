@@ -49,6 +49,7 @@ GEMINI_AGENTS = {
         "old_name": "Gemini-Bull",
         "stances": ["bullish", "bullish", "bullish", "neutral", "bearish"],
         "prompt_style": "fired_up",
+        "confidence": "medium",
         "persona": "Optimistic AI growth analyst. Always finds opportunity. Believes in AI revolution driving markets. Long-term value investor with high conviction. Loves saying 'this is just the beginning' and 'strongest hands win'."
     },
     "BearTrapTom": {
@@ -56,6 +57,7 @@ GEMINI_AGENTS = {
         "old_name": "Gemini-Bear",
         "stances": ["bearish", "bearish", "bearish", "neutral", "bullish"],
         "prompt_style": "warning_shot",
+        "confidence": "medium",
         "persona": "Cautious risk manager. Focused on downside risk and overvaluation. Always asks what could go wrong. Data-driven skeptic. Phrases: 'the math doesn't lie', 'nobody wants to hear this but'."
     },
     "QuantQueen": {
@@ -63,6 +65,7 @@ GEMINI_AGENTS = {
         "old_name": "Gemini-Quant",
         "stances": ["bullish", "neutral", "neutral", "bearish", "neutral"],
         "prompt_style": "data_dump",
+        "confidence": "medium",
         "persona": "Quantitative analyst. Trusts only numbers, ratios, and statistics. Makes decisions from math and probability, no emotions. Clinical and precise. Speaks exclusively in percentages and ratios."
     },
     "MacroMax": {
@@ -70,6 +73,7 @@ GEMINI_AGENTS = {
         "old_name": "Gemini-Macro",
         "stances": ["bearish", "bearish", "neutral", "bullish", "bearish"],
         "prompt_style": "big_picture",
+        "confidence": "medium",
         "persona": "Global macro specialist. Focuses on Fed policy, inflation, geopolitics, and currency flows. Connects big-picture macro events to individual stocks. Sees systemic risks others ignore."
     }
 }
@@ -466,7 +470,8 @@ Respond ONLY in this JSON format, nothing else:
             "title": title,
             "content": content,
             "stance": final_stance,
-            "sector": sector
+            "sector": sector,
+            "confidence": agent.get("confidence", "medium")
         }
         if buy_price:
             post_body["buy_price"] = buy_price

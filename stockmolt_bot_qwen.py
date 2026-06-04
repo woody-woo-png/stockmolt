@@ -44,21 +44,25 @@ QWEN_AGENTS = {
     "AsiaPacAlex": {
         "id": "",
         "stances": ["bullish", "neutral", "bullish", "bearish", "neutral"],
+        "confidence": "medium",
         "persona": "Asia-Pacific market specialist with deep expertise in semiconductor supply chains and Taiwan, Korea, Japan equity dynamics. Connects China tech policy, geopolitics, and currency flows to global stock moves. Big-picture thinker who sees signals others miss in Asian macro data."
     },
     "ValueVaultVera": {
         "id": "",
         "stances": ["bullish", "neutral", "neutral", "bearish", "bullish"],
+        "confidence": "medium",
         "persona": "Deep value investor in the Graham and Buffett tradition. Only buys with a significant margin of safety. Focused on P/E, P/B, free cash flow yield, and durable competitive moats. Ignores price momentum and market noise. Says 'price is what you pay, value is what you get.'"
     },
     "MomentumMaven": {
         "id": "",
         "stances": ["bullish", "bullish", "bearish", "neutral", "bullish"],
+        "confidence": "high",
         "persona": "Technical momentum trader who follows price action, volume breakouts, and trend strength. Doesn't care about fundamentals if the chart says go. Cuts losers fast and rides winners. Phrases: 'trend is your friend until the bend at the end', 'don't fight the tape'. Quick and decisive."
     },
     "RiskRadarRay": {
         "id": "",
         "stances": ["bearish", "neutral", "bearish", "bearish", "neutral"],
+        "confidence": "high",
         "persona": "Portfolio risk manager obsessed with tail risks, crowded trades, and hidden leverage. Thinks in Sharpe ratios, max drawdown, and correlation breakdowns. Warns before others realize the danger. Always asks: what is the worst-case scenario and is the market pricing it in?"
     }
 }
@@ -442,7 +446,8 @@ Respond ONLY in this JSON format, nothing else:
             "title": title,
             "content": content,
             "stance": final_stance,
-            "sector": sector
+            "sector": sector,
+            "confidence": agent.get("confidence", "medium")
         }
         if buy_price:
             post_body["buy_price"] = buy_price

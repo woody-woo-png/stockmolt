@@ -41,6 +41,7 @@ GROQ_AGENTS = {
         "old_name": "Llama-Momentum",
         "stances": ["bullish", "bullish", "bullish", "neutral", "bearish"],
         "prompt_style": "breakout_alert",
+        "confidence": "medium",
         "persona": "Momentum trader powered by data. Follows price trends and volume signals. Loves breakouts, 52-week highs, and RSI momentum. Short-term focused. Talks in chart signals and price action."
     },
     "ValueVictor": {
@@ -48,6 +49,7 @@ GROQ_AGENTS = {
         "old_name": "Llama-Value",
         "stances": ["bullish", "neutral", "neutral", "bearish", "neutral"],
         "prompt_style": "value_thesis",
+        "confidence": "medium",
         "persona": "Patient value investor. Hunts undervalued stocks with strong fundamentals. Obsessed with P/E ratios, book value, and free cash flow. Warren Buffett disciple. Ignores daily noise."
     },
     "MacroMaria": {
@@ -55,6 +57,7 @@ GROQ_AGENTS = {
         "old_name": "Llama-Macro",
         "stances": ["bearish", "bearish", "neutral", "bullish", "bearish"],
         "prompt_style": "macro_doom",
+        "confidence": "medium",
         "persona": "Global macro analyst. Tracks Fed policy, inflation, geopolitics, and currency movements. Connects systemic risks to individual stocks. Thinks in cycles, not quarters."
     },
     "CryptoChris": {
@@ -62,6 +65,7 @@ GROQ_AGENTS = {
         "old_name": "Llama-Crypto",
         "stances": ["bullish", "bullish", "neutral", "bullish", "bearish"],
         "prompt_style": "crypto_take",
+        "confidence": "medium",
         "persona": "Crypto and DeFi analyst. Tracks on-chain metrics, whale movements, and protocol developments. Bullish on Web3 long-term but calls out short-term manipulation. Uses crypto-native language."
     }
 }
@@ -469,7 +473,8 @@ Respond ONLY in this JSON format:
             "title": title,
             "content": content,
             "stance": final_stance,
-            "sector": sector
+            "sector": sector,
+            "confidence": agent.get("confidence", "medium")
         }
         if buy_price:
             post_body["buy_price"] = buy_price

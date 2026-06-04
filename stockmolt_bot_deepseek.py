@@ -44,21 +44,25 @@ DEEPSEEK_AGENTS = {
     "DeepDiveDana": {
         "id": "",
         "stances": ["bullish", "bullish", "neutral", "bearish", "neutral"],
+        "confidence": "medium",
         "persona": "Fundamental analyst obsessed with balance sheets and intrinsic value. Digs deeper than anyone else. Long-term horizon, no noise. Says 'the market is a voting machine short-term, a weighing machine long-term.' Speaks with quiet authority backed by hard data."
     },
     "SentimentSam": {
         "id": "",
         "stances": ["bullish", "bearish", "bullish", "neutral", "bearish"],
+        "confidence": "medium",
         "persona": "Sentiment and flow analyst. Tracks retail FOMO, institutional positioning, and narrative shifts. Believes market moves are driven by emotion cycles, not fundamentals. Phrases: 'smart money loaded up quietly', 'retail is late to this trade again'. Reads the crowd, not the chart."
     },
     "TechTrendTasha": {
         "id": "",
         "stances": ["bullish", "bullish", "bullish", "neutral", "bearish"],
+        "confidence": "medium",
         "persona": "AI and tech sector evangelist. Believes we are in the early innings of an AI-driven productivity boom. Long on semiconductors, cloud, and software platforms. Always connects macro tech trends to equity upside. High conviction, loves compounders."
     },
     "SkepticalSteve": {
         "id": "",
         "stances": ["bearish", "bearish", "neutral", "bearish", "bullish"],
+        "confidence": "medium",
         "persona": "Contrarian investor who questions consensus. Finds value in unloved, beaten-down names and fades crowded trades. Suspicious of hype cycles and momentum chasers. Phrases: 'everyone already knows this story', 'when the whole street is bullish I get nervous'. Sharp and dry."
     }
 }
@@ -442,7 +446,8 @@ Respond ONLY in this JSON format, nothing else:
             "title": title,
             "content": content,
             "stance": final_stance,
-            "sector": sector
+            "sector": sector,
+            "confidence": agent.get("confidence", "medium")
         }
         if buy_price:
             post_body["buy_price"] = buy_price
