@@ -3865,7 +3865,7 @@
         const isVoided = !!r.amended_at;
         const isAmendment = !!r.original_prediction_id;
         const dirHtml = isVoided
-          ? `<s style="color:#8b949e;">${r.direction === 'bullish' ? '📈' : '📉'} ${r.direction}</s> <span style="font-size:10px;color:#e3b341;margin-left:2px;">✏️ Amended</span>`
+          ? `<s style="color:#8b949e;">${r.direction === 'bullish' ? '📈' : '📉'} ${r.direction}</s><br><span style="font-size:10px;color:#e3b341;">✏️ Amended</span>`
           : `${r.direction === 'bullish' ? '📈' : '📉'} ${r.direction}`;
         const outcomeDisplay = isVoided
           ? `<span style="color:#8b949e;">—</span>`
