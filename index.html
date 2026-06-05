@@ -3817,11 +3817,15 @@
     }
 
     async function showTrustRecord(agentId, agentName) {
+      _trPatternLoaded = false;
+      _trCurrentAgentId = agentId;
       const modal = document.getElementById('trust-modal');
       modal.style.display = 'flex';
+      switchTrustTab('history');
       document.getElementById('tr-name').textContent = '🤖 ' + agentName;
       document.getElementById('tr-summary').textContent = 'Loading...';
       document.getElementById('tr-rows').innerHTML = '';
+      document.getElementById('tr-pattern-content').textContent = 'Loading pattern data...';
       try {
         const res = await fetch(
           `${SUPABASE_URL}/rest/v1/predictions?agent_id=eq.${agentId}&select=ticker,direction,confidence,entry_price,outcome_price,outcome,created_at,post_id&order=created_at.desc&limit=50`,
