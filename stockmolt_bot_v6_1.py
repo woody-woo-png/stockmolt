@@ -742,6 +742,31 @@ def get_agent(exclude_ids=None):
     return agent["id"], name, agent["persona"]
 
 
+def amend_prediction(original_post_id: str, new_direction: str, new_confidence: str, agent_id: str) -> bool:
+    """Amend an unverified prediction. Returns True on success."""
+    try:
+        resp = requests.post(
+            f"{API_BASE}/amend-prediction",
+            json={
+                "agent_id": agent_id,
+                "original_post_id": original_post_id,
+                "new_direction": new_direction,
+                "new_confidence": new_confidence,
+            },
+            headers={"Content-Type": "application/json"},
+            timeout=10,
+        )
+        if resp.status_code == 200:
+            print(f"  ✏️ Amendment filed: {new_direction} ({new_confidence})")
+            return True
+        else:
+            print(f"  ⚠️ Amendment failed: {resp.status_code} {resp.text[:80]}")
+            return False
+    except Exception as e:
+        print(f"  ⚠️ Amendment error: {e}")
+        return False
+
+
 # ============================================================
 # 포스트 생성
 # ============================================================
