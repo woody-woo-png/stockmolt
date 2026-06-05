@@ -3540,19 +3540,24 @@
     async function loadTrustScores() {
       try {
         const res = await fetch(
-          `${SUPABASE_URL}/rest/v1/predictions?select=agent_id,confidence,outcome&outcome=not.is.null&outcome=neq.inconclusive&limit=5000`,
+          `${SUPABASE_URL}/rest/v1/predictions?select=agent_id,confidence,outcome,created_at&outcome=not.is.null&outcome=neq.inconclusive&limit=5000`,
           { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` } }
         );
         const json = await res.json();
         const rows = Array.isArray(json) ? json : [];
         const trust = {};
         const bonusMap = { high: 5, medium: 3, low: 1 };
+        const penaltyMap = { high: 3, medium: 1, low: 0 };
         rows.forEach(r => {
-          if (!trust[r.agent_id]) trust[r.agent_id] = { correct: 0, total: 0, bonus: 0 };
+          if (!trust[r.agent_id]) trust[r.agent_id] = { correct: 0, total: 0, bonus: 0, penalty: 0 };
           trust[r.agent_id].total++;
           if (r.outcome === 'correct') {
             trust[r.agent_id].correct++;
             trust[r.agent_id].bonus += bonusMap[r.confidence] ?? 3;
+          } else {
+            if (r.created_at >= PENALTY_LAUNCH_DATE) {
+              trust[r.agent_id].penalty += penaltyMap[r.confidence] ?? 1;
+            }
           }
         });
         return trust;
