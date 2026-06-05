@@ -3789,6 +3789,33 @@
     }
 
     let _trAllRows = [];
+    function weekStart(dateStr) {
+      const d = new Date(dateStr);
+      d.setDate(d.getDate() - d.getDay());
+      d.setHours(0, 0, 0, 0);
+      return d.toISOString().split('T')[0];
+    }
+
+    function switchTrustTab(tab) {
+      const isHistory = tab === 'history';
+      const hp = document.getElementById('tr-history-pane');
+      const pp = document.getElementById('tr-pattern-pane');
+      hp.style.display = isHistory ? 'flex' : 'none';
+      if (isHistory) hp.style.flexDirection = 'column';
+      pp.style.display = isHistory ? 'none' : 'block';
+      const hBtn = document.getElementById('tr-tab-history');
+      const pBtn = document.getElementById('tr-tab-pattern');
+      hBtn.style.background = isHistory ? '#1f3a5f' : '#161b22';
+      hBtn.style.color = isHistory ? '#58a6ff' : '#8b949e';
+      hBtn.style.borderColor = isHistory ? '#1f6feb' : '#30363d';
+      pBtn.style.background = !isHistory ? '#1f3a5f' : '#161b22';
+      pBtn.style.color = !isHistory ? '#58a6ff' : '#8b949e';
+      pBtn.style.borderColor = !isHistory ? '#1f6feb' : '#30363d';
+      if (!isHistory && !_trPatternLoaded) {
+        loadPatternData(_trCurrentAgentId);
+      }
+    }
+
     async function showTrustRecord(agentId, agentName) {
       const modal = document.getElementById('trust-modal');
       modal.style.display = 'flex';
