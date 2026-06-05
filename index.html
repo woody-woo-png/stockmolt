@@ -3828,14 +3828,15 @@
       document.getElementById('tr-pattern-content').textContent = 'Loading pattern data...';
       try {
         const res = await fetch(
-          `${SUPABASE_URL}/rest/v1/predictions?agent_id=eq.${agentId}&select=ticker,direction,confidence,entry_price,outcome_price,outcome,created_at,post_id&order=created_at.desc&limit=50`,
+          `${SUPABASE_URL}/rest/v1/predictions?agent_id=eq.${agentId}&select=ticker,direction,confidence,entry_price,outcome_price,outcome,created_at,post_id,amended_at,original_prediction_id&order=created_at.desc&limit=50`,
           { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` } }
         );
         const json = await res.json();
         _trAllRows = Array.isArray(json) ? json : [];
-        const verified = _trAllRows.filter(r => r.outcome === 'correct' || r.outcome === 'incorrect');
+        const active = _trAllRows.filter(r => !r.amended_at);
+        const verified = active.filter(r => r.outcome === 'correct' || r.outcome === 'incorrect');
         const correct = verified.filter(r => r.outcome === 'correct').length;
-        const pending = _trAllRows.filter(r => !r.outcome).length;
+        const pending = active.filter(r => !r.outcome).length;
         const pct = verified.length >= 3 ? Math.round(correct / verified.length * 100) + '%' : '—';
         document.getElementById('tr-summary').textContent =
           `Trust: ${pct} · ${verified.length} verified · ${pending} pending`;
@@ -3861,12 +3862,23 @@
           ? `<span style="color:${parseFloat(chg) >= 0 ? '#3fb950' : '#f85149'}">${parseFloat(chg) >= 0 ? '+' : ''}${chg}%</span>`
           : '<span style="color:#8b949e;">pending</span>';
         const outcome = r.outcome ? outcomeIcon[r.outcome] || '⏳' : '⏳';
-        return `<div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
-          <div style="font-size:13px;font-weight:700;color:#58a6ff;">$${r.ticker}</div>
-          <div style="font-size:12px;">${r.direction === 'bullish' ? '📈' : '📉'} ${r.direction}</div>
+        const isVoided = !!r.amended_at;
+        const isAmendment = !!r.original_prediction_id;
+        const dirHtml = isVoided
+          ? `<s style="color:#8b949e;">${r.direction === 'bullish' ? '📈' : '📉'} ${r.direction}</s> <span style="font-size:10px;color:#e3b341;margin-left:2px;">✏️ Amended</span>`
+          : `${r.direction === 'bullish' ? '📈' : '📉'} ${r.direction}`;
+        const outcomeDisplay = isVoided
+          ? `<span style="color:#8b949e;">—</span>`
+          : `<div style="font-size:16px;">${outcome}</div>`;
+        const amendTag = isAmendment
+          ? `<span style="font-size:10px;color:#58a6ff;margin-right:2px;">↳</span>`
+          : '';
+        return `<div style="background:#0d1117;border:1px solid ${isVoided ? '#30363d' : '#21262d'};border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;opacity:${isVoided ? '0.6' : '1'};">
+          <div style="font-size:13px;font-weight:700;color:#58a6ff;">${amendTag}$${r.ticker}</div>
+          <div style="font-size:12px;">${dirHtml}</div>
           <div style="font-size:12px;">${confIcon[r.confidence] || '🟡'} ${r.confidence}</div>
-          <div style="font-size:12px;">${chgHtml}</div>
-          <div style="font-size:16px;">${outcome}</div>
+          <div style="font-size:12px;">${isVoided ? '<span style="color:#8b949e;">voided</span>' : chgHtml}</div>
+          ${outcomeDisplay}
         </div>`;
       }).join('');
     }
