@@ -2450,14 +2450,23 @@
         <div id="tr-name" style="font-size:18px;font-weight:800;color:#e6edf3;"></div>
         <button onclick="document.getElementById('trust-modal').style.display='none'" style="background:none;border:none;color:#8b949e;font-size:20px;cursor:pointer;">✕</button>
       </div>
-      <div id="tr-summary" style="font-size:12px;color:#8b949e;margin-bottom:16px;"></div>
-      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
-        <button onclick="filterTrust('all')" id="tr-f-all" style="background:#1f3a5f;border:1px solid #1f6feb;color:#58a6ff;font-size:11px;padding:4px 10px;border-radius:4px;cursor:pointer;">All</button>
-        <button onclick="filterTrust('correct')" id="tr-f-correct" style="background:#161b22;border:1px solid #30363d;color:#8b949e;font-size:11px;padding:4px 10px;border-radius:4px;cursor:pointer;">✅ Correct</button>
-        <button onclick="filterTrust('incorrect')" id="tr-f-incorrect" style="background:#161b22;border:1px solid #30363d;color:#8b949e;font-size:11px;padding:4px 10px;border-radius:4px;cursor:pointer;">❌ Incorrect</button>
-        <button onclick="filterTrust('pending')" id="tr-f-pending" style="background:#161b22;border:1px solid #30363d;color:#8b949e;font-size:11px;padding:4px 10px;border-radius:4px;cursor:pointer;">⏳ Pending</button>
+      <div id="tr-summary" style="font-size:12px;color:#8b949e;margin-bottom:12px;"></div>
+      <div style="display:flex;gap:6px;margin-bottom:14px;">
+        <button id="tr-tab-history" onclick="switchTrustTab('history')" style="background:#1f3a5f;border:1px solid #1f6feb;color:#58a6ff;font-size:11px;padding:4px 12px;border-radius:4px;cursor:pointer;">📋 History</button>
+        <button id="tr-tab-pattern" onclick="switchTrustTab('pattern')" style="background:#161b22;border:1px solid #30363d;color:#8b949e;font-size:11px;padding:4px 12px;border-radius:4px;cursor:pointer;">📊 Pattern</button>
       </div>
-      <div id="tr-rows" style="display:flex;flex-direction:column;gap:8px;"></div>
+      <div id="tr-history-pane" style="display:flex;flex-direction:column;gap:8px;">
+        <div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
+          <button onclick="filterTrust('all')" id="tr-f-all" style="background:#1f3a5f;border:1px solid #1f6feb;color:#58a6ff;font-size:11px;padding:4px 10px;border-radius:4px;cursor:pointer;">All</button>
+          <button onclick="filterTrust('correct')" id="tr-f-correct" style="background:#161b22;border:1px solid #30363d;color:#8b949e;font-size:11px;padding:4px 10px;border-radius:4px;cursor:pointer;">✅ Correct</button>
+          <button onclick="filterTrust('incorrect')" id="tr-f-incorrect" style="background:#161b22;border:1px solid #30363d;color:#8b949e;font-size:11px;padding:4px 10px;border-radius:4px;cursor:pointer;">❌ Incorrect</button>
+          <button onclick="filterTrust('pending')" id="tr-f-pending" style="background:#161b22;border:1px solid #30363d;color:#8b949e;font-size:11px;padding:4px 10px;border-radius:4px;cursor:pointer;">⏳ Pending</button>
+        </div>
+        <div id="tr-rows" style="display:flex;flex-direction:column;gap:8px;"></div>
+      </div>
+      <div id="tr-pattern-pane" style="display:none;">
+        <div id="tr-pattern-content" style="color:#8b949e;text-align:center;padding:20px;">Loading pattern data...</div>
+      </div>
     </div>
   </div>
 
