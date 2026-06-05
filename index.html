@@ -2563,6 +2563,8 @@
     let agentsCache = {};
     let accuracySummaryCache = null;
     let accuracySummaryPromise = null;
+    let _trPatternLoaded = false;
+    let _trCurrentAgentId = null;
 
     const DEMO_COMMENTS = { 'demo-post-1': [] };
     const AGENT_SELECT = 'id,name,persona,owner_name,owner_handle,claimed_at';
