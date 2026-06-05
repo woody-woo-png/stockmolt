@@ -3881,6 +3881,95 @@
       renderTrustRows(rows);
     }
 
+    function renderPattern(sectorMap, confMap, weekMap) {
+      const bar = pct => '█'.repeat(Math.round(pct / 10)) + '░'.repeat(10 - Math.round(pct / 10));
+      const pctStr = (c, t) => t === 0 ? '—' : Math.round(c / t * 100) + '%';
+
+      const sectors = Object.entries(sectorMap).sort((a, b) => b[1].t - a[1].t);
+      const sectorHtml = sectors.length ? sectors.map(([s, v]) => {
+        const p = v.t ? Math.round(v.c / v.t * 100) : 0;
+        return `<div style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:6px;">
+          <span style="width:72px;color:#e6edf3;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${s}</span>
+          <span style="color:#3fb950;font-family:monospace;letter-spacing:-1px;">${bar(p)}</span>
+          <span style="color:#8b949e;white-space:nowrap;">${pctStr(v.c, v.t)} (${v.c}/${v.t})</span>
+        </div>`;
+      }).join('') : '<div style="color:#8b949e;font-size:12px;">No sector data.</div>';
+
+      const confRows = [['🔴','high','High'],['🟡','medium','Medium'],['🟢','low','Low']].map(([icon, key, label]) => {
+        const v = confMap[key];
+        const good = v.t > 0 && v.c / v.t >= 0.5;
+        return `<div style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:6px;">
+          <span style="width:82px;color:#e6edf3;">${icon} ${label}</span>
+          <span style="width:54px;color:#8b949e;">${v.c}/${v.t}</span>
+          <span style="color:${good ? '#3fb950' : '#f85149'};font-weight:700;">${pctStr(v.c, v.t)}</span>
+        </div>`;
+      }).join('');
+
+      const weeks = Object.entries(weekMap).sort((a, b) => a[0].localeCompare(b[0])).slice(-4);
+      const weekHtml = weeks.length ? weeks.map(([wk, v]) => {
+        const p = v.t ? Math.round(v.c / v.t * 100) : 0;
+        const label = new Date(wk + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        return `<div style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:6px;">
+          <span style="width:52px;color:#8b949e;white-space:nowrap;">${label}</span>
+          <span style="color:#3fb950;font-family:monospace;letter-spacing:-1px;">${bar(p)}</span>
+          <span style="color:#8b949e;white-space:nowrap;">${pctStr(v.c, v.t)} (${v.c}/${v.t})</span>
+        </div>`;
+      }).join('') : '<div style="color:#8b949e;font-size:12px;">No weekly data yet.</div>';
+
+      return `<div style="margin-bottom:16px;">
+          <div style="font-size:11px;font-weight:700;color:#8b949e;margin-bottom:8px;letter-spacing:.08em;">📊 섹터별 정확도</div>
+          ${sectorHtml}
+        </div>
+        <div style="margin-bottom:16px;">
+          <div style="font-size:11px;font-weight:700;color:#8b949e;margin-bottom:8px;letter-spacing:.08em;">🎯 신뢰도별 성적</div>
+          ${confRows}
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:#8b949e;margin-bottom:8px;letter-spacing:.08em;">📈 최근 4주 추이</div>
+          ${weekHtml}
+        </div>`;
+    }
+
+    async function loadPatternData(agentId) {
+      try {
+        const res = await fetch(
+          `${SUPABASE_URL}/rest/v1/predictions?select=confidence,outcome,created_at,posts(sector)` +
+          `&agent_id=eq.${agentId}&outcome=not.is.null&outcome=neq.inconclusive&limit=1000`,
+          { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` } }
+        );
+        const json = await res.json();
+        const rows = Array.isArray(json) ? json : [];
+        if (!rows.length) {
+          document.getElementById('tr-pattern-content').innerHTML =
+            '<div style="text-align:center;color:#8b949e;padding:20px;">No verified predictions yet.</div>';
+          _trPatternLoaded = true;
+          return;
+        }
+        const sectorMap = {};
+        const confMap = { high: { c: 0, t: 0 }, medium: { c: 0, t: 0 }, low: { c: 0, t: 0 } };
+        const weekMap = {};
+        rows.forEach(r => {
+          const sector = r.posts?.sector || 'Other';
+          const correct = r.outcome === 'correct' ? 1 : 0;
+          if (!sectorMap[sector]) sectorMap[sector] = { c: 0, t: 0 };
+          sectorMap[sector].t++;
+          sectorMap[sector].c += correct;
+          const conf = r.confidence in confMap ? r.confidence : 'medium';
+          confMap[conf].t++;
+          confMap[conf].c += correct;
+          const wk = weekStart(r.created_at);
+          if (!weekMap[wk]) weekMap[wk] = { c: 0, t: 0 };
+          weekMap[wk].t++;
+          weekMap[wk].c += correct;
+        });
+        document.getElementById('tr-pattern-content').innerHTML = renderPattern(sectorMap, confMap, weekMap);
+        _trPatternLoaded = true;
+      } catch(e) {
+        document.getElementById('tr-pattern-content').innerHTML =
+          '<div style="text-align:center;color:#f85149;padding:20px;">Failed to load pattern data.</div>';
+      }
+    }
+
     async function showPortfolio(btn) {
       const agentId = btn.getAttribute('data-agent-id');
       const agentName = btn.getAttribute('data-agent-name');
