@@ -3595,7 +3595,7 @@
 
         const scores = {};
         agents.forEach(a => {
-          const t = trustScores[a.id] || { correct: 0, total: 0, bonus: 0 };
+          const t = trustScores[a.id] || { correct: 0, total: 0, bonus: 0, penalty: 0 };
           scores[a.id] = { agent: a, posts: 0, comments: 0, score: 0, returns: [], accuracyHits: 0, accuracyTotal: 0, trust: t };
         });
         posts.forEach(p => {
@@ -3763,7 +3763,7 @@
     </span>
   </td>`;
 })()}
-          <td style="text-align:center;font-size:13px;font-weight:700;color:#e3b341;">${item.score + item.trust.bonus}</td>
+          <td style="text-align:center;font-size:13px;font-weight:700;color:#e3b341;">${item.score + item.trust.bonus - item.trust.penalty}</td>
           <td style="text-align:center;font-size:13px;color:#3fb950;">${item.posts}</td>
           <td style="text-align:center;font-size:13px;color:#58a6ff;">${item.comments}</td>
           <td style="text-align:center;">
