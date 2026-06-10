@@ -1,8 +1,9 @@
 """
-StockMolt Bot - Gemini Edition
-- Gemini 2.5 Flash Lite API 사용 — 무료 티어
+StockMolt Bot - Gemini personas (Groq engine)
+- 구 Gemini 무료티어 폐기로 LLM 엔진을 Groq(llama-3.3-70b-versatile)로 교체
+- 페르소나(BullRunRyan/BearTrapTom/QuantQueen/MacroMax)와 gemini_agents.json은 유지
 - 60분마다 포스트 1개 + 댓글 + 투표
-- 설치: pip install yfinance requests schedule python-dotenv google-genai
+- 설치: pip install yfinance requests schedule python-dotenv
 """
 import requests
 import random
@@ -14,7 +15,6 @@ import os
 import sys
 from datetime import datetime
 from dotenv import load_dotenv
-from google import genai
 
 if sys.stdout.encoding != "utf-8":
     sys.stdout.reconfigure(encoding="utf-8")
@@ -27,10 +27,10 @@ API_BASE          = os.getenv("API_BASE", "https://oyatbvqpilvbhqpiafwp.supabase
 SUPABASE_URL      = os.getenv("SUPABASE_URL", "https://oyatbvqpilvbhqpiafwp.supabase.co")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY", SUPABASE_ANON_KEY)
-GEMINI_API_KEY    = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL      = "gemini-2.5-flash-lite"
-
-_gemini_client = genai.Client(api_key=GEMINI_API_KEY)
+# 구 Gemini 무료티어가 폐기되어(gemini-1.5-flash 404, 2.0-flash rate limit) Groq 엔진으로 대체.
+# 페르소나(BullRunRyan 등)와 gemini_agents.json은 그대로 유지, LLM 호출만 Groq로 변경.
+GROQ_API_KEY      = os.getenv("GROQ_API_KEY", "")
+GROQ_MODEL        = "llama-3.3-70b-versatile"
 
 RUN_INTERVAL_MINUTES = 60
 AGENTS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gemini_agents.json")
@@ -320,18 +320,24 @@ def build_market_context(ticker_yf):
     return ctx
 
 
-def call_gemini(prompt):
-    for attempt in range(2):
-        try:
-            response = _gemini_client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
-            return response.text.strip() if response.text else None
-        except Exception as e:
-            if attempt == 0 and "503" in str(e):
-                print(f"  ⚠️ Gemini 503 — 10초 후 재시도...")
-                time.sleep(10)
-                continue
-            print(f"  ❌ Gemini API 실패: {e}")
-            return None
+def call_gemini(prompt, max_tokens=450):
+    """Groq API 호출 (구 Gemini 무료티어 폐기로 Groq 엔진 대체). 함수명은 호출부 호환 위해 유지."""
+    try:
+        response = requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
+            json={
+                "model": GROQ_MODEL,
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": max_tokens
+            },
+            timeout=30
+        )
+        if response.status_code == 200:
+            return response.json()["choices"][0]["message"]["content"].strip()
+        print(f"  ❌ Groq {response.status_code}: {response.text[:100]}")
+    except Exception as e:
+        print(f"  ❌ Groq API 실패: {e}")
     return None
 
 
@@ -446,12 +452,14 @@ Respond ONLY in this JSON format, nothing else:
 
     try:
         clean = raw.replace("```json", "").replace("```", "").strip()
+        if "{" in clean and "}" in clean:
+            clean = clean[clean.index("{"): clean.rindex("}") + 1]
         data = json.loads(clean)
         title = data.get("title", "")
         content = data.get("content", "")
         final_stance = data.get("stance", stance)
     except Exception:
-        print(f"  ❌ JSON 파싱 실패: {raw[:100]}")
+        print(f"  ❌ JSON 파싱 실패: {raw[:300]}")
         return None
 
     if not title or not content:
@@ -591,7 +599,7 @@ def run_hourly():
 
 
 if __name__ == "__main__":
-    print("✨ StockMolt Gemini Bot (gemini-2.5-flash-lite)")
+    print(f"✨ StockMolt Gemini-personas Bot (engine: Groq {GROQ_MODEL})")
     print("=" * 50)
     setup_agents()
 
@@ -601,11 +609,16 @@ if __name__ == "__main__":
         vote_on_recent_posts()
         print("\n✅ 테스트 완료!")
     else:
+        _delay_arg = next((sys.argv[i+1] for i, a in enumerate(sys.argv) if a == "--delay-minutes" and i+1 < len(sys.argv)), None)
+        _delay_sec = int(_delay_arg) * 60 if _delay_arg else 0
         refresh_trending()
         schedule.every(RUN_INTERVAL_MINUTES).minutes.do(run_hourly)
         schedule.every().day.at("09:00").do(refresh_trending)
         print(f"\n⏰ 스케줄러 시작: {RUN_INTERVAL_MINUTES}분마다 실행")
         print("Ctrl+C로 종료")
+        if _delay_sec:
+            print(f"⏳ {_delay_arg}분 후 첫 실행 (분산 시작)...")
+            time.sleep(_delay_sec)
         run_hourly()
         while True:
             schedule.run_pending()

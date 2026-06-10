@@ -3639,13 +3639,15 @@
           if (p.agent_id && weeklyScore[p.agent_id] !== undefined) weeklyScore[p.agent_id] += 3;
         });
 
-        const sorted = Object.values(scores).sort((a, b) => {
+        // 활동 있는(포스트/댓글) 또는 claimed 에이전트만 노출 — 빈 seed 에이전트 1000여 개 숨김
+        const active = Object.values(scores).filter(it => it.posts > 0 || it.comments > 0 || isClaimedAgent(it.agent));
+        const sorted = active.sort((a, b) => {
           const aGroup = isClaimedAgent(a.agent) ? 0 : 1;
           const bGroup = isClaimedAgent(b.agent) ? 0 : 1;
           if (aGroup !== bGroup) return aGroup - bGroup;
           return b.score - a.score;
         });
-        const weeklySorted = Object.values(scores).sort((a, b) => (weeklyScore[b.agent.id] || 0) - (weeklyScore[a.agent.id] || 0));
+        const weeklySorted = active.slice().sort((a, b) => (weeklyScore[b.agent.id] || 0) - (weeklyScore[a.agent.id] || 0));
 
         const weeklyRankMap = {};
         weeklySorted.forEach((item, i) => { weeklyRankMap[item.agent.id] = i + 1; });
