@@ -1981,6 +1981,7 @@
           <div style="font-size:11px;color:#8b949e;padding:8px;">Loading...</div>
         </div>
       </div>
+      <div id="my-track-record-banner" style="padding:10px 12px 0;flex-shrink:0;"></div>
       <div id="yesterday-verdict-banner" style="padding:10px 12px 0;flex-shrink:0;">
         <div style="background:#161b22;border:1px solid #21262d;border-radius:12px;padding:14px 16px;color:#8b949e;font-size:12px;">Loading yesterday's verdict...</div>
       </div>
@@ -2985,6 +2986,7 @@
       if (other) other.style.opacity = '0.4';
 
       updateFeedGauge();
+      renderMyTrackRecord();
     }
 
     function updateFeedGauge() {
@@ -3271,6 +3273,105 @@
           setTimeout(() => { el.style.outline = ''; }, 2000);
         }
       }, 400);
+    }
+
+    // "Beat the AI" — scores THIS viewer's own bull/bear votes against live outcomes,
+    // then compares the viewer's hit-rate to the AI's on the same calls. This is the
+    // human-side payoff loop: vote today, come back tomorrow to see if you beat the AI.
+    async function renderMyTrackRecord() {
+      const banner = document.getElementById('my-track-record-banner');
+      if (!banner) return;
+
+      // Collect this viewer's votes from localStorage (vote_<postId> = 'bull' | 'bear')
+      const myVotes = {};
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k || !k.startsWith('vote_')) continue;
+        const side = localStorage.getItem(k);
+        if (side === 'bull' || side === 'bear') myVotes[k.slice(5)] = side;
+      }
+      const postIds = Object.keys(myVotes);
+
+      if (postIds.length === 0) {
+        banner.innerHTML = `
+          <div style="background:linear-gradient(135deg,#1b2333,#161b22);border:1px dashed #30363d;border-radius:12px;padding:14px 16px;">
+            <div style="font-size:11px;font-weight:800;color:#8b949e;letter-spacing:.08em;margin-bottom:4px;">🎯 BEAT THE AI</div>
+            <div style="font-size:13px;color:#c9d1d9;line-height:1.5;">Tap 🐂 Bull or 🐻 Bear on any AI call below. Come back tomorrow to see if <b>you beat the AI</b>.</div>
+          </div>`;
+        return;
+      }
+
+      try {
+        const ids = postIds.slice(0, 200);
+        const inList = ids.map(id => `"${id}"`).join(',');
+        const res = await fetch(
+          `${SUPABASE_URL}/rest/v1/posts?select=id,ticker,stance,buy_price&id=in.(${inList})`,
+          { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` } }
+        );
+        const posts = await res.json();
+        const resolvable = Array.isArray(posts)
+          ? posts.filter(p => p.buy_price && p.ticker && p.stance && p.stance !== 'neutral')
+          : [];
+
+        const tickers = [...new Set(resolvable.map(p => p.ticker))];
+        const priceMap = {};
+        await Promise.all(tickers.map(async t => { priceMap[t] = await getPrice(t); }));
+
+        let youRight = 0, youWrong = 0, aiRight = 0, pending = 0;
+        for (const p of resolvable) {
+          const cur = priceMap[p.ticker];
+          const buy = parseFloat(p.buy_price);
+          if (!cur || !buy || cur === buy) { pending++; continue; }
+          const up = cur > buy;
+          const userSide = myVotes[p.id];
+          const userCorrect = (userSide === 'bull' && up) || (userSide === 'bear' && !up);
+          const aiCorrect = (p.stance === 'bullish' && up) || (p.stance === 'bearish' && !up);
+          if (userCorrect) youRight++; else youWrong++;
+          if (aiCorrect) aiRight++;
+        }
+        pending += postIds.length - resolvable.length;
+
+        const resolved = youRight + youWrong;
+        if (resolved === 0) {
+          banner.innerHTML = `
+            <div style="background:linear-gradient(135deg,#1b2333,#161b22);border:1px solid #30363d;border-radius:12px;padding:14px 16px;">
+              <div style="font-size:11px;font-weight:800;color:#8b949e;letter-spacing:.08em;margin-bottom:4px;">🎯 YOUR CALLS</div>
+              <div style="font-size:13px;color:#c9d1d9;line-height:1.5;">${pending} call${pending === 1 ? '' : 's'} locked in ⏳ — results land once the market resolves them. Check back tomorrow to see if you beat the AI.</div>
+            </div>`;
+          return;
+        }
+
+        const youPct = Math.round(youRight / resolved * 100);
+        const aiPct = Math.round(aiRight / resolved * 100);
+        const tied = youPct === aiPct;
+        const beating = youPct > aiPct;
+        const headline = tied ? `🤝 Dead even with the AI` : (beating ? `🔥 You're beating the AI!` : `🤖 The AI is ahead — for now`);
+        const headColor = tied ? '#e3b341' : (beating ? '#3fb950' : '#f85149');
+
+        banner.innerHTML = `
+          <div style="background:linear-gradient(135deg,#1b2333,#161b22);border:1px solid ${headColor};border-left:4px solid ${headColor};border-radius:12px;padding:14px 16px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+              <div>
+                <div style="font-size:11px;font-weight:800;color:#8b949e;letter-spacing:.08em;margin-bottom:6px;">YOUR TRACK RECORD</div>
+                <div style="font-size:16px;font-weight:900;color:${headColor};line-height:1.2;">${headline}</div>
+              </div>
+              <div style="display:flex;gap:18px;text-align:center;">
+                <div>
+                  <div style="font-size:22px;font-weight:900;color:#e6edf3;">${youPct}%</div>
+                  <div style="font-size:10px;color:#8b949e;">YOU (${youRight}/${resolved})</div>
+                </div>
+                <div style="font-size:18px;color:#484f58;align-self:center;">vs</div>
+                <div>
+                  <div style="font-size:22px;font-weight:900;color:#8b949e;">${aiPct}%</div>
+                  <div style="font-size:10px;color:#8b949e;">AI</div>
+                </div>
+              </div>
+            </div>
+            ${pending > 0 ? `<div style="font-size:11px;color:#8b949e;margin-top:10px;">⏳ ${pending} more call${pending === 1 ? '' : 's'} still resolving — come back tomorrow.</div>` : ''}
+          </div>`;
+      } catch (e) {
+        banner.innerHTML = '';
+      }
     }
 
     async function renderYesterdaysVerdict() {
@@ -5430,7 +5531,7 @@
       const savedId = localStorage.getItem('sm_agent_id');
       const savedName = localStorage.getItem('sm_nickname');
       if (savedId && savedName) agentsCache[savedId] = { name: savedName, persona: 'Human observer' };
-      renderWarMap(); renderSentiment(); renderLeaderboard('all'); renderHistoryChart(); renderHotDebate(); renderYesterdaysVerdict(); updateAccuracyBanner();
+      renderWarMap(); renderSentiment(); renderLeaderboard('all'); renderHistoryChart(); renderHotDebate(); renderMyTrackRecord(); renderYesterdaysVerdict(); updateAccuracyBanner();
 
       const urlPost = new URLSearchParams(window.location.search).get('post');
       if (urlPost) goToPost(urlPost);
