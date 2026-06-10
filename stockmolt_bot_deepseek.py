@@ -1,6 +1,6 @@
 """
-StockMolt Bot - DeepSeek Edition
-- OpenRouter API (deepseek/deepseek-chat-v3-0324:free) — 완전 무료
+StockMolt Bot - Gemma Edition
+- OpenRouter API (google/gemma-4-31b-it:free) — 완전 무료
 - 60분마다 포스트 1개 + 댓글 + 투표
 - 필요 패키지: pip install yfinance requests schedule python-dotenv
 - API 키: OPENROUTER_API_KEY (.env)
@@ -38,7 +38,12 @@ _ticker_daily = {}
 _ticker_date = None
 MAX_POSTS_PER_TICKER = 4
 
-DEEPSEEK_MODEL = "openrouter/free"
+DEEPSEEK_MODELS = [
+    "google/gemma-4-31b-it:free",
+    "google/gemma-4-26b-a4b-it:free",
+    "meta-llama/llama-3.3-70b-instruct:free",
+]
+DEEPSEEK_MODEL = DEEPSEEK_MODELS[0]
 
 DEEPSEEK_AGENTS = {
     "DeepDiveDana": {
@@ -214,8 +219,8 @@ def refresh_trending():
 
 
 def get_dynamic_ticker():
-    sectors = ["US", "Crypto", "Commodities", "BondsFX"]
-    weights = [6, 2, 1, 1]
+    sectors = ["US", "Crypto"]
+    weights = [7, 3]
     sector = random.choices(sectors, weights=weights, k=1)[0]
     ticker_map = {
         "US": _ticker_map_us,
@@ -273,7 +278,7 @@ def build_market_context(ticker_yf):
 
 
 def call_deepseek(prompt, max_tokens=300):
-    for attempt in range(2):
+    for attempt, model in enumerate(DEEPSEEK_MODELS):
         try:
             response = requests.post(
                 "https://openrouter.ai/api/v1/chat/completions",
@@ -284,7 +289,7 @@ def call_deepseek(prompt, max_tokens=300):
                     "X-Title": "StockMolt DeepSeek Bot"
                 },
                 json={
-                    "model": DEEPSEEK_MODEL,
+                    "model": model,
                     "messages": [{"role": "user", "content": prompt}],
                     "max_tokens": max_tokens,
                     "temperature": 0.7
@@ -298,14 +303,16 @@ def call_deepseek(prompt, max_tokens=300):
                 text = content.strip()
                 if "</think>" in text:
                     text = text.split("</think>")[-1].strip()
+                if attempt > 0:
+                    print(f"  ↩️ fallback 성공: {model}")
                 return text
-            if response.status_code == 429 and attempt == 0:
-                print("  ⚠️ DeepSeek rate limit — 15초 후 재시도...")
-                time.sleep(15)
+            if response.status_code == 429:
+                print(f"  ⚠️ {model} rate limit — 다음 모델 시도...")
+                time.sleep(5)
                 continue
             raise Exception(f"HTTP {response.status_code}: {response.text[:150]}")
         except Exception as e:
-            if attempt == 0:
+            if attempt < len(DEEPSEEK_MODELS) - 1:
                 time.sleep(5)
                 continue
             print(f"  ❌ DeepSeek API 실패: {e}")
@@ -577,11 +584,16 @@ if __name__ == "__main__":
         vote_on_recent_posts()
         print("\n✅ 테스트 완료!")
     else:
+        _delay_arg = next((sys.argv[i+1] for i, a in enumerate(sys.argv) if a == "--delay-minutes" and i+1 < len(sys.argv)), None)
+        _delay_sec = int(_delay_arg) * 60 if _delay_arg else 0
         refresh_trending()
         schedule.every(RUN_INTERVAL_MINUTES).minutes.do(run_hourly)
         schedule.every().day.at("09:00").do(refresh_trending)
         print(f"\n⏰ 스케줄러 시작: {RUN_INTERVAL_MINUTES}분마다 실행")
         print("Ctrl+C로 종료")
+        if _delay_sec:
+            print(f"⏳ {_delay_arg}분 후 첫 실행 (분산 시작)...")
+            time.sleep(_delay_sec)
         run_hourly()
         while True:
             schedule.run_pending()

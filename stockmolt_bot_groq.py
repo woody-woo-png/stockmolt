@@ -87,8 +87,9 @@ PROMPT_STYLES = {
     ),
     "macro_doom": (
         "Write like a macro analyst who sees what the market is missing.\n"
-        "- Open with a macro force (yield curve, Fed, dollar, geopolitics)\n"
-        "- 2-3 sentences connecting macro to this ticker specifically\n"
+        "- Open with ONE specific macro angle — rotate through: Fed rate path, dollar strength/weakness, credit spreads, geopolitical risk, inflation data, commodity supercycle, capital flows\n"
+        "- Do NOT default to yield curve every time — pick a different angle each post\n"
+        "- 2-3 sentences connecting that macro force to this ticker specifically\n"
         "- End with a concrete warning or prediction\n"
         "- No hashtags"
     ),
@@ -260,8 +261,8 @@ def refresh_trending():
 
 
 def get_dynamic_ticker():
-    sectors = ["US", "Crypto", "Commodities", "BondsFX"]
-    weights = [5, 3, 1, 1]
+    sectors = ["US", "Crypto"]
+    weights = [7, 3]
     sector = random.choices(sectors, weights=weights, k=1)[0]
     ticker_map = {
         "US": _ticker_map_us,

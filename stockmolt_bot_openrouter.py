@@ -41,30 +41,37 @@ _ticker_date = None
 MAX_POSTS_PER_TICKER = 3
 
 # =============================================
-# 에이전트 — 모델별로 성격 차별화 (Gemma 제외)
+# 에이전트 — 모델별로 성격 차별화
 # =============================================
+FREE_MODELS_FALLBACK = [
+    "meta-llama/llama-3.3-70b-instruct:free",
+    "google/gemma-4-31b-it:free",
+    "qwen/qwen3-next-80b-a3b-instruct:free",
+    "nvidia/nemotron-3-super-120b-a12b:free",
+]
+
 OPENROUTER_AGENTS = {
     "BullWhip": {
         "id": "",
-        "model": "openrouter/free",
+        "model": "meta-llama/llama-3.3-70b-instruct:free",
         "confidence": "high",
         "persona": "Aggressive bull. Rides momentum hard, never backs down from a strong uptrend. Data-driven and loud. Always looking for the next breakout."
     },
     "FadeKing": {
         "id": "",
-        "model": "openrouter/free",
+        "model": "nvidia/nemotron-3-super-120b-a12b:free",
         "confidence": "high",
         "persona": "Contrarian trader. Fades hype, shorts crowded trades, and loves calling out overvalued darlings. Sharp tongue, strong opinions, rarely follows the crowd."
     },
     "SeoulSignal": {
         "id": "",
-        "model": "openrouter/free",
+        "model": "google/gemma-4-31b-it:free",
         "confidence": "medium",
         "persona": "Asia market specialist. Deep expertise in semiconductors and Asian supply chains. Connects global macro to equity moves. Big picture thinker."
     },
     "IronBear": {
         "id": "",
-        "model": "openrouter/free",
+        "model": "qwen/qwen3-next-80b-a3b-instruct:free",
         "confidence": "high",
         "persona": "Hardcore risk manager. Obsessed with downside scenarios, black swans, and tail risks. Skeptical of everything, trusts only hard data and margin of safety."
     }
@@ -186,8 +193,8 @@ def refresh_trending():
 
 
 def get_dynamic_ticker(agent_name):
-    sectors = ["US", "Crypto", "Commodities", "BondsFX"]
-    weights = [6, 2, 1, 1]
+    sectors = ["US", "Crypto"]
+    weights = [7, 3]
     sector = random.choices(sectors, weights=weights, k=1)[0]
     ticker_map = {
         "US": _ticker_map_us,
@@ -247,29 +254,39 @@ def build_market_context(ticker_yf):
 
 
 def call_openrouter(model, prompt, max_tokens=300):
-    try:
-        response = requests.post(
-            "https://openrouter.ai/api/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-                "Content-Type": "application/json",
-                "HTTP-Referer": "https://stockmolt.ai",
-                "X-Title": "StockMolt Bot"
-            },
-            json={
-                "model": model,
-                "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": max_tokens,
-                "temperature": 0.7
-            },
-            timeout=60
-        )
-        if response.status_code == 200:
-            return response.json()["choices"][0]["message"]["content"].strip()
-        raise Exception(f"OpenRouter {response.status_code}: {response.text[:150]}")
-    except Exception as e:
-        print(f"  ❌ OpenRouter API 실패: {e}")
-        return None
+    candidates = [model] + [m for m in FREE_MODELS_FALLBACK if m != model]
+    for attempt, m in enumerate(candidates):
+        try:
+            response = requests.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "https://stockmolt.ai",
+                    "X-Title": "StockMolt Bot"
+                },
+                json={
+                    "model": m,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": max_tokens,
+                    "temperature": 0.7
+                },
+                timeout=60
+            )
+            if response.status_code == 200:
+                if attempt > 0:
+                    print(f"  ↩️ fallback 성공: {m}")
+                return response.json()["choices"][0]["message"]["content"].strip()
+            if response.status_code == 429:
+                print(f"  ⚠️ {m} rate limit — 다음 모델 시도...")
+                time.sleep(5)
+                continue
+            raise Exception(f"OpenRouter {response.status_code}: {response.text[:150]}")
+        except Exception as e:
+            print(f"  ❌ OpenRouter API 실패 ({m}): {e}")
+            if attempt < len(candidates) - 1:
+                time.sleep(5)
+    return None
 
 
 def create_post():
@@ -386,11 +403,16 @@ if __name__ == "__main__":
         create_post()
         print("\n✅ 테스트 완료!")
     else:
+        _delay_arg = next((sys.argv[i+1] for i, a in enumerate(sys.argv) if a == "--delay-minutes" and i+1 < len(sys.argv)), None)
+        _delay_sec = int(_delay_arg) * 60 if _delay_arg else 0
         refresh_trending()
         schedule.every(RUN_INTERVAL_MINUTES).minutes.do(run_hourly)
         schedule.every().day.at("09:00").do(refresh_trending)
         print(f"\n⏰ 스케줄러 시작: {RUN_INTERVAL_MINUTES}분마다 실행")
         print("Ctrl+C로 종료")
+        if _delay_sec:
+            print(f"⏳ {_delay_arg}분 후 첫 실행 (분산 시작)...")
+            time.sleep(_delay_sec)
         run_hourly()
         while True:
             schedule.run_pending()

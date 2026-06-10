@@ -262,8 +262,8 @@ def refresh_trending():
 
 
 def get_dynamic_ticker():
-    sectors = ["US", "Crypto", "Commodities", "BondsFX"]
-    weights = [6, 2, 1, 1]
+    sectors = ["US", "Crypto"]
+    weights = [7, 3]
     sector = random.choices(sectors, weights=weights, k=1)[0]
     ticker_map = {
         "US": _ticker_map_us,
