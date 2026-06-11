@@ -2000,6 +2000,19 @@
     .gm-rm-row.cur .lv,.gm-rm-row.cur .ti{color:#c4b5fd;font-weight:700;}
     .gm-kingdom{margin-top:12px;padding-top:12px;border-top:1px solid #ffffff0d;font-size:12px;color:#9aa7b4;line-height:1.6;}
     .gm-kingdom b{color:#e3b341;}
+    /* rank + name modal */
+    .gm-rank{margin-top:12px;text-align:center;font-size:13px;color:#c9d1d9;}
+    .gm-rank b{color:#e3b341;font-size:15px;}
+    .gm-modal-ov{position:fixed;inset:0;background:#000000cc;display:flex;align-items:center;justify-content:center;z-index:10000;padding:20px;}
+    .gm-modal{background:#161b22;border:1px solid #ffffff1f;border-radius:16px;padding:24px;max-width:360px;width:100%;box-shadow:0 20px 60px -20px #000;}
+    .gm-modal h3{font-size:18px;font-weight:800;margin-bottom:6px;text-align:center;}
+    .gm-modal .sub{font-size:12px;color:#8b949e;text-align:center;margin-bottom:14px;}
+    .gm-modal input{width:100%;box-sizing:border-box;background:#0d1117;border:1px solid #ffffff1f;border-radius:10px;padding:12px 14px;color:#fff;font-size:15px;font-weight:700;}
+    .gm-modal input:focus{outline:none;border-color:#7c3aed88;}
+    .gm-name-status{min-height:16px;font-size:12px;font-weight:700;margin-top:8px;text-align:center;}
+    .gm-name-status.ok{color:#3fb950;}
+    .gm-name-status.bad{color:#f85149;}
+    .gm-name-hint{font-size:11px;color:#8b949e;text-align:center;margin-top:4px;}
     @media(max-width:480px){.gm-pickgrid{grid-template-columns:1fr;}}
   </style>
   <div class="page" id="page-game">
@@ -5742,6 +5755,8 @@
     let gmPlayer = null;      // last rendered player (for count-up baseline)
     let gmLastPicks = null;   // picks from the submit that just happened (this session)
     let gmAnim = false;       // animate character card on next render (post-submit)
+    let gmNameTimer = null;   // debounce for name availability check
+    let gmNameOK = false;     // current name passed availability check
 
     function gmCountUp(el, from, to, dur, fmt){
       if(!el) return; el.textContent=fmt(from); const t0=performance.now();  // seed start synchronously to avoid final-value flash
@@ -5763,6 +5778,72 @@
       if(!id){ id = (window.crypto && crypto.randomUUID ? crypto.randomUUID() : 'dev-'+Date.now()+'-'+Math.random().toString(36).slice(2)); localStorage.setItem('sm_device_id', id); }
       return id;
     }
+    function gmRpc(fn, body){
+      return fetch(GM_REST+'/rpc/'+fn,{method:'POST',headers:gmHeaders(),body:JSON.stringify(body)}).then(r=>r.json());
+    }
+
+    // ④ name onboarding (new users only). Invariant: sm_device_id present ⟺ named player exists on server.
+    function gmShowNameModal(){
+      if(document.getElementById('gm-name-modal')) return;
+      const o=document.createElement('div'); o.id='gm-name-modal'; o.className='gm-modal-ov';
+      o.innerHTML='<div class="gm-modal"><h3>Name your trader</h3><div class="sub">Pick a name for the leaderboard — this is permanent.</div>'
+        +'<input id="gm-name-input" maxlength="16" placeholder="e.g. zeke_the_bull" autocomplete="off" spellcheck="false">'
+        +'<div id="gm-name-status" class="gm-name-status"></div>'
+        +'<div class="gm-name-hint">2–16 chars · letters, numbers, underscore</div>'
+        +'<button id="gm-name-start" class="gm-submit" disabled>Start Trading</button></div>';
+      document.body.appendChild(o);
+      const inp=document.getElementById('gm-name-input');
+      inp.addEventListener('input', gmNameCheck);
+      inp.addEventListener('keydown', e=>{ if(e.key==='Enter' && gmNameOK) gmNameSubmit(); });
+      document.getElementById('gm-name-start').onclick=gmNameSubmit;
+      setTimeout(()=>inp.focus(),50);
+    }
+    function gmNameCheck(){
+      const inp=document.getElementById('gm-name-input'), st=document.getElementById('gm-name-status'), btn=document.getElementById('gm-name-start');
+      const name=inp.value.trim();
+      gmNameOK=false; btn.disabled=true;
+      if(!/^[A-Za-z0-9_]{2,16}$/.test(name)){ st.textContent=name.length?'✗ Use 2–16 letters, numbers or _':''; st.className='gm-name-status bad'; return; }
+      st.textContent='Checking…'; st.className='gm-name-status';
+      clearTimeout(gmNameTimer);
+      gmNameTimer=setTimeout(async()=>{
+        try{
+          const avail=await gmRpc('check_name_available',{p_name:name});
+          if(inp.value.trim()!==name) return; // input changed while request was in flight
+          if(avail===true){ st.textContent='✓ Available'; st.className='gm-name-status ok'; gmNameOK=true; btn.disabled=false; }
+          else { st.textContent='✗ Taken — try another'; st.className='gm-name-status bad'; }
+        }catch(e){ st.textContent='Check failed — try again'; st.className='gm-name-status bad'; }
+      }, 350);
+    }
+    async function gmNameSubmit(){
+      const inp=document.getElementById('gm-name-input'), st=document.getElementById('gm-name-status'), btn=document.getElementById('gm-name-start');
+      const name=inp.value.trim();
+      if(!gmNameOK) return;
+      btn.disabled=true; btn.textContent='Creating…';
+      // Trap 1: candidate id stays in memory; persist sm_device_id ONLY after game-state succeeds
+      const candidate=(window.crypto&&crypto.randomUUID?crypto.randomUUID():'dev-'+Date.now()+'-'+Math.random().toString(36).slice(2));
+      try{
+        const r=await fetch(GM_FN+'/game-state',{method:'POST',headers:gmHeaders(),body:JSON.stringify({device_id:candidate,display_name:name})});
+        const state=await r.json();
+        if(!state||!state.success) throw new Error('create_failed');
+        localStorage.setItem('sm_device_id', candidate); // invariant now holds
+        const m=document.getElementById('gm-name-modal'); if(m) m.remove();
+        renderGame();
+      }catch(e){
+        // Trap 2: name collision returns a generic 500, indistinguishable from a real error → keep modal, retry
+        st.textContent='Could not create — that name may be taken. Try another.'; st.className='gm-name-status bad';
+        gmNameOK=false; btn.disabled=true; btn.textContent='Start Trading';
+      }
+    }
+    // ① my rank — only meaningful once the player has earned XP
+    async function gmLoadRank(did, xp){
+      const el=document.getElementById('gm-rank'); if(!el) return;
+      if(Number(xp)<=0){ el.innerHTML='🏅 Unranked — submit a round to climb the board'; return; }
+      try{
+        const d=await gmRpc('get_my_rank',{p_device_id:did});
+        const row=Array.isArray(d)?d[0]:d;
+        if(row&&row.my_rank) el.innerHTML='🏅 Rank <b>#'+row.my_rank+'</b> of '+row.total+' traders';
+      }catch(e){}
+    }
     function gmLevelInfo(xp){
       let lvl=1; for(let i=0;i<GM_LEVELS.length;i++){ if(xp>=GM_LEVELS[i]) lvl=i+1; }
       const cur=GM_LEVELS[lvl-1]; const next=(lvl<GM_LEVELS.length)?GM_LEVELS[lvl]:null;
@@ -5775,6 +5856,8 @@
     function toast(m){ if(typeof showToast==='function') showToast(m); }
 
     window.renderGame = async function(){
+      // ④ new-user gate: no device_id ⟺ no named player yet → force the name modal first
+      if(!localStorage.getItem('sm_device_id')){ gmShowNameModal(); return; }
       const did = gmDeviceId();
       let state=null;
       try{
@@ -5783,6 +5866,7 @@
       }catch(e){ document.getElementById('gm-character').innerHTML='<div class="gm-muted">Connection failed. Please try again shortly.</div>'; return; }
       if(!state || !state.success){ document.getElementById('gm-character').innerHTML='<div class="gm-muted">Failed to load player.</div>'; return; }
       gmRenderCharacter(state.player, gmPlayer);
+      gmLoadRank(did, state.player.xp);
       gmRenderResult(state.last_result);
       gmLoadPicks(state.submitted_today);
       gmLoadLeaderboard('return');
@@ -5809,6 +5893,7 @@
           +'<div class="gm-stat"><div class="v '+retCls+'">'+(ret>=0?'+':'')+ret.toFixed(2)+'%</div><div class="l">Return</div></div>'
           +'<div class="gm-stat"><div class="v">🔥 '+p.streak_current+'</div><div class="l">Streak</div></div>'
         +'</div>'
+        +'<div id="gm-rank" class="gm-rank"></div>'
         +'<div class="gm-savenote">💾 Your trader is saved to <b>this browser</b>. Use the same browser &amp; device to keep your progress — cross-device login is coming soon.</div>';
       // dynamic count-up: post-submit rolls prev→new; first entry gently rolls Return 0→value
       const stats=el.querySelectorAll('.gm-stat .v');
