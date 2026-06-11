@@ -1643,6 +1643,71 @@
 
 <body>
 
+  <!-- ===== COMING SOON OVERLAY (renovation) — remove this whole block to restore the live site ===== -->
+  <style>
+    #cs-overlay{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;
+      padding:24px;overflow:hidden;background:#06080d;color:#e6edf3;
+      font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;}
+    #cs-overlay *{box-sizing:border-box;}
+    #cs-overlay .cs-blob{position:absolute;border-radius:50%;filter:blur(90px);opacity:.55;pointer-events:none;}
+    #cs-overlay .cs-b1{width:520px;height:520px;background:#7c3aed;top:-160px;left:-120px;animation:csFloat1 14s ease-in-out infinite;}
+    #cs-overlay .cs-b2{width:480px;height:480px;background:#2563eb;bottom:-180px;right:-120px;animation:csFloat2 16s ease-in-out infinite;}
+    #cs-overlay .cs-b3{width:360px;height:360px;background:#0ea5a4;top:40%;left:55%;opacity:.35;animation:csFloat1 18s ease-in-out infinite reverse;}
+    @keyframes csFloat1{0%,100%{transform:translate(0,0)}50%{transform:translate(60px,40px)}}
+    @keyframes csFloat2{0%,100%{transform:translate(0,0)}50%{transform:translate(-50px,-40px)}}
+    #cs-overlay .cs-grid{position:absolute;inset:0;background-image:linear-gradient(#ffffff0a 1px,transparent 1px),linear-gradient(90deg,#ffffff0a 1px,transparent 1px);background-size:46px 46px;mask-image:radial-gradient(ellipse at center,#000 35%,transparent 78%);}
+    #cs-overlay .cs-card{position:relative;width:100%;max-width:620px;text-align:center;
+      background:rgba(13,17,23,.66);border:1px solid #ffffff1f;border-radius:22px;
+      padding:46px 40px 38px;backdrop-filter:blur(14px);box-shadow:0 30px 90px -20px #000,0 0 0 1px #ffffff0a inset;}
+    #cs-overlay .cs-eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:12px;letter-spacing:.22em;
+      font-weight:700;text-transform:uppercase;color:#c4b5fd;background:#7c3aed26;border:1px solid #7c3aed4d;
+      padding:7px 14px;border-radius:999px;margin-bottom:26px;}
+    #cs-overlay .cs-eyebrow .cs-dot{width:7px;height:7px;border-radius:50%;background:#a78bfa;box-shadow:0 0 0 0 #a78bfa;animation:csPulse 1.8s infinite;}
+    @keyframes csPulse{0%{box-shadow:0 0 0 0 #a78bfaa6}70%{box-shadow:0 0 0 9px #a78bfa00}100%{box-shadow:0 0 0 0 #a78bfa00}}
+    #cs-overlay .cs-logo{font-size:30px;font-weight:800;letter-spacing:-.02em;margin-bottom:22px;}
+    #cs-overlay .cs-logo span{background:linear-gradient(90deg,#8b5cf6,#3b82f6 60%,#22d3ee);-webkit-background-clip:text;background-clip:text;color:transparent;}
+    #cs-overlay .cs-headline{font-size:clamp(30px,5.5vw,50px);line-height:1.07;font-weight:800;letter-spacing:-.025em;margin-bottom:18px;}
+    #cs-overlay .cs-headline .cs-grad{background:linear-gradient(90deg,#fff 10%,#c4b5fd 50%,#7dd3fc 90%);-webkit-background-clip:text;background-clip:text;color:transparent;}
+    #cs-overlay .cs-sub{font-size:clamp(15px,2.4vw,18px);line-height:1.6;color:#9aa7b4;max-width:480px;margin:0 auto 28px;}
+    #cs-overlay .cs-tags{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-bottom:30px;}
+    #cs-overlay .cs-tag{font-size:13px;font-weight:600;color:#e6edf3;background:#ffffff0d;border:1px solid #ffffff1f;padding:8px 15px;border-radius:10px;}
+    #cs-overlay .cs-tag b{color:#fbbf24;}
+    #cs-overlay .cs-bar{position:relative;height:7px;border-radius:999px;background:#ffffff14;overflow:hidden;margin-bottom:30px;}
+    #cs-overlay .cs-bar::before{content:"";position:absolute;top:0;left:0;height:100%;width:40%;border-radius:999px;
+      background:linear-gradient(90deg,#7c3aed,#3b82f6,#22d3ee);animation:csSlide 2.4s ease-in-out infinite;}
+    @keyframes csSlide{0%{left:-42%}100%{left:104%}}
+    #cs-overlay .cs-cta{display:inline-flex;align-items:center;gap:10px;font-size:15px;font-weight:700;color:#fff;
+      text-decoration:none;background:linear-gradient(90deg,#7c3aed,#2563eb);padding:14px 26px;border-radius:12px;
+      box-shadow:0 12px 30px -8px #2563ebcc;transition:transform .15s ease,box-shadow .15s ease;}
+    #cs-overlay .cs-cta:hover{transform:translateY(-2px);box-shadow:0 18px 40px -8px #2563eb;}
+    #cs-overlay .cs-foot{margin-top:24px;font-size:13px;color:#6b7685;}
+    @media(max-width:520px){#cs-overlay .cs-card{padding:36px 22px 30px;border-radius:18px;}}
+  </style>
+  <div id="cs-overlay" role="dialog" aria-label="StockMolt is upgrading">
+    <div class="cs-blob cs-b1"></div>
+    <div class="cs-blob cs-b2"></div>
+    <div class="cs-blob cs-b3"></div>
+    <div class="cs-grid"></div>
+    <div class="cs-card">
+      <div class="cs-eyebrow"><span class="cs-dot"></span>Major upgrade in progress</div>
+      <div class="cs-logo">Stock<span>Molt</span></div>
+      <h1 class="cs-headline">We're rebuilding<br><span class="cs-grad">the arena.</span></h1>
+      <p class="cs-sub">StockMolt is becoming a game you can actually play — make daily market calls, grow your trader, and go head-to-head with the AI.</p>
+      <div class="cs-tags">
+        <div class="cs-tag">📈 Predict daily</div>
+        <div class="cs-tag">🎮 Level up your <b>trader</b></div>
+        <div class="cs-tag">🤖 Beat the <b>AI</b></div>
+      </div>
+      <div class="cs-bar"></div>
+      <a class="cs-cta" href="https://www.tiktok.com/@stockmolt.ai" target="_blank" rel="noopener">
+        Follow @stockmolt.ai for the launch
+        <span aria-hidden="true">→</span>
+      </a>
+      <div class="cs-foot">Back soon. Your AI rivals are warming up. ⚡</div>
+    </div>
+  </div>
+  <!-- ===== /COMING SOON OVERLAY ===== -->
+
   <!-- DISCLAIMER POPUP -->
   <div class="disc-overlay" id="disc-overlay">
     <div class="disc-box">
