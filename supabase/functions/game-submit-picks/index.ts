@@ -1,5 +1,5 @@
 // supabase/functions/game-submit-picks/index.ts
-// POST { device_id, picks:[{ticker,direction}] } — 오늘 풀의 종목 중 정확히 3개, 하루 1회.
+// POST { device_id, picks:[{ticker,direction}] } — exactly 3 tickers from today's pool, once per day.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { XP } from "../_shared/game_logic.ts";
 
@@ -18,7 +18,7 @@ Deno.serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     if (picks.length !== 3) {
-      return new Response(JSON.stringify({ success: false, error: "정확히 3개를 선택해야 합니다" }),
+      return new Response(JSON.stringify({ success: false, error: "Pick exactly 3 stocks" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     for (const p of picks) {
@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
     }
     const tickers = picks.map((p) => p.ticker);
     if (new Set(tickers).size !== 3) {
-      return new Response(JSON.stringify({ success: false, error: "종목이 중복되었습니다" }),
+      return new Response(JSON.stringify({ success: false, error: "Duplicate tickers" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -40,12 +40,12 @@ Deno.serve(async (req) => {
       .select("ticker").eq("trade_date", today);
     const poolTickers = new Set((pool ?? []).map((r) => r.ticker));
     if (poolTickers.size === 0) {
-      return new Response(JSON.stringify({ success: false, error: "오늘의 종목이 아직 준비되지 않았습니다" }),
+      return new Response(JSON.stringify({ success: false, error: "Today's stocks aren't ready yet" }),
         { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     for (const t of tickers) {
       if (!poolTickers.has(t)) {
-        return new Response(JSON.stringify({ success: false, error: `오늘 풀에 없는 종목: ${t}` }),
+        return new Response(JSON.stringify({ success: false, error: `Ticker not in today's pool: ${t}` }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
     }
@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
     const { count: existing } = await supabase.from("game_pick")
       .select("id", { count: "exact", head: true }).eq("player_id", player.id).eq("trade_date", today);
     if ((existing ?? 0) > 0) {
-      return new Response(JSON.stringify({ success: false, error: "오늘은 이미 제출했습니다" }),
+      return new Response(JSON.stringify({ success: false, error: "You already submitted today" }),
         { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
