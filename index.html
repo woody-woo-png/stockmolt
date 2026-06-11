@@ -1970,6 +1970,21 @@
     .gm-help-step b{color:#fff;}
     .gm-savenote{margin-top:14px;padding-top:12px;border-top:1px solid #ffffff0d;font-size:11px;color:#7d8896;text-align:center;line-height:1.6;}
     .gm-savenote b{color:#9aa7b4;}
+    /* dynamic moments */
+    .gm-pick.locked{border-color:#e3b341;box-shadow:0 0 0 1px #e3b34155,0 8px 24px -10px #e3b34166;animation:gmSlam .45s cubic-bezier(.2,.8,.3,1.2);}
+    @keyframes gmSlam{0%{transform:scale(1);}40%{transform:scale(.94) rotate(-1deg);}70%{transform:scale(1.045);}100%{transform:scale(1);}}
+    .gm-xpflash{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:9999;}
+    .gm-xpflash span{font-size:64px;font-weight:900;color:#e3b341;text-shadow:0 4px 30px #e3b34199,0 2px 6px #000;animation:gmXpPop 1.1s ease forwards;}
+    @keyframes gmXpPop{0%{transform:scale(.4) translateY(20px);opacity:0;}22%{transform:scale(1.15) translateY(0);opacity:1;}68%{transform:scale(1) translateY(0);opacity:1;}100%{transform:scale(.9) translateY(-44px);opacity:0;}}
+    .gm-vs{display:flex;align-items:center;gap:10px;background:#0d1117;border:1px solid #ffffff14;border-radius:12px;padding:10px 12px;margin-bottom:8px;}
+    .gm-vs .tkn{font-weight:800;font-size:14px;min-width:52px;}
+    .gm-vs .side{flex:1;text-align:center;font-weight:800;font-size:13px;}
+    .gm-vs .mid{font-size:12px;color:#8b949e;}
+    .gm-vs .tag{font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px;white-space:nowrap;}
+    .gm-vs .tag.agree{background:#16361f;color:#3fb950;}
+    .gm-vs .tag.clash{background:#3a1618;color:#f85149;}
+    .gm-vssum{text-align:center;font-size:13px;color:#c9d1d9;margin-top:10px;line-height:1.6;}
+    .gm-vssum b{color:#e3b341;}
     @media(max-width:480px){.gm-pickgrid{grid-template-columns:1fr;}}
   </style>
   <div class="page" id="page-game">
@@ -5702,6 +5717,22 @@
     const GM_LEVELS = [0,100,250,500,850,1300,1900,2700,3800,5200];
     const GM_TITLES = ['Beginner Trader','Rookie Picker','Market Scout','Signal Hunter','AI Challenger','Trend Rider','Risk Taker','Alpha Seeker','Market Duelist','Legend Candidate'];
     let gmSel = {};
+    let gmPlayer = null;      // last rendered player (for count-up baseline)
+    let gmLastPicks = null;   // picks from the submit that just happened (this session)
+    let gmAnim = false;       // animate character card on next render (post-submit)
+
+    function gmCountUp(el, from, to, dur, fmt){
+      if(!el) return; el.textContent=fmt(from); const t0=performance.now();  // seed start synchronously to avoid final-value flash
+      function step(now){ const p=Math.min(1,(now-t0)/dur); const e=1-Math.pow(1-p,3);
+        el.textContent=fmt(from+(to-from)*e); if(p<1) requestAnimationFrame(step); }
+      requestAnimationFrame(step);
+    }
+    function gmXpFlash(xp){
+      const o=document.createElement('div'); o.className='gm-xpflash';
+      o.innerHTML='<span>+'+xp+' XP</span>';
+      document.body.appendChild(o);
+      setTimeout(()=>o.remove(),1150);
+    }
 
     function gmHeaders(){ return {'Content-Type':'application/json','apikey':GM_ANON,'Authorization':'Bearer '+GM_ANON}; }
     function gmToday(){ return new Date().toISOString().slice(0,10); }
@@ -5727,18 +5758,19 @@
         state = await r.json();
       }catch(e){ document.getElementById('gm-character').innerHTML='<div class="gm-muted">Connection failed. Please try again shortly.</div>'; return; }
       if(!state || !state.success){ document.getElementById('gm-character').innerHTML='<div class="gm-muted">Failed to load player.</div>'; return; }
-      gmRenderCharacter(state.player);
+      gmRenderCharacter(state.player, gmPlayer);
       gmRenderResult(state.last_result);
       gmLoadPicks(state.submitted_today);
       gmLoadLeaderboard('return');
     };
 
-    function gmRenderCharacter(p){
+    function gmRenderCharacter(p, prev){
       const xp=Number(p.xp), cap=Number(p.capital);
       const li=gmLevelInfo(xp);
       const ret=((cap-100000)/100000*100);
       const retCls=ret>=0?'gm-pos':'gm-neg';
-      document.getElementById('gm-character').innerHTML =
+      const el=document.getElementById('gm-character');
+      el.innerHTML =
         '<div class="gm-hero">'
         +'<div class="gm-ava">🧑‍💻</div>'
         +'<div class="gm-hid">'
@@ -5753,6 +5785,22 @@
           +'<div class="gm-stat"><div class="v">🔥 '+p.streak_current+'</div><div class="l">Streak</div></div>'
         +'</div>'
         +'<div class="gm-savenote">💾 Your trader is saved to <b>this browser</b>. Use the same browser &amp; device to keep your progress — cross-device login is coming soon.</div>';
+      // dynamic count-up: post-submit rolls prev→new; first entry gently rolls Return 0→value
+      const stats=el.querySelectorAll('.gm-stat .v');
+      if(gmAnim && prev){
+        const pcap=Number(prev.capital), pxp=Number(prev.xp);
+        const pli=gmLevelInfo(pxp), pret=((pcap-100000)/100000*100);
+        const fill=el.querySelector('.gm-xpfill');
+        if(fill){ fill.style.width=pli.pct+'%'; requestAnimationFrame(()=>{ fill.style.width=li.pct+'%'; }); }
+        gmCountUp(stats[0], pcap, cap, 900, v=>fmtMoney(v));
+        gmCountUp(stats[1], pret, ret, 900, v=>(v>=0?'+':'')+v.toFixed(2)+'%');
+        // XP is the value that actually moves on submit — roll the number with the bar
+        const xptext=el.querySelector('.gm-xptext');
+        if(xptext) gmCountUp(xptext, pxp, xp, 900, v=>li.next===null?('XP '+Math.round(v)+' · MAX'):('XP '+Math.round(v)+' / '+li.next));
+      } else if(!prev){
+        gmCountUp(stats[1], 0, ret, 800, v=>(v>=0?'+':'')+v.toFixed(2)+'%');
+      }
+      gmPlayer=p; gmAnim=false;
     }
 
     function gmRenderResult(res){
@@ -5779,8 +5827,25 @@
         let rival=[];
         try{ const rr=await fetch(GM_REST+'/game_ai_pick?trade_date=eq.'+today+'&select=ticker,direction',{headers:gmHeaders()}); rival=await rr.json(); }catch(e){}
         const rmap={}; (rival||[]).forEach(x=>rmap[x.ticker]=x.direction);
-        box.innerHTML='<h3>🎯 Today\'s Picks</h3><div class="gm-done"><div class="big">✅ Submitted!</div><div class="gm-muted">Results reveal after the next market close.</div></div>'
-          +((rival&&rival.length)?('<h3 style="margin-top:16px">🤖 Today\'s AI Rival Calls</h3>'+pool.map(t=>'<div class="gm-rrow"><span class="k">'+t.ticker+'</span><span>'+(rmap[t.ticker]==='long'?'<span class="gm-pos">▲ LONG</span>':rmap[t.ticker]==='short'?'<span class="gm-neg">▼ SHORT</span>':'—')+'</span></div>').join('')):'');
+        const head='<h3>🎯 Today\'s Picks</h3><div class="gm-done"><div class="big">✅ Submitted!</div><div class="gm-muted">Results reveal after the next market close.</div></div>';
+        const dirHtml=d=>d==='long'?'<span class="gm-pos">▲ LONG</span>':d==='short'?'<span class="gm-neg">▼ SHORT</span>':'—';
+        if(gmLastPicks && gmLastPicks.length && rival && rival.length){
+          // You vs AI duel — only when we still know this session's picks (post-submit)
+          let clash=0;
+          const rows=gmLastPicks.map(mp=>{
+            const ai=rmap[mp.ticker]; const agree=ai && ai===mp.direction;
+            if(ai && !agree) clash++;
+            const tag=!ai?'':agree?'<span class="tag agree">🤝 AI agrees</span>':'<span class="tag clash">⚡ Clash</span>';
+            return '<div class="gm-vs"><span class="tkn">'+mp.ticker+'</span><span class="side">'+dirHtml(mp.direction)+'</span><span class="mid">⚔️</span><span class="side">'+(ai?dirHtml(ai):'—')+'</span>'+tag+'</div>';
+          }).join('');
+          const sum=clash>0
+            ? 'You\'re going head-to-head with the AI on <b>'+clash+' of 3</b> calls. Who\'s right? Come back after the next market close.'
+            : 'You and the AI <b>agree on all 3</b> today. Settle it after the next market close.';
+          box.innerHTML=head+'<h3 style="margin-top:16px">⚔️ You vs AI — today\'s duel</h3>'+rows+'<div class="gm-vssum">'+sum+'</div>';
+        } else {
+          box.innerHTML=head
+            +((rival&&rival.length)?('<h3 style="margin-top:16px">🤖 Today\'s AI Rival Calls</h3>'+pool.map(t=>'<div class="gm-rrow"><span class="k">'+t.ticker+'</span><span>'+dirHtml(rmap[t.ticker])+'</span></div>').join('')):'');
+        }
         return;
       }
       gmSel={};
@@ -5812,7 +5877,14 @@
       try{
         const r=await fetch(GM_FN+'/game-submit-picks',{method:'POST',headers:gmHeaders(),body:JSON.stringify({device_id:gmDeviceId(),picks})});
         const d=await r.json();
-        if(d.success){ toast('Submitted! +'+d.xp_awarded+' XP'); renderGame(); }
+        if(d.success){
+          // ① slam: lock the 3 chosen cards with a gold snap
+          picks.forEach(p=>{ const c=document.querySelector('.gm-pick[data-tk="'+p.ticker+'"]'); if(c) c.classList.add('locked'); });
+          gmXpFlash(d.xp_awarded);                 // ① big +XP flash
+          gmLastPicks=picks; gmAnim=true;          // ② remember picks for duel · ①③ animate character
+          toast('Submitted! +'+d.xp_awarded+' XP');
+          setTimeout(()=>renderGame(), 650);       // let the slam play before re-render
+        }
         else { toast(d.error||'Submission failed'); b.disabled=false; b.textContent='Submit →'; }
       }catch(e){ toast('Network error'); b.disabled=false; b.textContent='Submit →'; }
     };
