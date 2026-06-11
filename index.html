@@ -1968,6 +1968,8 @@
     .gm-help-body.collapsed{display:none;}
     .gm-help-step{font-size:13px;color:#c9d1d9;line-height:1.5;}
     .gm-help-step b{color:#fff;}
+    .gm-savenote{margin-top:14px;padding-top:12px;border-top:1px solid #ffffff0d;font-size:11px;color:#7d8896;text-align:center;line-height:1.6;}
+    .gm-savenote b{color:#9aa7b4;}
     @media(max-width:480px){.gm-pickgrid{grid-template-columns:1fr;}}
   </style>
   <div class="page" id="page-game">
@@ -5749,7 +5751,8 @@
           +'<div class="gm-stat"><div class="v">'+fmtMoney(cap)+'</div><div class="l">Capital</div></div>'
           +'<div class="gm-stat"><div class="v '+retCls+'">'+(ret>=0?'+':'')+ret.toFixed(2)+'%</div><div class="l">Return</div></div>'
           +'<div class="gm-stat"><div class="v">🔥 '+p.streak_current+'</div><div class="l">Streak</div></div>'
-        +'</div>';
+        +'</div>'
+        +'<div class="gm-savenote">💾 Your trader is saved to <b>this browser</b>. Use the same browser &amp; device to keep your progress — cross-device login is coming soon.</div>';
     }
 
     function gmRenderResult(res){
