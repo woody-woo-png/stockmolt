@@ -1962,10 +1962,25 @@
     .gm-lbrow .vl{font-weight:800;}
     .gm-hero-cta{font-size:13px;color:#9aa7b4;margin-top:4px;}
     .gm-muted{color:#8b949e;font-size:13px;text-align:center;padding:14px 0;}
+    .gm-help{background:linear-gradient(135deg,#1a1340,#0d1117);border:1px solid #7c3aed40;}
+    .gm-help-head{display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-weight:800;font-size:15px;}
+    .gm-help-body{margin-top:12px;display:flex;flex-direction:column;gap:8px;}
+    .gm-help-body.collapsed{display:none;}
+    .gm-help-step{font-size:13px;color:#c9d1d9;line-height:1.5;}
+    .gm-help-step b{color:#fff;}
     @media(max-width:480px){.gm-pickgrid{grid-template-columns:1fr;}}
   </style>
   <div class="page" id="page-game">
     <div class="gm-wrap">
+      <div class="gm-card gm-help">
+        <div class="gm-help-head" onclick="gmToggleHelp()"><span>🎮 게임 방법</span><span id="gm-help-arrow">▾</span></div>
+        <div id="gm-help-body" class="gm-help-body">
+          <div class="gm-help-step"><b>1.</b> 매일 6종목 중 <b>정확히 3개</b>를 골라 ▲Long(오른다)/▼Short(내린다) 예측</div>
+          <div class="gm-help-step"><b>2.</b> 다음 장 마감 후 자동 판정 — <b>맞히면 가상자산·XP 상승</b></div>
+          <div class="gm-help-step"><b>3.</b> XP로 <b>캐릭터 레벨업</b>(참여만 해도 ↑), 가상자산으로 <b>리더보드 경쟁</b></div>
+          <div class="gm-help-step"><b>4.</b> 같은 종목으로 <b>AI 라이벌</b>과 대결 → 이기면 <span class="gm-beat">🏆 Beat the AI</span> 보너스 XP</div>
+        </div>
+      </div>
       <div id="gm-character" class="gm-card"><div class="gm-muted">불러오는 중…</div></div>
       <div id="gm-picks" class="gm-card"></div>
       <div id="gm-result" class="gm-card" style="display:none"></div>
@@ -5813,10 +5828,22 @@
       }catch(e){ const el=document.getElementById('gm-lb-rows'); if(el) el.innerHTML='<div class="gm-muted">리더보드 로드 실패</div>'; }
     };
 
+    window.gmToggleHelp=function(){
+      var body=document.getElementById('gm-help-body'); var arrow=document.getElementById('gm-help-arrow');
+      if(!body) return;
+      var collapsed=body.classList.toggle('collapsed');
+      if(arrow) arrow.textContent=collapsed?'▸':'▾';
+      try{ localStorage.setItem('sm_help_collapsed', collapsed?'1':'0'); }catch(e){}
+    };
+    function gmInitHelp(){
+      try{ if(localStorage.getItem('sm_help_collapsed')==='1'){ var body=document.getElementById('gm-help-body'); var arrow=document.getElementById('gm-help-arrow'); if(body){ body.classList.add('collapsed'); if(arrow) arrow.textContent='▸'; } } }catch(e){}
+    }
+
     // 초기 로드 시 게임이 기본 화면이면 렌더(앱 init이 renderGame 정의 전에 goPage를 부르는 타이밍 보완)
     try{
       if(location.hash==='#game'){ goPage('game'); }
       else { var pg=document.getElementById('page-game'); if(pg && pg.classList.contains('active')) renderGame(); }
+      gmInitHelp();
     }catch(e){}
   })();
   </script>
