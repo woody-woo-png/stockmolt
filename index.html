@@ -5813,7 +5813,11 @@
       }catch(e){ const el=document.getElementById('gm-lb-rows'); if(el) el.innerHTML='<div class="gm-muted">리더보드 로드 실패</div>'; }
     };
 
-    if(location.hash==='#game'){ try{ goPage('game'); }catch(e){} }
+    // 초기 로드 시 게임이 기본 화면이면 렌더(앱 init이 renderGame 정의 전에 goPage를 부르는 타이밍 보완)
+    try{
+      if(location.hash==='#game'){ goPage('game'); }
+      else { var pg=document.getElementById('page-game'); if(pg && pg.classList.contains('active')) renderGame(); }
+    }catch(e){}
   })();
   </script>
 </body>
