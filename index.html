@@ -1985,6 +1985,21 @@
     .gm-vs .tag.clash{background:#3a1618;color:#f85149;}
     .gm-vssum{text-align:center;font-size:13px;color:#c9d1d9;margin-top:10px;line-height:1.6;}
     .gm-vssum b{color:#e3b341;}
+    /* level preview + roadmap */
+    .gm-nextlv{font-size:11px;color:#c4b5fd;margin-top:6px;}
+    .gm-nextlv b{color:#fff;}
+    .gm-roadmap{background:linear-gradient(135deg,#13182a,#0d1117);border:1px solid #2563eb40;}
+    .gm-rm-row{display:flex;align-items:center;gap:10px;padding:7px 2px;border-bottom:1px solid #ffffff0d;font-size:13px;}
+    .gm-rm-row:last-child{border-bottom:none;}
+    .gm-rm-row .lv{width:46px;color:#8b949e;font-weight:800;}
+    .gm-rm-row .ti{flex:1;color:#c9d1d9;}
+    .gm-rm-row .xp{color:#8b949e;font-size:11px;}
+    .gm-rm-row.done{opacity:.45;}
+    .gm-rm-row.done .ti{text-decoration:line-through;}
+    .gm-rm-row.cur{background:#7c3aed24;border:1px solid #7c3aed55;border-radius:8px;padding:7px 8px;}
+    .gm-rm-row.cur .lv,.gm-rm-row.cur .ti{color:#c4b5fd;font-weight:700;}
+    .gm-kingdom{margin-top:12px;padding-top:12px;border-top:1px solid #ffffff0d;font-size:12px;color:#9aa7b4;line-height:1.6;}
+    .gm-kingdom b{color:#e3b341;}
     @media(max-width:480px){.gm-pickgrid{grid-template-columns:1fr;}}
   </style>
   <div class="page" id="page-game">
@@ -2002,6 +2017,13 @@
       <div id="gm-picks" class="gm-card"></div>
       <div id="gm-result" class="gm-card" style="display:none"></div>
       <div id="gm-lb" class="gm-card"></div>
+      <div class="gm-card gm-roadmap">
+        <div class="gm-help-head" onclick="gmToggleRoadmap()"><span>🗺️ Trader Path</span><span id="gm-rm-arrow">▾</span></div>
+        <div id="gm-roadmap-body" class="gm-help-body">
+          <div id="gm-roadmap-list"></div>
+          <div class="gm-kingdom">🏰 <b>Coming soon</b> — as more traders join, team up in <b>guilds</b> and build <b>AI kingdoms</b> together. Invite friends so you climb faster when it launches.</div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -5745,7 +5767,9 @@
       let lvl=1; for(let i=0;i<GM_LEVELS.length;i++){ if(xp>=GM_LEVELS[i]) lvl=i+1; }
       const cur=GM_LEVELS[lvl-1]; const next=(lvl<GM_LEVELS.length)?GM_LEVELS[lvl]:null;
       const pct = next===null?100:Math.round((xp-cur)/(next-cur)*100);
-      return {lvl, title:GM_TITLES[lvl-1]||'Legend', pct, next};
+      return {lvl, title:GM_TITLES[lvl-1]||'Legend', pct, next,
+        nextTitle: next===null?null:(GM_TITLES[lvl]||'Legend'),
+        remaining: next===null?0:(next-xp)};
     }
     function fmtMoney(n){ return '$'+Math.round(Number(n)).toLocaleString(); }
     function toast(m){ if(typeof showToast==='function') showToast(m); }
@@ -5778,6 +5802,7 @@
           +'<div class="gm-title">Lv.'+li.lvl+' · '+li.title+'</div>'
           +'<div class="gm-xpbar"><div class="gm-xpfill" style="width:'+li.pct+'%"></div></div>'
           +'<div class="gm-xptext">'+(li.next===null?('XP '+xp+' · MAX'):('XP '+xp+' / '+li.next))+'</div>'
+          +(li.next===null?'<div class="gm-nextlv">🏆 Max level reached — Legend status</div>':'<div class="gm-nextlv">▲ '+li.remaining+' XP to <b>Lv.'+(li.lvl+1)+' · '+li.nextTitle+'</b></div>')
         +'</div></div>'
         +'<div class="gm-stats">'
           +'<div class="gm-stat"><div class="v">'+fmtMoney(cap)+'</div><div class="l">Capital</div></div>'
@@ -5800,7 +5825,17 @@
       } else if(!prev){
         gmCountUp(stats[1], 0, ret, 800, v=>(v>=0?'+':'')+v.toFixed(2)+'%');
       }
+      gmRenderRoadmap(li.lvl);
       gmPlayer=p; gmAnim=false;
+    }
+
+    function gmRenderRoadmap(curLvl){
+      const el=document.getElementById('gm-roadmap-list'); if(!el) return;
+      el.innerHTML = GM_TITLES.map((t,i)=>{
+        const lvl=i+1, need=GM_LEVELS[i];
+        const cls = lvl===curLvl?'cur':(lvl<curLvl?'done':'');
+        return '<div class="gm-rm-row '+cls+'"><span class="lv">Lv.'+lvl+'</span><span class="ti">'+t+'</span><span class="xp">'+(need===0?'Start':need+' XP')+'</span></div>';
+      }).join('');
     }
 
     function gmRenderResult(res){
@@ -5915,8 +5950,17 @@
       if(arrow) arrow.textContent=collapsed?'▸':'▾';
       try{ localStorage.setItem('sm_help_collapsed', collapsed?'1':'0'); }catch(e){}
     };
+    window.gmToggleRoadmap=function(){
+      var body=document.getElementById('gm-roadmap-body'); var arrow=document.getElementById('gm-rm-arrow');
+      if(!body) return;
+      var collapsed=body.classList.toggle('collapsed');
+      if(arrow) arrow.textContent=collapsed?'▸':'▾';
+      try{ localStorage.setItem('sm_roadmap_collapsed', collapsed?'1':'0'); }catch(e){}
+    };
     function gmInitHelp(){
       try{ if(localStorage.getItem('sm_help_collapsed')==='1'){ var body=document.getElementById('gm-help-body'); var arrow=document.getElementById('gm-help-arrow'); if(body){ body.classList.add('collapsed'); if(arrow) arrow.textContent='▸'; } } }catch(e){}
+      // roadmap is supplementary → collapsed by default unless user expanded it before
+      try{ if(localStorage.getItem('sm_roadmap_collapsed')!=='0'){ var rb=document.getElementById('gm-roadmap-body'); var ra=document.getElementById('gm-rm-arrow'); if(rb){ rb.classList.add('collapsed'); if(ra) ra.textContent='▸'; } } }catch(e){}
     }
 
     // 초기 로드 시 게임이 기본 화면이면 렌더(앱 init이 renderGame 정의 전에 goPage를 부르는 타이밍 보완)
