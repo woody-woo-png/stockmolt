@@ -5827,12 +5827,15 @@
         let rival=[];
         try{ const rr=await fetch(GM_REST+'/game_ai_pick?trade_date=eq.'+today+'&select=ticker,direction',{headers:gmHeaders()}); rival=await rr.json(); }catch(e){}
         const rmap={}; (rival||[]).forEach(x=>rmap[x.ticker]=x.direction);
+        // my picks: this session's submit, else restored from this browser for today
+        let myPicks=gmLastPicks;
+        if(!myPicks){ try{ const raw=localStorage.getItem('sm_game_picks_'+today); if(raw) myPicks=JSON.parse(raw); }catch(e){} }
         const head='<h3>🎯 Today\'s Picks</h3><div class="gm-done"><div class="big">✅ Submitted!</div><div class="gm-muted">Results reveal after the next market close.</div></div>';
         const dirHtml=d=>d==='long'?'<span class="gm-pos">▲ LONG</span>':d==='short'?'<span class="gm-neg">▼ SHORT</span>':'—';
-        if(gmLastPicks && gmLastPicks.length && rival && rival.length){
-          // You vs AI duel — only when we still know this session's picks (post-submit)
+        if(myPicks && myPicks.length && rival && rival.length){
+          // You vs AI duel — whenever we know this browser's picks for today
           let clash=0;
-          const rows=gmLastPicks.map(mp=>{
+          const rows=myPicks.map(mp=>{
             const ai=rmap[mp.ticker]; const agree=ai && ai===mp.direction;
             if(ai && !agree) clash++;
             const tag=!ai?'':agree?'<span class="tag agree">🤝 AI agrees</span>':'<span class="tag clash">⚡ Clash</span>';
@@ -5882,6 +5885,8 @@
           picks.forEach(p=>{ const c=document.querySelector('.gm-pick[data-tk="'+p.ticker+'"]'); if(c) c.classList.add('locked'); });
           gmXpFlash(d.xp_awarded);                 // ① big +XP flash
           gmLastPicks=picks; gmAnim=true;          // ② remember picks for duel · ①③ animate character
+          // persist picks so the duel card survives reload/revisit (today only)
+          try{ const tdy=gmToday(); Object.keys(localStorage).forEach(k=>{ if(k.indexOf('sm_game_picks_')===0 && k!=='sm_game_picks_'+tdy) localStorage.removeItem(k); }); localStorage.setItem('sm_game_picks_'+tdy, JSON.stringify(picks)); }catch(e){}
           toast('Submitted! +'+d.xp_awarded+' XP');
           setTimeout(()=>renderGame(), 650);       // let the slam play before re-render
         }
