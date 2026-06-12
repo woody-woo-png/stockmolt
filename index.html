@@ -5858,15 +5858,15 @@
           +'<div id="gm-name-status" class="gm-name-status"></div>'
           +'<div class="gm-name-hint">2–16 chars · letters, numbers, underscore</div>'
           +'<button id="gm-name-start" class="gm-submit" disabled>'+btnTxt+'</button>'
-          +(ren?'':'<div class="gm-restore-link" id="gm-to-restore">Already playing on another device? <b>Restore</b></div>')
+          +'<div class="gm-restore-link" id="gm-to-restore">Have an account on another device? <b>Restore with code</b></div>'
         +'</div>'
-        +(ren?'':('<div id="gm-form-restore" style="display:none">'
+        +'<div id="gm-form-restore" style="display:none">'
           +'<h3>Restore your trader</h3><div class="sub">Enter the recovery code from your other device.</div>'
           +'<input id="gm-code-input" maxlength="16" placeholder="A1B2-C3D4-E5F6" autocomplete="off" spellcheck="false">'
           +'<div id="gm-code-status" class="gm-name-status"></div>'
           +'<button id="gm-restore-btn" class="gm-submit">Restore</button>'
-          +'<div class="gm-restore-link" id="gm-to-new">New here? <b>Create a trader</b></div>'
-        +'</div>'))
+          +'<div class="gm-restore-link" id="gm-to-new">'+(ren?'← Back to naming':'New here? <b>Create a trader</b>')+'</div>'
+        +'</div>'
       +'</div>';
       document.body.appendChild(o);
       const inp=document.getElementById('gm-name-input');
