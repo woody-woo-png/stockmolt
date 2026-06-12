@@ -6056,7 +6056,8 @@
         document.getElementById('gm-lb-rows').innerHTML = rows.length? rows.map(x=>{
           const val=type==='xp'?('⭐ '+x.xp):((x.return_pct>=0?'+':'')+x.return_pct+'%');
           const vcls=type==='xp'?'':(x.return_pct>=0?'gm-pos':'gm-neg');
-          return '<div class="gm-lbrow"><span class="rk">'+x.rank+'</span><span class="nm">'+(x.display_name||'Trader')+' <span style="color:#8b949e;font-size:11px">Lv.'+x.level+'</span></span><span class="vl '+vcls+'">'+val+'</span></div>';
+          var nmCls=(x.level>=5)?'nm-gold':((x.level>=3)?'nm-hi':'');
+          return '<div class="gm-lbrow"><span class="rk">'+x.rank+'</span><span class="nm '+nmCls+'">'+(GM_BADGES[(x.level||1)-1]||'🐣')+' '+(x.display_name||'Trader')+' <span style="color:#8b949e;font-size:11px">Lv.'+x.level+'</span></span><span class="vl '+vcls+'">'+val+'</span></div>';
         }).join('') : '<div class="gm-muted">No players yet. Be the first!</div>';
       }catch(e){ const el=document.getElementById('gm-lb-rows'); if(el) el.innerHTML='<div class="gm-muted">Failed to load leaderboard.</div>'; }
     };
