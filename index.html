@@ -1918,7 +1918,7 @@
       background:radial-gradient(38vw 38vw at 16% 26%,#7c3aed26,transparent 70%),radial-gradient(34vw 34vw at 84% 74%,#22d3ee1f,transparent 70%);
       animation:gmAmbient 26s ease-in-out infinite alternate;}
     #page-game::after{content:'';position:absolute;inset:0;z-index:0;pointer-events:none;
-      background-image:linear-gradient(#ffffff07 1px,transparent 1px),linear-gradient(90deg,#ffffff07 1px,transparent 1px);background-size:46px 46px;
+      background-image:linear-gradient(#ffffff0d 1px,transparent 1px),linear-gradient(90deg,#ffffff0d 1px,transparent 1px);background-size:46px 46px;
       -webkit-mask-image:radial-gradient(120% 100% at 50% 35%,transparent 45%,#000 92%);mask-image:radial-gradient(120% 100% at 50% 35%,transparent 45%,#000 92%);}
     @keyframes gmAmbient{0%{transform:translate(0,0) scale(1);}100%{transform:translate(2.5%,-2.5%) scale(1.1);}}
     .gm-wrap{max-width:760px;margin:0 auto;padding:18px 16px 80px;display:flex;flex-direction:column;gap:16px;position:relative;z-index:1;}
@@ -1926,23 +1926,26 @@
     /* battlefield: Bull (green, left) vs Bear (red, right) trade fire across the backdrop */
     #gm-battlefield{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden;
       background:
-        linear-gradient(105deg,#3fb95022,transparent 38%,transparent 62%,#f8514922),
-        radial-gradient(circle at 13% 40%,#3fb95088 0 4px,transparent 5px),
-        radial-gradient(circle at 13% 40%,transparent 52px,#3fb9501f 53px,transparent 58px),
-        radial-gradient(circle at 13% 40%,transparent 90px,#3fb95016 91px,transparent 96px),
-        radial-gradient(circle at 13% 40%,transparent 132px,#3fb95010 133px,transparent 139px),
-        radial-gradient(circle at 87% 60%,#f8514988 0 4px,transparent 5px),
-        radial-gradient(circle at 87% 60%,transparent 52px,#f851491f 53px,transparent 58px),
-        radial-gradient(circle at 87% 60%,transparent 90px,#f8514916 91px,transparent 96px),
-        radial-gradient(circle at 87% 60%,transparent 132px,#f8514910 133px,transparent 139px);}
-    #gm-battlefield::before,#gm-battlefield::after{position:absolute;font-size:12px;font-weight:900;letter-spacing:3px;opacity:.65;}
-    #gm-battlefield::before{content:'▲ BULL';left:8%;top:33%;color:#3fb950;text-shadow:0 0 12px #3fb95088;}
-    #gm-battlefield::after{content:'BEAR ▼';right:8%;top:53%;color:#f85149;text-shadow:0 0 12px #f8514988;}
+        linear-gradient(105deg,#3fb95033,transparent 38%,transparent 62%,#f8514933),
+        radial-gradient(circle at 13% 40%,#3fb950aa 0 5px,transparent 6px),
+        radial-gradient(circle at 13% 40%,transparent 52px,#3fb95033 53px,transparent 59px),
+        radial-gradient(circle at 13% 40%,transparent 90px,#3fb95026 91px,transparent 97px),
+        radial-gradient(circle at 13% 40%,transparent 132px,#3fb9501c 133px,transparent 140px),
+        radial-gradient(circle at 87% 60%,#f85149aa 0 5px,transparent 6px),
+        radial-gradient(circle at 87% 60%,transparent 52px,#f8514933 53px,transparent 59px),
+        radial-gradient(circle at 87% 60%,transparent 90px,#f8514926 91px,transparent 97px),
+        radial-gradient(circle at 87% 60%,transparent 132px,#f851491c 133px,transparent 140px);}
+    #gm-battlefield::before,#gm-battlefield::after{position:absolute;font-size:13px;font-weight:900;letter-spacing:3px;opacity:.85;}
+    #gm-battlefield::before{content:'▲ BULL';left:8%;top:33%;color:#3fb950;text-shadow:0 0 14px #3fb950aa;}
+    #gm-battlefield::after{content:'BEAR ▼';right:8%;top:53%;color:#f85149;text-shadow:0 0 14px #f85149aa;}
+    .gm-radar{position:absolute;width:300px;height:300px;transform:translate(-50%,-50%);border-radius:50%;pointer-events:none;opacity:.18;mix-blend-mode:screen;}
+    .gm-radar.g{left:13%;top:40%;background:conic-gradient(from 0deg,transparent 0 298deg,#3fb95099 348deg,transparent 360deg);animation:gmSweep 7s linear infinite;}
+    .gm-radar.r{left:87%;top:60%;background:conic-gradient(from 0deg,transparent 0 298deg,#f8514999 348deg,transparent 360deg);animation:gmSweep 7s linear infinite;animation-delay:-3.5s;}
+    @keyframes gmSweep{to{transform:translate(-50%,-50%) rotate(360deg);}}
     .gm-shot{position:absolute;top:0;left:0;width:30px;height:5px;border-radius:3px;pointer-events:none;will-change:transform,opacity;}
     .gm-shot.g{background:linear-gradient(90deg,transparent,#3fb950 60%,#aef5b8);box-shadow:0 0 18px 4px #3fb950cc;}
     .gm-shot.r{background:linear-gradient(270deg,transparent,#f85149 60%,#ffc4bd);box-shadow:0 0 18px 4px #f85149cc;}
-    @keyframes gmFlyR{0%{transform:translate(3vw,var(--y)) scaleX(.7);opacity:0;}10%{opacity:1;}85%{opacity:1;}100%{transform:translate(96vw,var(--y2)) scaleX(1.8);opacity:0;}}
-    @keyframes gmFlyL{0%{transform:translate(96vw,var(--y)) scaleX(.7);opacity:0;}10%{opacity:1;}85%{opacity:1;}100%{transform:translate(3vw,var(--y2)) scaleX(1.8);opacity:0;}}
+    @keyframes gmFly{0%{transform:translate(var(--x0),var(--y0)) scaleX(.7);opacity:0;}12%{opacity:1;}82%{opacity:1;}100%{transform:translate(var(--x1),var(--y1)) scaleX(1.9);opacity:0;}}
     .gm-boom{position:absolute;width:46px;height:46px;border-radius:50%;pointer-events:none;will-change:transform,opacity;}
     .gm-boom.g{background:radial-gradient(circle,#aef5b8dd,#3fb95066,transparent 72%);}
     .gm-boom.r{background:radial-gradient(circle,#ffc4bddd,#f8514966,transparent 72%);}
@@ -5806,24 +5809,28 @@
       if(window.matchMedia && window.matchMedia('(max-width:760px)').matches) return; // desktop only
       const pg=document.getElementById('page-game'); if(!pg) return;
       let bf=document.getElementById('gm-battlefield');
-      if(!bf){ bf=document.createElement('div'); bf.id='gm-battlefield'; pg.appendChild(bf); }
+      if(!bf){ bf=document.createElement('div'); bf.id='gm-battlefield'; bf.innerHTML='<div class="gm-radar g"></div><div class="gm-radar r"></div>'; pg.appendChild(bf); }
       gmBattleTimer=setInterval(()=>{
         if(document.hidden) return;
         const p=document.getElementById('page-game'); if(!p||!p.classList.contains('active')) return;
         const field=document.getElementById('gm-battlefield'); if(!field) return;
         const fromLeft=Math.random()<0.5;
-        const y=18+Math.random()*64, y2=18+Math.random()*64;
+        // base-to-base fire: Bull (13vw,40vh) <-> Bear (87vw,60vh), small spread
+        const x0=fromLeft?13:87, x1=fromLeft?87:13;
+        const y0=(fromLeft?40:60)+(Math.random()*14-7);
+        const y1=(fromLeft?60:40)+(Math.random()*14-7);
         const s=document.createElement('div'); s.className='gm-shot '+(fromLeft?'g':'r');
-        s.style.setProperty('--y',y+'vh'); s.style.setProperty('--y2',y2+'vh');
-        s.style.animation=(fromLeft?'gmFlyR':'gmFlyL')+' 1.25s linear forwards';
+        s.style.setProperty('--x0',x0+'vw'); s.style.setProperty('--x1',x1+'vw');
+        s.style.setProperty('--y0',y0+'vh'); s.style.setProperty('--y1',y1+'vh');
+        s.style.animation='gmFly 1.2s linear forwards';
         field.appendChild(s);
         setTimeout(()=>{
           const b=document.createElement('div'); b.className='gm-boom '+(fromLeft?'r':'g');
-          b.style.left=(fromLeft?'95vw':'5vw'); b.style.top=y2+'vh';
+          b.style.left=x1+'vw'; b.style.top=y1+'vh';
           b.style.animation='gmBoom .5s ease-out forwards';
           field.appendChild(b); setTimeout(()=>{ b.remove(); },520);
           s.remove();
-        }, 1200);
+        }, 1100);
       }, 2600);
     }
 
