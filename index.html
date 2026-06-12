@@ -2013,6 +2013,12 @@
     .gm-name-status.ok{color:#3fb950;}
     .gm-name-status.bad{color:#f85149;}
     .gm-name-hint{font-size:11px;color:#8b949e;text-align:center;margin-top:4px;}
+    .gm-restore-link{text-align:center;font-size:12px;color:#8b949e;margin-top:16px;cursor:pointer;}
+    .gm-restore-link b{color:#c4b5fd;}
+    .gm-codebox{font-size:21px;font-weight:900;letter-spacing:2px;text-align:center;color:#e3b341;background:#0d1117;border:1px dashed #e3b34166;border-radius:10px;padding:16px;margin:14px 0;font-family:ui-monospace,Menlo,Consolas,monospace;}
+    .gm-secondary{width:100%;background:#161b22;border:1px solid #ffffff1f;color:#c9d1d9;font-weight:700;font-size:13px;padding:11px;border-radius:10px;cursor:pointer;margin-bottom:8px;}
+    .gm-codebtn{margin-top:12px;width:100%;background:#0d1117;border:1px solid #ffffff1f;color:#8b949e;font-size:12px;font-weight:700;padding:9px;border-radius:8px;cursor:pointer;}
+    .gm-codebtn:hover{border-color:#7c3aed66;color:#c4b5fd;}
     @media(max-width:480px){.gm-pickgrid{grid-template-columns:1fr;}}
   </style>
   <div class="page" id="page-game">
@@ -5783,20 +5789,64 @@
     }
 
     // ④ name onboarding (new users only). Invariant: sm_device_id present ⟺ named player exists on server.
+    function gmFmtCode(c){ return c?String(c).toUpperCase().replace(/[^A-Z0-9]/g,'').replace(/(.{4})(?=.)/g,'$1-'):''; }
     function gmShowNameModal(){
       if(document.getElementById('gm-name-modal')) return;
       const o=document.createElement('div'); o.id='gm-name-modal'; o.className='gm-modal-ov';
-      o.innerHTML='<div class="gm-modal"><h3>Name your trader</h3><div class="sub">Pick a name for the leaderboard — this is permanent.</div>'
-        +'<input id="gm-name-input" maxlength="16" placeholder="e.g. zeke_the_bull" autocomplete="off" spellcheck="false">'
-        +'<div id="gm-name-status" class="gm-name-status"></div>'
-        +'<div class="gm-name-hint">2–16 chars · letters, numbers, underscore</div>'
-        +'<button id="gm-name-start" class="gm-submit" disabled>Start Trading</button></div>';
+      o.innerHTML='<div class="gm-modal">'
+        +'<div id="gm-form-new">'
+          +'<h3>Name your trader</h3><div class="sub">Pick a name for the leaderboard — this is permanent.</div>'
+          +'<input id="gm-name-input" maxlength="16" placeholder="e.g. zeke_the_bull" autocomplete="off" spellcheck="false">'
+          +'<div id="gm-name-status" class="gm-name-status"></div>'
+          +'<div class="gm-name-hint">2–16 chars · letters, numbers, underscore</div>'
+          +'<button id="gm-name-start" class="gm-submit" disabled>Start Trading</button>'
+          +'<div class="gm-restore-link" id="gm-to-restore">Already playing on another device? <b>Restore</b></div>'
+        +'</div>'
+        +'<div id="gm-form-restore" style="display:none">'
+          +'<h3>Restore your trader</h3><div class="sub">Enter the recovery code from your other device.</div>'
+          +'<input id="gm-code-input" maxlength="16" placeholder="A1B2-C3D4-E5F6" autocomplete="off" spellcheck="false">'
+          +'<div id="gm-code-status" class="gm-name-status"></div>'
+          +'<button id="gm-restore-btn" class="gm-submit">Restore</button>'
+          +'<div class="gm-restore-link" id="gm-to-new">New here? <b>Create a trader</b></div>'
+        +'</div>'
+      +'</div>';
       document.body.appendChild(o);
       const inp=document.getElementById('gm-name-input');
       inp.addEventListener('input', gmNameCheck);
       inp.addEventListener('keydown', e=>{ if(e.key==='Enter' && gmNameOK) gmNameSubmit(); });
       document.getElementById('gm-name-start').onclick=gmNameSubmit;
+      document.getElementById('gm-to-restore').onclick=()=>gmModalMode('restore');
+      document.getElementById('gm-to-new').onclick=()=>gmModalMode('new');
+      document.getElementById('gm-restore-btn').onclick=gmRestoreSubmit;
+      document.getElementById('gm-code-input').addEventListener('keydown', e=>{ if(e.key==='Enter') gmRestoreSubmit(); });
       setTimeout(()=>inp.focus(),50);
+    }
+    function gmModalMode(mode){
+      const fn=document.getElementById('gm-form-new'), fr=document.getElementById('gm-form-restore');
+      if(!fn||!fr) return;
+      fn.style.display = mode==='new'?'':'none';
+      fr.style.display = mode==='restore'?'':'none';
+      const f=document.getElementById(mode==='restore'?'gm-code-input':'gm-name-input'); if(f) setTimeout(()=>f.focus(),50);
+    }
+    async function gmRestoreSubmit(){
+      const inp=document.getElementById('gm-code-input'), st=document.getElementById('gm-code-status'), btn=document.getElementById('gm-restore-btn');
+      const code=inp.value.trim();
+      if(!code) return;
+      btn.disabled=true; btn.textContent='Restoring…';
+      try{
+        const did=await gmRpc('redeem_recovery_code',{p_code:code});
+        if(typeof did==='string' && did){
+          localStorage.setItem('sm_device_id', did);
+          const m=document.getElementById('gm-name-modal'); if(m) m.remove();
+          renderGame();
+        } else {
+          st.textContent='✗ Code not found — check and try again'; st.className='gm-name-status bad';
+          btn.disabled=false; btn.textContent='Restore';
+        }
+      }catch(e){
+        st.textContent='Restore failed — try again'; st.className='gm-name-status bad';
+        btn.disabled=false; btn.textContent='Restore';
+      }
     }
     function gmNameCheck(){
       const inp=document.getElementById('gm-name-input'), st=document.getElementById('gm-name-status'), btn=document.getElementById('gm-name-start');
@@ -5826,14 +5876,41 @@
         const state=await r.json();
         if(!state||!state.success) throw new Error('create_failed');
         localStorage.setItem('sm_device_id', candidate); // invariant now holds
-        const m=document.getElementById('gm-name-modal'); if(m) m.remove();
-        renderGame();
+        await gmShowCreatedCode(candidate); // reveal recovery code once before entering the game
       }catch(e){
         // Trap 2: name collision returns a generic 500, indistinguishable from a real error → keep modal, retry
         st.textContent='Could not create — that name may be taken. Try another.'; st.className='gm-name-status bad';
         gmNameOK=false; btn.disabled=true; btn.textContent='Start Trading';
       }
     }
+    // recovery code: shown once at creation, then reveal-on-demand (never baked into the default card → screenshot-safe)
+    async function gmShowCreatedCode(did){
+      let code=''; try{ code=await gmRpc('get_recovery_code',{p_device_id:did}); }catch(e){}
+      const box=document.querySelector('#gm-name-modal .gm-modal');
+      if(!box){ renderGame(); return; }
+      const fc=code?gmFmtCode(code):'';
+      box.innerHTML='<h3>You\'re in! 🎉</h3>'
+        +'<div class="sub">Save this recovery code — it\'s the only way to log in on another device, and we can\'t recover it for you.</div>'
+        +'<div class="gm-codebox">'+(fc||'—')+'</div>'
+        +'<button class="gm-secondary" id="gm-code-copy">📋 Copy code</button>'
+        +'<button class="gm-submit" id="gm-code-done">I saved it — Start trading</button>';
+      document.getElementById('gm-code-copy').onclick=()=>{ if(fc&&navigator.clipboard) navigator.clipboard.writeText(fc).then(()=>toast('Copied')).catch(()=>{}); };
+      document.getElementById('gm-code-done').onclick=()=>{ const m=document.getElementById('gm-name-modal'); if(m) m.remove(); renderGame(); };
+    }
+    window.gmRevealCode=async function(){
+      let code=''; try{ code=await gmRpc('get_recovery_code',{p_device_id:gmDeviceId()}); }catch(e){}
+      if(typeof code!=='string'||!code){ toast('Could not load code'); return; }
+      const fc=gmFmtCode(code);
+      const o=document.createElement('div'); o.className='gm-modal-ov'; o.id='gm-code-modal';
+      o.innerHTML='<div class="gm-modal"><h3>🔑 Recovery code</h3>'
+        +'<div class="sub">Use this to log in on another device. Keep it private — anyone with this code can access your trader.</div>'
+        +'<div class="gm-codebox">'+fc+'</div>'
+        +'<button class="gm-secondary" id="gm-rc-copy">📋 Copy</button>'
+        +'<button class="gm-submit" id="gm-rc-close">Close</button></div>';
+      document.body.appendChild(o);
+      document.getElementById('gm-rc-copy').onclick=()=>{ if(navigator.clipboard) navigator.clipboard.writeText(fc).then(()=>toast('Copied')).catch(()=>{}); };
+      document.getElementById('gm-rc-close').onclick=()=>o.remove();
+    };
     // ① my rank — only meaningful once the player has earned XP
     async function gmLoadRank(did, xp){
       const el=document.getElementById('gm-rank'); if(!el) return;
@@ -5894,7 +5971,8 @@
           +'<div class="gm-stat"><div class="v">🔥 '+p.streak_current+'</div><div class="l">Streak</div></div>'
         +'</div>'
         +'<div id="gm-rank" class="gm-rank"></div>'
-        +'<div class="gm-savenote">💾 Your trader is saved to <b>this browser</b>. Use the same browser &amp; device to keep your progress — cross-device login is coming soon.</div>';
+        +'<div class="gm-savenote">💾 Your trader is saved to <b>this browser</b>. Save your recovery code to log in on another device.</div>'
+        +'<button class="gm-codebtn" onclick="gmRevealCode()">🔑 Show recovery code</button>';
       // dynamic count-up: post-submit rolls prev→new; first entry gently rolls Return 0→value
       const stats=el.querySelectorAll('.gm-stat .v');
       if(gmAnim && prev){
