@@ -1912,8 +1912,17 @@
   </div>
   <!-- ===== GAME (Trader RPG) ===== -->
   <style>
-    #page-game{overflow-y:auto;}
-    .gm-wrap{max-width:760px;margin:0 auto;padding:18px 16px 80px;display:flex;flex-direction:column;gap:16px;}
+    #page-game{overflow-y:auto;position:relative;}
+    /* ambient backdrop: fills the desktop side margins behind the cards (CSS-only, pointer-events:none) */
+    #page-game::before{content:'';position:absolute;inset:0;z-index:0;pointer-events:none;
+      background:radial-gradient(38vw 38vw at 16% 26%,#7c3aed26,transparent 70%),radial-gradient(34vw 34vw at 84% 74%,#22d3ee1f,transparent 70%);
+      animation:gmAmbient 26s ease-in-out infinite alternate;}
+    #page-game::after{content:'';position:absolute;inset:0;z-index:0;pointer-events:none;
+      background-image:linear-gradient(#ffffff07 1px,transparent 1px),linear-gradient(90deg,#ffffff07 1px,transparent 1px);background-size:46px 46px;
+      -webkit-mask-image:radial-gradient(120% 100% at 50% 35%,transparent 45%,#000 92%);mask-image:radial-gradient(120% 100% at 50% 35%,transparent 45%,#000 92%);}
+    @keyframes gmAmbient{0%{transform:translate(0,0) scale(1);}100%{transform:translate(2.5%,-2.5%) scale(1.1);}}
+    .gm-wrap{max-width:760px;margin:0 auto;padding:18px 16px 80px;display:flex;flex-direction:column;gap:16px;position:relative;z-index:1;}
+    @media(max-width:760px){#page-game::after{display:none;}#page-game::before{opacity:.55;}}
     .gm-card{background:rgba(22,27,34,.85);border:1px solid #ffffff14;border-radius:16px;padding:18px 18px;}
     .gm-card h3{font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:#8b949e;margin-bottom:14px;font-weight:700;}
     /* character */
