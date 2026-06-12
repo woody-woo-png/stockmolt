@@ -1904,6 +1904,9 @@
     .gm-rm-row .lv{width:46px;color:#8b949e;font-weight:800;}
     .gm-rm-row .ti{flex:1;color:#c9d1d9;}
     .gm-rm-row .xp{color:#8b949e;font-size:11px;}
+    .gm-rm-row .uk{display:block;font-size:10px;color:#8b9bb0;margin-top:2px;}
+    .gm-rm-row.cur .uk{color:#c4b5fd;}
+    .gm-rm-row.done .uk{display:none;}
     .gm-rm-row.done{opacity:.45;}
     .gm-rm-row.done .ti{text-decoration:line-through;}
     .gm-rm-row.cur{background:#7c3aed24;border:1px solid #7c3aed55;border-radius:8px;padding:7px 8px;}
@@ -5952,7 +5955,8 @@
       el.innerHTML = GM_TITLES.map((t,i)=>{
         const lvl=i+1, need=GM_LEVELS[i];
         const cls = lvl===curLvl?'cur':(lvl<curLvl?'done':'');
-        return '<div class="gm-rm-row '+cls+'"><span class="lv">Lv.'+lvl+'</span><span class="ti">'+t+'</span><span class="xp">'+(need===0?'Start':need+' XP')+'</span></div>';
+        const unlock = GM_UNLOCKS[i] ? ('🎁 '+GM_UNLOCKS[i]) : ('🏅 New badge '+GM_BADGES[i]);
+        return '<div class="gm-rm-row '+cls+'"><span class="lv">'+GM_BADGES[i]+' Lv.'+lvl+'</span><span class="ti">'+t+'<span class="uk">'+unlock+'</span></span><span class="xp">'+(need===0?'Start':need+' XP')+'</span></div>';
       }).join('');
     }
 
