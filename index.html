@@ -1926,15 +1926,18 @@
     /* battlefield: Bull (green, left) vs Bear (red, right) trade fire across the backdrop */
     #gm-battlefield{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden;
       background:
-        linear-gradient(105deg,#3fb9500e,transparent 40%,transparent 60%,#f851490e),
-        radial-gradient(circle at 13% 38%,#3fb95030 0 3px,transparent 4px),
-        radial-gradient(circle at 13% 38%,transparent 54px,#ffffff08 55px,transparent 59px),
-        radial-gradient(circle at 13% 38%,transparent 92px,#ffffff06 93px,transparent 98px),
-        radial-gradient(circle at 13% 38%,transparent 134px,#ffffff04 135px,transparent 140px),
-        radial-gradient(circle at 87% 62%,#f8514930 0 3px,transparent 4px),
-        radial-gradient(circle at 87% 62%,transparent 54px,#ffffff08 55px,transparent 59px),
-        radial-gradient(circle at 87% 62%,transparent 92px,#ffffff06 93px,transparent 98px),
-        radial-gradient(circle at 87% 62%,transparent 134px,#ffffff04 135px,transparent 140px);}
+        linear-gradient(105deg,#3fb95022,transparent 38%,transparent 62%,#f8514922),
+        radial-gradient(circle at 13% 40%,#3fb95088 0 4px,transparent 5px),
+        radial-gradient(circle at 13% 40%,transparent 52px,#3fb9501f 53px,transparent 58px),
+        radial-gradient(circle at 13% 40%,transparent 90px,#3fb95016 91px,transparent 96px),
+        radial-gradient(circle at 13% 40%,transparent 132px,#3fb95010 133px,transparent 139px),
+        radial-gradient(circle at 87% 60%,#f8514988 0 4px,transparent 5px),
+        radial-gradient(circle at 87% 60%,transparent 52px,#f851491f 53px,transparent 58px),
+        radial-gradient(circle at 87% 60%,transparent 90px,#f8514916 91px,transparent 96px),
+        radial-gradient(circle at 87% 60%,transparent 132px,#f8514910 133px,transparent 139px);}
+    #gm-battlefield::before,#gm-battlefield::after{position:absolute;font-size:12px;font-weight:900;letter-spacing:3px;opacity:.65;}
+    #gm-battlefield::before{content:'▲ BULL';left:8%;top:33%;color:#3fb950;text-shadow:0 0 12px #3fb95088;}
+    #gm-battlefield::after{content:'BEAR ▼';right:8%;top:53%;color:#f85149;text-shadow:0 0 12px #f8514988;}
     .gm-shot{position:absolute;top:0;left:0;width:30px;height:5px;border-radius:3px;pointer-events:none;will-change:transform,opacity;}
     .gm-shot.g{background:linear-gradient(90deg,transparent,#3fb950 60%,#aef5b8);box-shadow:0 0 18px 4px #3fb950cc;}
     .gm-shot.r{background:linear-gradient(270deg,transparent,#f85149 60%,#ffc4bd);box-shadow:0 0 18px 4px #f85149cc;}
