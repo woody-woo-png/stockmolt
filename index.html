@@ -5650,6 +5650,10 @@
     const GM_ANON = 'sb_publishable_8-tR6LbXU-l0qdgFmYnH-A_WxSuuBi0';
     const GM_LEVELS = [0,100,250,500,850,1300,1900,2700,3800,5200];
     const GM_TITLES = ['Beginner Trader','Rookie Picker','Market Scout','Signal Hunter','AI Challenger','Trend Rider','Risk Taker','Alpha Seeker','Market Duelist','Legend Candidate'];
+    const GM_BADGES = ['🐣','🔍','📡','🎯','⚔️','🌊','🎲','🦅','🛡️','👑'];
+    // unlock preview per level (index = lvl-1); '' = level only grants its badge
+    const GM_UNLOCKS = ['','','Name highlight on leaderboard','','Colored nickname','','','','','Hall of Fame'];
+    const GM_KINGDOM_THRESHOLD = 25;
     let gmSel = {};
     let gmPlayer = null;      // last rendered player (for count-up baseline)
     let gmLastPicks = null;   // picks from the submit that just happened (this session)
@@ -5872,8 +5876,9 @@
       let lvl=1; for(let i=0;i<GM_LEVELS.length;i++){ if(xp>=GM_LEVELS[i]) lvl=i+1; }
       const cur=GM_LEVELS[lvl-1]; const next=(lvl<GM_LEVELS.length)?GM_LEVELS[lvl]:null;
       const pct = next===null?100:Math.round((xp-cur)/(next-cur)*100);
-      return {lvl, title:GM_TITLES[lvl-1]||'Legend', pct, next,
+      return {lvl, title:GM_TITLES[lvl-1]||'Legend', badge:GM_BADGES[lvl-1]||'👑', pct, next,
         nextTitle: next===null?null:(GM_TITLES[lvl]||'Legend'),
+        nextBadge: next===null?null:(GM_BADGES[lvl]||'👑'),
         remaining: next===null?0:(next-xp)};
     }
     function fmtMoney(n){ return '$'+Math.round(Number(n)).toLocaleString(); }
