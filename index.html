@@ -5914,11 +5914,11 @@
         '<div class="gm-hero">'
         +'<div class="gm-ava">🧑‍💻</div>'
         +'<div class="gm-hid">'
-          +'<div class="gm-name">'+(p.display_name||'Trader')+'</div>'
+          +'<div class="gm-name '+(li.lvl>=5?'nm-gold':(li.lvl>=3?'nm-hi':''))+'">'+li.badge+' '+(p.display_name||'Trader')+'</div>'
           +'<div class="gm-title">Lv.'+li.lvl+' · '+li.title+'</div>'
           +'<div class="gm-xpbar"><div class="gm-xpfill" style="width:'+li.pct+'%"></div></div>'
           +'<div class="gm-xptext">'+(li.next===null?('XP '+xp+' · MAX'):('XP '+xp+' / '+li.next))+'</div>'
-          +(li.next===null?'<div class="gm-nextlv">🏆 Max level reached — Legend status</div>':'<div class="gm-nextlv">▲ '+li.remaining+' XP to <b>Lv.'+(li.lvl+1)+' · '+li.nextTitle+'</b></div>')
+          +(li.next===null?'<div class="gm-nextlv">🏆 Max level reached — Legend status</div>':'<div class="gm-nextlv">▲ '+li.remaining+' XP to <b>Lv.'+(li.lvl+1)+' '+li.nextBadge+' '+li.nextTitle+'</b></div>')
         +'</div></div>'
         +'<div class="gm-stats">'
           +'<div class="gm-stat"><div class="v">'+fmtMoney(cap)+'</div><div class="l">Capital</div></div>'
