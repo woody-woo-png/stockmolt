@@ -1923,6 +1923,18 @@
     @keyframes gmAmbient{0%{transform:translate(0,0) scale(1);}100%{transform:translate(2.5%,-2.5%) scale(1.1);}}
     .gm-wrap{max-width:760px;margin:0 auto;padding:18px 16px 80px;display:flex;flex-direction:column;gap:16px;position:relative;z-index:1;}
     @media(max-width:760px){#page-game::after{display:none;}#page-game::before{opacity:.55;}}
+    /* battlefield: Bull (green, left) vs Bear (red, right) trade fire across the backdrop */
+    #gm-battlefield{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden;}
+    .gm-shot{position:absolute;top:0;left:0;width:14px;height:3px;border-radius:2px;pointer-events:none;will-change:transform,opacity;}
+    .gm-shot.g{background:linear-gradient(90deg,transparent,#3fb950);box-shadow:0 0 10px 2px #3fb95077;}
+    .gm-shot.r{background:linear-gradient(270deg,transparent,#f85149);box-shadow:0 0 10px 2px #f8514977;}
+    @keyframes gmFlyR{0%{transform:translate(3vw,var(--y)) scaleX(1);opacity:0;}8%{opacity:.9;}88%{opacity:.9;}100%{transform:translate(96vw,var(--y2)) scaleX(1.6);opacity:0;}}
+    @keyframes gmFlyL{0%{transform:translate(96vw,var(--y)) scaleX(1);opacity:0;}8%{opacity:.9;}88%{opacity:.9;}100%{transform:translate(3vw,var(--y2)) scaleX(1.6);opacity:0;}}
+    .gm-boom{position:absolute;width:26px;height:26px;border-radius:50%;pointer-events:none;will-change:transform,opacity;}
+    .gm-boom.g{background:radial-gradient(circle,#3fb95066,transparent 70%);}
+    .gm-boom.r{background:radial-gradient(circle,#f8514966,transparent 70%);}
+    @keyframes gmBoom{0%{transform:translate(-50%,-50%) scale(.2);opacity:.9;}100%{transform:translate(-50%,-50%) scale(2.6);opacity:0;}}
+    @media(max-width:760px){#gm-battlefield{display:none;}}
     .gm-card{background:rgba(22,27,34,.85);border:1px solid #ffffff14;border-radius:16px;padding:18px 18px;}
     .gm-card h3{font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:#8b949e;margin-bottom:14px;font-weight:700;}
     /* character */
@@ -5772,6 +5784,33 @@
     let gmAnim = false;       // animate character card on next render (post-submit)
     let gmNameTimer = null;   // debounce for name availability check
     let gmNameOK = false;     // current name passed availability check
+    let gmBattleTimer = null; // backdrop battlefield loop
+
+    function gmStartBattle(){
+      if(gmBattleTimer) return;
+      if(window.matchMedia && window.matchMedia('(max-width:760px)').matches) return; // desktop only
+      const pg=document.getElementById('page-game'); if(!pg) return;
+      let bf=document.getElementById('gm-battlefield');
+      if(!bf){ bf=document.createElement('div'); bf.id='gm-battlefield'; pg.appendChild(bf); }
+      gmBattleTimer=setInterval(()=>{
+        if(document.hidden) return;
+        const p=document.getElementById('page-game'); if(!p||!p.classList.contains('active')) return;
+        const field=document.getElementById('gm-battlefield'); if(!field) return;
+        const fromLeft=Math.random()<0.5;
+        const y=18+Math.random()*64, y2=18+Math.random()*64;
+        const s=document.createElement('div'); s.className='gm-shot '+(fromLeft?'g':'r');
+        s.style.setProperty('--y',y+'vh'); s.style.setProperty('--y2',y2+'vh');
+        s.style.animation=(fromLeft?'gmFlyR':'gmFlyL')+' 1.25s linear forwards';
+        field.appendChild(s);
+        setTimeout(()=>{
+          const b=document.createElement('div'); b.className='gm-boom '+(fromLeft?'r':'g');
+          b.style.left=(fromLeft?'95vw':'5vw'); b.style.top=y2+'vh';
+          b.style.animation='gmBoom .5s ease-out forwards';
+          field.appendChild(b); setTimeout(()=>{ b.remove(); },520);
+          s.remove();
+        }, 1200);
+      }, 1400);
+    }
 
     function gmCountUp(el, from, to, dur, fmt){
       if(!el) return; el.textContent=fmt(from); const t0=performance.now();  // seed start synchronously to avoid final-value flash
@@ -5954,6 +5993,7 @@
         state = await r.json();
       }catch(e){ document.getElementById('gm-character').innerHTML='<div class="gm-muted">Connection failed. Please try again shortly.</div>'; return; }
       if(!state || !state.success){ document.getElementById('gm-character').innerHTML='<div class="gm-muted">Failed to load player.</div>'; return; }
+      gmStartBattle();
       gmRenderCharacter(state.player, gmPlayer);
       gmLoadRank(did, state.player.xp);
       gmRenderResult(state.last_result);
