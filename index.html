@@ -5871,17 +5871,20 @@
       btn.disabled=true; btn.textContent='Creating…';
       // Trap 1: candidate id stays in memory; persist sm_device_id ONLY after game-state succeeds
       const candidate=(window.crypto&&crypto.randomUUID?crypto.randomUUID():'dev-'+Date.now()+'-'+Math.random().toString(36).slice(2));
+      let created=false;
       try{
         const r=await fetch(GM_FN+'/game-state',{method:'POST',headers:gmHeaders(),body:JSON.stringify({device_id:candidate,display_name:name})});
         const state=await r.json();
         if(!state||!state.success) throw new Error('create_failed');
         localStorage.setItem('sm_device_id', candidate); // invariant now holds
-        await gmShowCreatedCode(candidate); // reveal recovery code once before entering the game
+        created=true;
       }catch(e){
         // Trap 2: name collision returns a generic 500, indistinguishable from a real error → keep modal, retry
         st.textContent='Could not create — that name may be taken. Try another.'; st.className='gm-name-status bad';
         gmNameOK=false; btn.disabled=true; btn.textContent='Start Trading';
       }
+      // reveal lives OUTSIDE the create error boundary — account already exists by here
+      if(created) await gmShowCreatedCode(candidate);
     }
     // recovery code: shown once at creation, then reveal-on-demand (never baked into the default card → screenshot-safe)
     async function gmShowCreatedCode(did){
