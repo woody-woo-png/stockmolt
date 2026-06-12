@@ -1925,6 +1925,9 @@
     .gm-rm-row.cur .lv,.gm-rm-row.cur .ti{color:#c4b5fd;font-weight:700;}
     .gm-kingdom{margin-top:12px;padding-top:12px;border-top:1px solid #ffffff0d;font-size:12px;color:#9aa7b4;line-height:1.6;}
     .gm-kingdom b{color:#e3b341;}
+    .gm-kgbar{height:8px;background:#ffffff12;border-radius:999px;margin:8px 0 6px;overflow:hidden;}
+    .gm-kgfill{height:100%;background:linear-gradient(90deg,#e3b341,#f0c674);border-radius:999px;transition:width .8s ease;}
+    .gm-kgnum{font-size:11px;color:#9aa7b4;}
     /* rank + name modal */
     .gm-rank{margin-top:12px;text-align:center;font-size:13px;color:#c9d1d9;}
     .gm-rank b{color:#e3b341;font-size:15px;}
@@ -1965,7 +1968,7 @@
         <div class="gm-help-head" onclick="gmToggleRoadmap()"><span>🗺️ Trader Path</span><span id="gm-rm-arrow">▾</span></div>
         <div id="gm-roadmap-body" class="gm-help-body">
           <div id="gm-roadmap-list"></div>
-          <div class="gm-kingdom">🏰 <b>Coming soon</b> — as more traders join, team up in <b>guilds</b> and build <b>AI kingdoms</b> together. Invite friends so you climb faster when it launches.</div>
+          <div class="gm-kingdom" id="gm-kingdom">🏰 <b>Kingdoms</b> — loading…</div>
         </div>
       </div>
     </div>
@@ -5917,6 +5920,7 @@
       gmRenderResult(state.last_result);
       gmLoadPicks(state.submitted_today);
       gmLoadLeaderboard('return');
+      gmLoadKingdom();
     };
 
     function gmRenderCharacter(p, prev){
@@ -5979,6 +5983,21 @@
         const unlock = GM_UNLOCKS[i] ? ('🎁 '+GM_UNLOCKS[i]) : ('🏅 New badge '+GM_BADGES[i]);
         return '<div class="gm-rm-row '+cls+'"><span class="lv">'+GM_BADGES[i]+' Lv.'+lvl+'</span><span class="ti">'+t+'<span class="uk">'+unlock+'</span></span><span class="xp">'+(need===0?'Start':need+' XP')+'</span></div>';
       }).join('');
+    }
+
+    function gmKingdomOpenHtml(){
+      return '🏰 <b>Kingdoms unlocked!</b> — guilds &amp; AI kingdoms launch next. Stay tuned.';
+    }
+    async function gmLoadKingdom(){
+      const el=document.getElementById('gm-kingdom'); if(!el) return;
+      if(localStorage.getItem('sm_kingdom_unlocked')==='1'){ el.innerHTML=gmKingdomOpenHtml(); return; }
+      let n=0;
+      try{ const c=await gmRpc('get_trader_count',{}); n=Number(Array.isArray(c)?c[0]:c)||0; }catch(e){}
+      if(n>=GM_KINGDOM_THRESHOLD){ localStorage.setItem('sm_kingdom_unlocked','1'); el.innerHTML=gmKingdomOpenHtml(); return; }
+      const pct=Math.min(100,Math.round(n/GM_KINGDOM_THRESHOLD*100));
+      el.innerHTML='🏰 <b>Kingdoms</b> unlock at '+GM_KINGDOM_THRESHOLD+' traders'
+        +'<div class="gm-kgbar"><div class="gm-kgfill" style="width:'+pct+'%"></div></div>'
+        +'<div class="gm-kgnum">'+n+' / '+GM_KINGDOM_THRESHOLD+' traders — invite friends to open it sooner</div>';
     }
 
     function gmRenderResult(res){
