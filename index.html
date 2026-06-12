@@ -1886,6 +1886,15 @@
     .gm-xpflash{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:9999;}
     .gm-xpflash span{font-size:64px;font-weight:900;color:#e3b341;text-shadow:0 4px 30px #e3b34199,0 2px 6px #000;animation:gmXpPop 1.1s ease forwards;}
     @keyframes gmXpPop{0%{transform:scale(.4) translateY(20px);opacity:0;}22%{transform:scale(1.15) translateY(0);opacity:1;}68%{transform:scale(1) translateY(0);opacity:1;}100%{transform:scale(.9) translateY(-44px);opacity:0;}}
+    .gm-lvlup{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:10000;background:#0008;animation:gmLuFade .3s ease;}
+    .gm-lvlup.out{opacity:0;transition:opacity .6s ease;}
+    .gm-lvlup .box{text-align:center;animation:gmLuPop .6s cubic-bezier(.2,.8,.3,1.3);}
+    .gm-lvlup .bdg{font-size:84px;line-height:1;filter:drop-shadow(0 6px 20px #e3b34188);}
+    .gm-lvlup .t1{font-size:14px;font-weight:900;letter-spacing:3px;color:#e3b341;margin-top:10px;}
+    .gm-lvlup .t2{font-size:22px;font-weight:900;color:#fff;margin-top:4px;}
+    .gm-lvlup .t3{font-size:12px;color:#c4b5fd;margin-top:6px;}
+    @keyframes gmLuFade{from{opacity:0;}to{opacity:1;}}
+    @keyframes gmLuPop{0%{transform:scale(.4);opacity:0;}40%{transform:scale(1.12);opacity:1;}100%{transform:scale(1);opacity:1;}}
     .gm-vs{display:flex;align-items:center;gap:10px;background:#0d1117;border:1px solid #ffffff14;border-radius:12px;padding:10px 12px;margin-bottom:8px;}
     .gm-vs .tkn{font-weight:800;font-size:14px;min-width:52px;}
     .gm-vs .side{flex:1;text-align:center;font-weight:800;font-size:13px;}
@@ -5936,6 +5945,7 @@
       if(gmAnim && prev){
         const pcap=Number(prev.capital), pxp=Number(prev.xp);
         const pli=gmLevelInfo(pxp), pret=((pcap-100000)/100000*100);
+        if(li.lvl > pli.lvl){ setTimeout(()=>gmLevelUp(li), 700); }
         const fill=el.querySelector('.gm-xpfill');
         if(fill){ fill.style.width=pli.pct+'%'; requestAnimationFrame(()=>{ fill.style.width=li.pct+'%'; }); }
         gmCountUp(stats[0], pcap, cap, 900, v=>fmtMoney(v));
@@ -5948,6 +5958,14 @@
       }
       gmRenderRoadmap(li.lvl);
       gmPlayer=p; gmAnim=false;
+    }
+
+    function gmLevelUp(li){
+      const o=document.createElement('div'); o.className='gm-lvlup';
+      o.innerHTML='<div class="box"><div class="bdg">'+li.badge+'</div><div class="t1">LEVEL UP</div><div class="t2">Lv.'+li.lvl+' · '+li.title+'</div><div class="t3">🎉 New badge unlocked</div></div>';
+      document.body.appendChild(o);
+      setTimeout(()=>{ o.classList.add('out'); },2200);
+      setTimeout(()=>{ o.remove(); },2800);
     }
 
     function gmRenderRoadmap(curLvl){
