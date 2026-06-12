@@ -1924,7 +1924,17 @@
     .gm-wrap{max-width:760px;margin:0 auto;padding:18px 16px 80px;display:flex;flex-direction:column;gap:16px;position:relative;z-index:1;}
     @media(max-width:760px){#page-game::after{display:none;}#page-game::before{opacity:.55;}}
     /* battlefield: Bull (green, left) vs Bear (red, right) trade fire across the backdrop */
-    #gm-battlefield{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden;}
+    #gm-battlefield{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden;
+      background:
+        linear-gradient(105deg,#3fb9500e,transparent 40%,transparent 60%,#f851490e),
+        radial-gradient(circle at 13% 38%,#3fb95030 0 3px,transparent 4px),
+        radial-gradient(circle at 13% 38%,transparent 54px,#ffffff08 55px,transparent 59px),
+        radial-gradient(circle at 13% 38%,transparent 92px,#ffffff06 93px,transparent 98px),
+        radial-gradient(circle at 13% 38%,transparent 134px,#ffffff04 135px,transparent 140px),
+        radial-gradient(circle at 87% 62%,#f8514930 0 3px,transparent 4px),
+        radial-gradient(circle at 87% 62%,transparent 54px,#ffffff08 55px,transparent 59px),
+        radial-gradient(circle at 87% 62%,transparent 92px,#ffffff06 93px,transparent 98px),
+        radial-gradient(circle at 87% 62%,transparent 134px,#ffffff04 135px,transparent 140px);}
     .gm-shot{position:absolute;top:0;left:0;width:30px;height:5px;border-radius:3px;pointer-events:none;will-change:transform,opacity;}
     .gm-shot.g{background:linear-gradient(90deg,transparent,#3fb950 60%,#aef5b8);box-shadow:0 0 18px 4px #3fb950cc;}
     .gm-shot.r{background:linear-gradient(270deg,transparent,#f85149 60%,#ffc4bd);box-shadow:0 0 18px 4px #f85149cc;}
