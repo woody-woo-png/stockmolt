@@ -5784,6 +5784,8 @@
     let gmAnim = false;       // animate character card on next render (post-submit)
     let gmNameTimer = null;   // debounce for name availability check
     let gmNameOK = false;     // current name passed availability check
+    let gmNameMode = 'new';   // 'new' (create) | 'rename' (existing auto-named player)
+    let gmRenameDid = null;    // device_id when renaming
     let gmBattleTimer = null; // backdrop battlefield loop
 
     function gmStartBattle(){
@@ -5838,35 +5840,42 @@
 
     // ④ name onboarding (new users only). Invariant: sm_device_id present ⟺ named player exists on server.
     function gmFmtCode(c){ return c?String(c).toUpperCase().replace(/[^A-Z0-9]/g,'').replace(/(.{4})(?=.)/g,'$1-'):''; }
-    function gmShowNameModal(){
+    function gmShowNameModal(opts){
+      opts=opts||{};
+      gmNameMode = opts.rename ? 'rename' : 'new';
+      gmRenameDid = opts.did || null;
       if(document.getElementById('gm-name-modal')) return;
+      const ren=!!opts.rename;
+      const title=ren?'Choose your trader name':'Name your trader';
+      const sub=ren?'You\'re on an auto-generated name. Pick a real one for the leaderboard — this is permanent.':'Pick a name for the leaderboard — this is permanent.';
+      const btnTxt=ren?'Set name':'Start Trading';
       const o=document.createElement('div'); o.id='gm-name-modal'; o.className='gm-modal-ov';
       o.innerHTML='<div class="gm-modal">'
         +'<div id="gm-form-new">'
-          +'<h3>Name your trader</h3><div class="sub">Pick a name for the leaderboard — this is permanent.</div>'
+          +'<h3>'+title+'</h3><div class="sub">'+sub+'</div>'
           +'<input id="gm-name-input" maxlength="16" placeholder="e.g. zeke_the_bull" autocomplete="off" spellcheck="false">'
           +'<div id="gm-name-status" class="gm-name-status"></div>'
           +'<div class="gm-name-hint">2–16 chars · letters, numbers, underscore</div>'
-          +'<button id="gm-name-start" class="gm-submit" disabled>Start Trading</button>'
-          +'<div class="gm-restore-link" id="gm-to-restore">Already playing on another device? <b>Restore</b></div>'
+          +'<button id="gm-name-start" class="gm-submit" disabled>'+btnTxt+'</button>'
+          +(ren?'':'<div class="gm-restore-link" id="gm-to-restore">Already playing on another device? <b>Restore</b></div>')
         +'</div>'
-        +'<div id="gm-form-restore" style="display:none">'
+        +(ren?'':('<div id="gm-form-restore" style="display:none">'
           +'<h3>Restore your trader</h3><div class="sub">Enter the recovery code from your other device.</div>'
           +'<input id="gm-code-input" maxlength="16" placeholder="A1B2-C3D4-E5F6" autocomplete="off" spellcheck="false">'
           +'<div id="gm-code-status" class="gm-name-status"></div>'
           +'<button id="gm-restore-btn" class="gm-submit">Restore</button>'
           +'<div class="gm-restore-link" id="gm-to-new">New here? <b>Create a trader</b></div>'
-        +'</div>'
+        +'</div>'))
       +'</div>';
       document.body.appendChild(o);
       const inp=document.getElementById('gm-name-input');
       inp.addEventListener('input', gmNameCheck);
       inp.addEventListener('keydown', e=>{ if(e.key==='Enter' && gmNameOK) gmNameSubmit(); });
       document.getElementById('gm-name-start').onclick=gmNameSubmit;
-      document.getElementById('gm-to-restore').onclick=()=>gmModalMode('restore');
-      document.getElementById('gm-to-new').onclick=()=>gmModalMode('new');
-      document.getElementById('gm-restore-btn').onclick=gmRestoreSubmit;
-      document.getElementById('gm-code-input').addEventListener('keydown', e=>{ if(e.key==='Enter') gmRestoreSubmit(); });
+      const toR=document.getElementById('gm-to-restore'); if(toR) toR.onclick=()=>gmModalMode('restore');
+      const toN=document.getElementById('gm-to-new'); if(toN) toN.onclick=()=>gmModalMode('new');
+      const rb=document.getElementById('gm-restore-btn'); if(rb) rb.onclick=gmRestoreSubmit;
+      const ci=document.getElementById('gm-code-input'); if(ci) ci.addEventListener('keydown', e=>{ if(e.key==='Enter') gmRestoreSubmit(); });
       setTimeout(()=>inp.focus(),50);
     }
     function gmModalMode(mode){
@@ -5916,6 +5925,16 @@
       const inp=document.getElementById('gm-name-input'), st=document.getElementById('gm-name-status'), btn=document.getElementById('gm-name-start');
       const name=inp.value.trim();
       if(!gmNameOK) return;
+      // rename mode: existing auto-named player → set_display_name (no new account, no recovery reveal)
+      if(gmNameMode==='rename'){
+        btn.disabled=true; btn.textContent='Saving…';
+        try{
+          const ok=await gmRpc('set_display_name',{p_device_id:gmRenameDid,p_name:name});
+          if(ok===true){ const m=document.getElementById('gm-name-modal'); if(m) m.remove(); renderGame(); }
+          else { st.textContent='✗ Couldn\'t set — that name may be taken'; st.className='gm-name-status bad'; gmNameOK=false; btn.disabled=true; btn.textContent='Set name'; }
+        }catch(e){ st.textContent='Failed — try again'; st.className='gm-name-status bad'; gmNameOK=false; btn.disabled=true; btn.textContent='Set name'; }
+        return;
+      }
       btn.disabled=true; btn.textContent='Creating…';
       // Trap 1: candidate id stays in memory; persist sm_device_id ONLY after game-state succeeds
       const candidate=(window.crypto&&crypto.randomUUID?crypto.randomUUID():'dev-'+Date.now()+'-'+Math.random().toString(36).slice(2));
@@ -5993,6 +6012,8 @@
         state = await r.json();
       }catch(e){ document.getElementById('gm-character').innerHTML='<div class="gm-muted">Connection failed. Please try again shortly.</div>'; return; }
       if(!state || !state.success){ document.getElementById('gm-character').innerHTML='<div class="gm-muted">Failed to load player.</div>'; return; }
+      // auto-named player (Trader-xxxxxx) → force choosing a real name before entering
+      if(state.player && state.player.display_name === 'Trader-'+String(did).slice(0,6)){ gmShowNameModal({rename:true, did:did}); return; }
       gmStartBattle();
       gmRenderCharacter(state.player, gmPlayer);
       gmLoadRank(did, state.player.xp);
