@@ -5844,6 +5844,7 @@
       opts=opts||{};
       gmNameMode = opts.rename ? 'rename' : 'new';
       gmRenameDid = opts.did || null;
+      gmNameOK = false; // reset stale validation when a fresh modal opens
       if(document.getElementById('gm-name-modal')) return;
       const ren=!!opts.rename;
       const title=ren?'Choose your trader name':'Name your trader';
