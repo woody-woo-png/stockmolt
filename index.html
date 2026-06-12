@@ -1925,15 +1925,15 @@
     @media(max-width:760px){#page-game::after{display:none;}#page-game::before{opacity:.55;}}
     /* battlefield: Bull (green, left) vs Bear (red, right) trade fire across the backdrop */
     #gm-battlefield{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden;}
-    .gm-shot{position:absolute;top:0;left:0;width:14px;height:3px;border-radius:2px;pointer-events:none;will-change:transform,opacity;}
-    .gm-shot.g{background:linear-gradient(90deg,transparent,#3fb950);box-shadow:0 0 10px 2px #3fb95077;}
-    .gm-shot.r{background:linear-gradient(270deg,transparent,#f85149);box-shadow:0 0 10px 2px #f8514977;}
-    @keyframes gmFlyR{0%{transform:translate(3vw,var(--y)) scaleX(1);opacity:0;}8%{opacity:.9;}88%{opacity:.9;}100%{transform:translate(96vw,var(--y2)) scaleX(1.6);opacity:0;}}
-    @keyframes gmFlyL{0%{transform:translate(96vw,var(--y)) scaleX(1);opacity:0;}8%{opacity:.9;}88%{opacity:.9;}100%{transform:translate(3vw,var(--y2)) scaleX(1.6);opacity:0;}}
-    .gm-boom{position:absolute;width:26px;height:26px;border-radius:50%;pointer-events:none;will-change:transform,opacity;}
-    .gm-boom.g{background:radial-gradient(circle,#3fb95066,transparent 70%);}
-    .gm-boom.r{background:radial-gradient(circle,#f8514966,transparent 70%);}
-    @keyframes gmBoom{0%{transform:translate(-50%,-50%) scale(.2);opacity:.9;}100%{transform:translate(-50%,-50%) scale(2.6);opacity:0;}}
+    .gm-shot{position:absolute;top:0;left:0;width:30px;height:5px;border-radius:3px;pointer-events:none;will-change:transform,opacity;}
+    .gm-shot.g{background:linear-gradient(90deg,transparent,#3fb950 60%,#aef5b8);box-shadow:0 0 18px 4px #3fb950cc;}
+    .gm-shot.r{background:linear-gradient(270deg,transparent,#f85149 60%,#ffc4bd);box-shadow:0 0 18px 4px #f85149cc;}
+    @keyframes gmFlyR{0%{transform:translate(3vw,var(--y)) scaleX(.7);opacity:0;}10%{opacity:1;}85%{opacity:1;}100%{transform:translate(96vw,var(--y2)) scaleX(1.8);opacity:0;}}
+    @keyframes gmFlyL{0%{transform:translate(96vw,var(--y)) scaleX(.7);opacity:0;}10%{opacity:1;}85%{opacity:1;}100%{transform:translate(3vw,var(--y2)) scaleX(1.8);opacity:0;}}
+    .gm-boom{position:absolute;width:46px;height:46px;border-radius:50%;pointer-events:none;will-change:transform,opacity;}
+    .gm-boom.g{background:radial-gradient(circle,#aef5b8dd,#3fb95066,transparent 72%);}
+    .gm-boom.r{background:radial-gradient(circle,#ffc4bddd,#f8514966,transparent 72%);}
+    @keyframes gmBoom{0%{transform:translate(-50%,-50%) scale(.2);opacity:1;}100%{transform:translate(-50%,-50%) scale(3.6);opacity:0;}}
     @media(max-width:760px){#gm-battlefield{display:none;}}
     .gm-card{background:rgba(22,27,34,.85);border:1px solid #ffffff14;border-radius:16px;padding:18px 18px;}
     .gm-card h3{font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:#8b949e;margin-bottom:14px;font-weight:700;}
@@ -5809,7 +5809,7 @@
           field.appendChild(b); setTimeout(()=>{ b.remove(); },520);
           s.remove();
         }, 1200);
-      }, 1400);
+      }, 2600);
     }
 
     function gmCountUp(el, from, to, dur, fmt){
