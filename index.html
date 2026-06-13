@@ -5694,33 +5694,65 @@
     let gmNameMode = 'new';   // 'new' (create) | 'rename' (existing auto-named player)
     let gmRenameDid = null;    // device_id when renaming
     let gmBattleTimer = null; // backdrop battlefield loop
+    let gmBattleUnits = []; // [{ticker, dir}] for today; dir filled only after submit
+    let gmBattleIdx = 0;    // cycle pointer through gmBattleUnits
 
-    function gmStartBattle(){
-      if(gmBattleTimer) return;
+    async function gmLoadBattleUnits(submitted){
+      const today=gmToday();
+      try{
+        if(!gmBattleUnits.length){
+          const r=await fetch(GM_REST+'/game_ticker_pool?trade_date=eq.'+today+'&select=ticker&order=ticker.asc',{headers:gmHeaders()});
+          const pool=await r.json();
+          if(Array.isArray(pool)) gmBattleUnits=pool.map(t=>({ticker:t.ticker,dir:null}));
+        }
+        // AI direction is gated: fetch + assign ONLY after the user has submitted
+        if(submitted && gmBattleUnits.length && !gmBattleUnits.some(u=>u.dir)){
+          const rr=await fetch(GM_REST+'/game_ai_pick?trade_date=eq.'+today+'&select=ticker,direction',{headers:gmHeaders()});
+          const ai=await rr.json();
+          if(Array.isArray(ai)){ const m={}; ai.forEach(x=>{ m[x.ticker]=x.direction; }); gmBattleUnits.forEach(u=>{ u.dir=m[u.ticker]||null; }); }
+        }
+      }catch(e){}
+    }
+    function gmStartBattle(submitted){
       if(window.matchMedia && window.matchMedia('(max-width:760px)').matches) return; // desktop only
       const pg=document.getElementById('page-game'); if(!pg) return;
       let bf=document.getElementById('gm-battlefield');
       if(!bf){ bf=document.createElement('div'); bf.id='gm-battlefield'; bf.innerHTML='<div class="gm-radar g"></div><div class="gm-radar r"></div>'; pg.appendChild(bf); }
+      gmLoadBattleUnits(submitted); // refreshes dir when called again post-submit
+      if(gmBattleTimer) return; // only the interval is single-start
       gmBattleTimer=setInterval(()=>{
         if(document.hidden) return;
         const p=document.getElementById('page-game'); if(!p||!p.classList.contains('active')) return;
         const field=document.getElementById('gm-battlefield'); if(!field) return;
-        const fromLeft=Math.random()<0.5;
-        // base-to-base fire: Bull (13vw,40vh) <-> Bear (87vw,60vh), small spread
+        // pick today's next ticker unit if loaded; else fall back to random unlabeled
+        let unit=null;
+        if(gmBattleUnits.length){ unit=gmBattleUnits[gmBattleIdx % gmBattleUnits.length]; gmBattleIdx++; }
+        // side: AI direction only when known (post-submit); otherwise random (no leak)
+        const fromLeft = (unit && unit.dir) ? (unit.dir==='long') : (Math.random()<0.5);
         const x0=fromLeft?13:87, x1=fromLeft?87:13;
         const y0=(fromLeft?40:60)+(Math.random()*14-7);
         const y1=(fromLeft?60:40)+(Math.random()*14-7);
-        const s=document.createElement('div'); s.className='gm-shot '+(fromLeft?'g':'r');
+        const cls=fromLeft?'g':'r';
+        const s=document.createElement('div'); s.className='gm-shot '+cls;
         s.style.setProperty('--x0',x0+'vw'); s.style.setProperty('--x1',x1+'vw');
         s.style.setProperty('--y0',y0+'vh'); s.style.setProperty('--y1',y1+'vh');
         s.style.animation='gmFly 1.2s linear forwards';
         field.appendChild(s);
+        // ticker label rides the same path (separate element, no scaleX distortion)
+        let lbl=null;
+        if(unit && unit.ticker){
+          lbl=document.createElement('div'); lbl.className='gm-shotlbl '+cls; lbl.textContent=unit.ticker;
+          lbl.style.setProperty('--x0',x0+'vw'); lbl.style.setProperty('--x1',x1+'vw');
+          lbl.style.setProperty('--y0',y0+'vh'); lbl.style.setProperty('--y1',y1+'vh');
+          lbl.style.animation='gmFlyLbl 1.2s linear forwards';
+          field.appendChild(lbl);
+        }
         setTimeout(()=>{
           const b=document.createElement('div'); b.className='gm-boom '+(fromLeft?'r':'g');
           b.style.left=x1+'vw'; b.style.top=y1+'vh';
           b.style.animation='gmBoom .5s ease-out forwards';
           field.appendChild(b); setTimeout(()=>{ b.remove(); },520);
-          s.remove();
+          s.remove(); if(lbl) lbl.remove();
         }, 1100);
       }, 2600);
     }
@@ -5935,7 +5967,7 @@
       if(!state || !state.success){ document.getElementById('gm-character').innerHTML='<div class="gm-muted">Failed to load player.</div>'; return; }
       // auto-named player (Trader-xxxxxx) → force choosing a real name before entering
       if(state.player && state.player.display_name === 'Trader-'+String(did).slice(0,6)){ gmShowNameModal({rename:true, did:did}); return; }
-      gmStartBattle();
+      gmStartBattle(state.submitted_today);
       gmRenderCharacter(state.player, gmPlayer, state.submitted_today);
       gmStreakCheck(state.player.streak_current);
       gmLoadRank(did, state.player.xp);
