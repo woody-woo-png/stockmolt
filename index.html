@@ -5672,6 +5672,9 @@
     // unlock preview per level (index = lvl-1); '' = level only grants its badge
     const GM_UNLOCKS = ['','','Name highlight on leaderboard','','Colored nickname','','','','','Hall of Fame'];
     const GM_KINGDOM_THRESHOLD = 25;
+    // mirrors backend XP.STREAK_3 / XP.STREAK_7 (game_logic.ts) — keep in sync if backend changes
+    const GM_STREAK_MILESTONES = [3, 7];
+    const GM_STREAK_BONUS = {3: 50, 7: 150};
     let gmSel = {};
     let gmPlayer = null;      // last rendered player (for count-up baseline)
     let gmLastPicks = null;   // picks from the submit that just happened (this session)
@@ -5898,6 +5901,14 @@
         nextTitle: next===null?null:(GM_TITLES[lvl]||'Legend'),
         nextBadge: next===null?null:(GM_BADGES[lvl]||'👑'),
         remaining: next===null?0:(next-xp)};
+    }
+    function gmStreakInfo(cur){
+      cur = Number(cur) || 0;
+      const ms = GM_STREAK_MILESTONES;
+      let next = null, base = 0;
+      for (let i = 0; i < ms.length; i++){ if (cur < ms[i]){ next = ms[i]; base = i > 0 ? ms[i-1] : 0; break; } }
+      const pct = next === null ? 100 : Math.round((cur - base) / (next - base) * 100);
+      return {cur, next, base, pct, bonus: next === null ? null : GM_STREAK_BONUS[next], remaining: next === null ? 0 : (next - cur)};
     }
     function fmtMoney(n){ return '$'+Math.round(Number(n)).toLocaleString(); }
     function toast(m){ if(typeof showToast==='function') showToast(m); }
