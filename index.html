@@ -1928,6 +1928,12 @@
     .gm-kgbar{height:8px;background:#ffffff12;border-radius:999px;margin:8px 0 6px;overflow:hidden;}
     .gm-kgfill{height:100%;background:linear-gradient(90deg,#e3b341,#f0c674);border-radius:999px;transition:width .8s ease;}
     .gm-kgnum{font-size:11px;color:#9aa7b4;}
+    .gm-streak{margin-top:12px;padding:12px 14px;background:#1a120033;border:1px solid #f0c04033;border-radius:12px;}
+    .gm-streak-top{font-size:15px;color:#e3b341;font-weight:700;}
+    .gm-streak-top b{font-size:20px;color:#fff;}
+    .gm-streak-top .best{float:right;font-size:11px;color:#8b949e;font-weight:600;margin-top:4px;}
+    .gm-streak-goal{font-size:11px;color:#9aa7b4;margin-top:5px;}
+    .gm-streak-status{font-size:12px;color:#c9d1d9;margin-top:8px;font-weight:600;}
     /* rank + name modal */
     .gm-rank{margin-top:12px;text-align:center;font-size:13px;color:#c9d1d9;}
     .gm-rank b{color:#e3b341;font-size:15px;}
@@ -5926,7 +5932,7 @@
       // auto-named player (Trader-xxxxxx) → force choosing a real name before entering
       if(state.player && state.player.display_name === 'Trader-'+String(did).slice(0,6)){ gmShowNameModal({rename:true, did:did}); return; }
       gmStartBattle();
-      gmRenderCharacter(state.player, gmPlayer);
+      gmRenderCharacter(state.player, gmPlayer, state.submitted_today);
       gmLoadRank(did, state.player.xp);
       gmRenderResult(state.last_result);
       gmLoadPicks(state.submitted_today);
@@ -5934,7 +5940,7 @@
       gmLoadKingdom();
     };
 
-    function gmRenderCharacter(p, prev){
+    function gmRenderCharacter(p, prev, submitted){
       const xp=Number(p.xp), cap=Number(p.capital);
       const li=gmLevelInfo(xp);
       const ret=((cap-100000)/100000*100);
@@ -5953,8 +5959,20 @@
         +'<div class="gm-stats">'
           +'<div class="gm-stat"><div class="v">'+fmtMoney(cap)+'</div><div class="l">Capital</div></div>'
           +'<div class="gm-stat"><div class="v '+retCls+'">'+(ret>=0?'+':'')+ret.toFixed(2)+'%</div><div class="l">Return</div></div>'
-          +'<div class="gm-stat"><div class="v">🔥 '+p.streak_current+'</div><div class="l">Streak</div></div>'
         +'</div>'
+        +(function(){
+          const si = gmStreakInfo(p.streak_current);
+          const sc = Number(p.streak_current) || 0;
+          let status;
+          if (sc === 0) status = submitted ? '✅ Today\'s picks in · 🔥 your streak starts tomorrow' : 'Submit today to start a 🔥 streak';
+          else if (submitted) status = '✅ Today\'s picks in · 🔥 '+sc+'-day streak safe';
+          else status = '🔥 '+sc+'-day streak — submit today to keep it alive!';
+          const goal = si.next === null
+            ? '🏆 Max streak rewards reached — keep the run alive'
+            : si.remaining+' day'+(si.remaining===1?'':'s')+' to 🎁 +'+si.bonus+' XP (day '+si.next+')';
+          const bar = si.next === null ? '' : '<div class="gm-kgbar"><div class="gm-kgfill" style="width:'+si.pct+'%"></div></div>';
+          return '<div class="gm-streak"><div class="gm-streak-top">🔥 <b>'+sc+'</b>-day streak<span class="best">best '+(Number(p.streak_best)||0)+'</span></div>'+bar+'<div class="gm-streak-goal">'+goal+'</div><div class="gm-streak-status">'+status+'</div></div>';
+        })()
         +'<div id="gm-rank" class="gm-rank"></div>'
         +'<div class="gm-savenote">💾 Your trader is saved to <b>this browser</b>. Save your recovery code to log in on another device.</div>'
         +'<button class="gm-codebtn" onclick="gmRevealCode()">🔑 Show recovery code</button>';
