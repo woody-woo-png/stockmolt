@@ -6065,7 +6065,17 @@
       const today=gmToday();
       let pool=[];
       try{ const r=await fetch(GM_REST+'/game_ticker_pool?trade_date=eq.'+today+'&select=ticker,entry_price&order=ticker.asc',{headers:gmHeaders()}); pool=await r.json(); }catch(e){}
-      if(!Array.isArray(pool)||pool.length===0){ box.innerHTML='<h3>🎯 Today\'s Picks</h3><div class="gm-muted">Today\'s stocks aren\'t ready yet. Check back shortly.</div>'; return; }
+      if(!Array.isArray(pool)||pool.length===0){
+        const wd = new Date().getUTCDay(); // 0=Sun, 6=Sat
+        if(wd===0 || wd===6){
+          const sc = (gmPlayer && Number(gmPlayer.streak_current)) || 0;
+          const safe = sc>0 ? '🔥 Your '+sc+'-day streak is safe — see you then!<br>' : '';
+          box.innerHTML='<h3>🎯 Today\'s Picks</h3><div class="gm-muted">🗓️ <b>Next round opens Monday.</b><br>'+safe+'Check the leaderboard and grow your trader while you wait.</div>';
+        } else {
+          box.innerHTML='<h3>🎯 Today\'s Picks</h3><div class="gm-muted">Today\'s stocks aren\'t ready yet. Check back shortly.</div>';
+        }
+        return;
+      }
       if(submitted){
         let rival=[];
         try{ const rr=await fetch(GM_REST+'/game_ai_pick?trade_date=eq.'+today+'&select=ticker,direction',{headers:gmHeaders()}); rival=await rr.json(); }catch(e){}
