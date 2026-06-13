@@ -1819,6 +1819,10 @@
     .gm-shot.g{background:linear-gradient(90deg,transparent,#3fb950 60%,#aef5b8);box-shadow:0 0 18px 4px #3fb950cc;}
     .gm-shot.r{background:linear-gradient(270deg,transparent,#f85149 60%,#ffc4bd);box-shadow:0 0 18px 4px #f85149cc;}
     @keyframes gmFly{0%{transform:translate(var(--x0),var(--y0)) scaleX(.7);opacity:0;}12%{opacity:1;}82%{opacity:1;}100%{transform:translate(var(--x1),var(--y1)) scaleX(1.9);opacity:0;}}
+    .gm-shotlbl{position:absolute;top:0;left:0;font-size:10px;font-weight:800;letter-spacing:1px;pointer-events:none;will-change:transform,opacity;margin-top:-13px;text-shadow:0 0 6px currentColor;}
+    .gm-shotlbl.g{color:#aef5b8;}
+    .gm-shotlbl.r{color:#ffc4bd;}
+    @keyframes gmFlyLbl{0%{transform:translate(var(--x0),var(--y0));opacity:0;}12%{opacity:.85;}82%{opacity:.85;}100%{transform:translate(var(--x1),var(--y1));opacity:0;}}
     .gm-boom{position:absolute;width:46px;height:46px;border-radius:50%;pointer-events:none;will-change:transform,opacity;}
     .gm-boom.g{background:radial-gradient(circle,#aef5b8dd,#3fb95066,transparent 72%);}
     .gm-boom.r{background:radial-gradient(circle,#ffc4bddd,#f8514966,transparent 72%);}
