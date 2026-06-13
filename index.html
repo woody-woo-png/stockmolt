@@ -5933,6 +5933,7 @@
       if(state.player && state.player.display_name === 'Trader-'+String(did).slice(0,6)){ gmShowNameModal({rename:true, did:did}); return; }
       gmStartBattle();
       gmRenderCharacter(state.player, gmPlayer, state.submitted_today);
+      gmStreakCheck(state.player.streak_current);
       gmLoadRank(did, state.player.xp);
       gmRenderResult(state.last_result);
       gmLoadPicks(state.submitted_today);
@@ -6002,6 +6003,22 @@
       document.body.appendChild(o);
       setTimeout(()=>{ o.classList.add('out'); },2200);
       setTimeout(()=>{ o.remove(); },2800);
+    }
+
+    function gmStreakCelebrate(milestone, bonusXp){
+      const o=document.createElement('div'); o.className='gm-lvlup';
+      o.innerHTML='<div class="box"><div class="bdg">🔥</div><div class="t1">STREAK</div><div class="t2">'+milestone+'-Day Streak!</div><div class="t3">🎁 +'+bonusXp+' XP earned</div></div>';
+      document.body.appendChild(o);
+      setTimeout(()=>{ o.classList.add('out'); },2200);
+      setTimeout(()=>{ o.remove(); },2800);
+    }
+    function gmStreakCheck(cur){
+      cur = Number(cur) || 0;
+      let celebrated = Number(localStorage.getItem('sm_streak_celebrated')) || 0;
+      if (cur < celebrated){ celebrated = 0; localStorage.setItem('sm_streak_celebrated','0'); } // streak broke & rebuilt → allow re-celebrate
+      let hit = null;
+      for (const m of GM_STREAK_MILESTONES){ if (cur >= m && m > celebrated) hit = m; }
+      if (hit !== null){ setTimeout(()=>gmStreakCelebrate(hit, GM_STREAK_BONUS[hit]), 900); localStorage.setItem('sm_streak_celebrated', String(hit)); }
     }
 
     function gmRenderRoadmap(curLvl){
