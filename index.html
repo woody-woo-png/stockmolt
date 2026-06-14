@@ -1967,6 +1967,8 @@
     .gm-secondary{width:100%;background:#161b22;border:1px solid #ffffff1f;color:#c9d1d9;font-weight:700;font-size:13px;padding:11px;border-radius:10px;cursor:pointer;margin-bottom:8px;}
     .gm-codebtn{margin-top:12px;width:100%;background:#0d1117;border:1px solid #ffffff1f;color:#8b949e;font-size:12px;font-weight:700;padding:9px;border-radius:8px;cursor:pointer;}
     .gm-codebtn:hover{border-color:#7c3aed66;color:#c4b5fd;}
+    .gm-sharebtn{margin-top:12px;width:100%;background:#1d9bf0;border:none;color:#fff;font-size:13px;font-weight:800;padding:11px;border-radius:8px;cursor:pointer;transition:filter .15s;}
+    .gm-sharebtn:hover{filter:brightness(1.1);}
     @media(max-width:480px){.gm-pickgrid{grid-template-columns:1fr;}}
   </style>
   <div class="page" id="page-game">
@@ -6060,6 +6062,7 @@
           return '<div class="gm-streak"><div class="gm-streak-top">🔥 <b>'+sc+'</b>-day streak<span class="best">best '+(Number(p.streak_best)||0)+'</span></div>'+bar+'<div class="gm-streak-goal">'+goal+'</div><div class="gm-streak-status">'+status+'</div></div>';
         })()
         +'<div id="gm-rank" class="gm-rank"></div>'
+        +'<button class="gm-sharebtn" onclick="gmShareTrader()">📣 Share my trader</button>'
         +'<div class="gm-savenote">💾 Your trader is saved to <b>this browser</b>. Save your recovery code to log in on another device.</div>'
         +'<button class="gm-codebtn" onclick="gmRevealCode()">🔑 Show recovery code</button>';
       // dynamic count-up: post-submit rolls prev→new; first entry gently rolls Return 0→value
@@ -6152,7 +6155,8 @@
         +'<div class="gm-rrow"><span class="k">Correct</span><span>'+res.correct_count+' / '+res.picks_count+'</span></div>'
         +'<div class="gm-rrow"><span class="k">vs AI</span><span>'+(res.beat_ai?'<span class="gm-beat">🏆 BEAT THE AI</span>':'Lost this time')+'</span></div>'
         +'<div class="gm-rrow"><span class="k">XP earned</span><span style="font-weight:800;color:#c4b5fd">+'+res.xp_earned+'</span></div>'
-        +'<div class="gm-rrow"><span class="k">Capital</span><span>'+fmtMoney(res.capital_before)+' → '+fmtMoney(res.capital_after)+'</span></div>';
+        +'<div class="gm-rrow"><span class="k">Capital</span><span>'+fmtMoney(res.capital_before)+' → '+fmtMoney(res.capital_after)+'</span></div>'
+        +'<button class="gm-sharebtn" onclick="gmShareResult()">📣 Share result</button>';
     }
 
     async function gmLoadPicks(submitted){
