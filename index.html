@@ -5709,6 +5709,7 @@
     const GM_STREAK_BONUS = {3: 50, 7: 150};
     let gmSel = {};
     let gmPlayer = null;      // last rendered player (for count-up baseline)
+    let gmLastResult = null;  // last rendered verdict result (for share text)
     let gmLastPicks = null;   // picks from the submit that just happened (this session)
     let gmAnim = false;       // animate character card on next render (post-submit)
     let gmNameTimer = null;   // debounce for name availability check
@@ -5933,6 +5934,31 @@
       document.getElementById('gm-code-copy').onclick=()=>{ if(fc&&navigator.clipboard) navigator.clipboard.writeText(fc).then(()=>toast('Copied')).catch(()=>{}); };
       document.getElementById('gm-code-done').onclick=()=>{ const m=document.getElementById('gm-name-modal'); if(m) m.remove(); renderGame(); };
     }
+    // 공유 헬퍼: 모바일은 네이티브 공유 시트, 데스크톱은 X(트위터) 작성창. 텍스트에 링크가 들어있어 폴백해도 링크 유지.
+    function gmShare(text){
+      const url='https://stockmolt.ai/';
+      if(navigator.share){
+        navigator.share({text:text, url:url}).catch(function(){}); // 사용자가 취소하면 조용히 무시
+        return;
+      }
+      window.open('https://twitter.com/intent/tweet?text='+encodeURIComponent(text),'_blank');
+    }
+    window.gmShareResult=function(){
+      const res=gmLastResult; if(!res) return;
+      const r=Number(res.avg_return_pct); const rs=(r>=0?'+':'')+r.toFixed(2)+'%';
+      const text = res.beat_ai
+        ? '🏆 I beat the AI on stockmolt.ai — my picks returned '+rs+' today! Think you can beat it? 👉 https://stockmolt.ai #BeatTheAI #Stockmolt'
+        : '😤 The AI edged me out on stockmolt.ai today (I made '+rs+'). Rematch tomorrow — can you beat it? 👉 https://stockmolt.ai #BeatTheAI #Stockmolt';
+      gmShare(text);
+    };
+    window.gmShareTrader=function(){
+      const p=gmPlayer; if(!p) return;
+      const li=gmLevelInfo(Number(p.xp));
+      const sc=Number(p.streak_current)||0;
+      const streak = sc>0 ? (' with a '+sc+'-day streak 🔥') : '';
+      const text='📈 I\'m a Lv.'+li.lvl+' '+li.title+' on stockmolt.ai'+streak+' — racing the AI on daily stock picks. Beat the AI? 👉 https://stockmolt.ai #BeatTheAI #Stockmolt';
+      gmShare(text);
+    };
     window.gmRevealCode=async function(){
       let code=''; try{ code=await gmRpc('get_recovery_code',{p_device_id:gmDeviceId()}); }catch(e){}
       if(typeof code!=='string'||!code){ toast('Could not load code'); return; }
@@ -6117,6 +6143,7 @@
     function gmRenderResult(res){
       const box=document.getElementById('gm-result');
       if(!res){ box.style.display='none'; return; }
+      gmLastResult = res;
       box.style.display='block';
       const avg=Number(res.avg_return_pct); const avgCls=avg>=0?'gm-pos':'gm-neg';
       box.innerHTML =
