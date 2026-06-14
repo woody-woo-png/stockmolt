@@ -1872,6 +1872,8 @@
     .gm-lbtog button.on{background:#7c3aed26;border-color:#7c3aed66;color:#c4b5fd;}
     .gm-lbrow{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #ffffff0d;font-size:14px;}
     .gm-lb-aihdr{font-size:11px;color:#8b949e;margin-bottom:8px;text-align:center;}
+    .gm-lb-mediv{text-align:center;color:#8b949e;font-size:16px;line-height:1;margin:6px 0;letter-spacing:3px;}
+    .gm-lb-me{background:#7c3aed1a;border-radius:8px;}
     .gm-lbrow .rk{width:24px;color:#8b949e;font-weight:800;text-align:center;}
     .gm-lbrow .nm{flex:1;font-weight:600;}
     .gm-lbrow .nm.nm-hi{color:#fff;font-weight:800;}
@@ -6256,10 +6258,17 @@
       const box=document.getElementById('gm-lb');
       box.innerHTML='<h3>🏆 Leaderboard</h3><div class="gm-lbtog"><button id="gmlb-return" class="'+(type==='return'?'on':'')+'" onclick="gmLoadLeaderboard(\'return\')">💰 Return</button><button id="gmlb-xp" class="'+(type==='xp'?'on':'')+'" onclick="gmLoadLeaderboard(\'xp\')">⭐ XP</button></div><div id="gm-lb-rows"><div class="gm-muted">Loading…</div></div>';
       try{
-        const r=await fetch(GM_FN+'/game-leaderboard?type='+type+'&limit=20',{headers:gmHeaders()});
+        const r=await fetch(GM_FN+'/game-leaderboard?type='+type+'&limit=20&device_id='+encodeURIComponent(gmDeviceId()),{headers:gmHeaders()});
         const d=await r.json(); const rows=(d.rows||[]);
         const aiTotal=Number(d.ai_total)||0;
         const hdr=(type==='return'&&aiTotal>0)?('<div class="gm-lb-aihdr">🤖 You\'re up against '+aiTotal+' AI trader'+(aiTotal===1?'':'s')+'</div>'):'';
+        // 내 순위 핀: Return 보드에서 상위 컷 밖이면 맨 아래에 내 행 고정
+        const me=d.me; let meHtml='';
+        if(type==='return' && me && me.rank>rows.length){
+          const mvcls=me.return_pct>=0?'gm-pos':'gm-neg';
+          const mval=(me.return_pct>=0?'+':'')+me.return_pct+'%';
+          meHtml='<div class="gm-lb-mediv">⋯</div><div class="gm-lbrow gm-lb-me"><span class="rk">'+me.rank+'</span><span class="nm">🧑‍💻 '+(me.display_name||'You')+' <span style="color:#8b949e;font-size:11px">YOU</span></span><span class="vl '+mvcls+'">'+mval+'</span></div>';
+        }
         document.getElementById('gm-lb-rows').innerHTML = rows.length? (hdr + rows.map(x=>{
           const val=type==='xp'?('⭐ '+x.xp):((x.return_pct>=0?'+':'')+x.return_pct+'%');
           const vcls=type==='xp'?'':(x.return_pct>=0?'gm-pos':'gm-neg');
@@ -6268,7 +6277,7 @@
           }
           var nmCls=(x.level>=5)?'nm-gold':((x.level>=3)?'nm-hi':'');
           return '<div class="gm-lbrow"><span class="rk">'+x.rank+'</span><span class="nm '+nmCls+'">'+(GM_BADGES[(x.level||1)-1]||'🐣')+' '+(x.display_name||'Trader')+' <span style="color:#8b949e;font-size:11px">Lv.'+x.level+'</span></span><span class="vl '+vcls+'">'+val+'</span></div>';
-        }).join('')) : '<div class="gm-muted">No players yet. Be the first!</div>';
+        }).join('') + meHtml) : '<div class="gm-muted">No players yet. Be the first!</div>';
       }catch(e){ const el=document.getElementById('gm-lb-rows'); if(el) el.innerHTML='<div class="gm-muted">Failed to load leaderboard.</div>'; }
     };
 
