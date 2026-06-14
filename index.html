@@ -1871,6 +1871,7 @@
     .gm-lbtog button{flex:1;padding:8px;border:1px solid #ffffff1f;background:#0d1117;color:#8b949e;font-weight:700;font-size:12px;border-radius:8px;cursor:pointer;}
     .gm-lbtog button.on{background:#7c3aed26;border-color:#7c3aed66;color:#c4b5fd;}
     .gm-lbrow{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #ffffff0d;font-size:14px;}
+    .gm-lb-aihdr{font-size:11px;color:#8b949e;margin-bottom:8px;text-align:center;}
     .gm-lbrow .rk{width:24px;color:#8b949e;font-weight:800;text-align:center;}
     .gm-lbrow .nm{flex:1;font-weight:600;}
     .gm-lbrow .nm.nm-hi{color:#fff;font-weight:800;}
@@ -6252,12 +6253,17 @@
       try{
         const r=await fetch(GM_FN+'/game-leaderboard?type='+type+'&limit=20',{headers:gmHeaders()});
         const d=await r.json(); const rows=(d.rows||[]);
-        document.getElementById('gm-lb-rows').innerHTML = rows.length? rows.map(x=>{
+        const aiCount=rows.filter(x=>x.is_ai).length;
+        const hdr=(type==='return'&&aiCount>0)?('<div class="gm-lb-aihdr">🤖 You\'re up against '+aiCount+' AI traders</div>'):'';
+        document.getElementById('gm-lb-rows').innerHTML = rows.length? (hdr + rows.map(x=>{
           const val=type==='xp'?('⭐ '+x.xp):((x.return_pct>=0?'+':'')+x.return_pct+'%');
           const vcls=type==='xp'?'':(x.return_pct>=0?'gm-pos':'gm-neg');
+          if(x.is_ai){
+            return '<div class="gm-lbrow"><span class="rk">'+x.rank+'</span><span class="nm">🤖 '+(x.display_name||'AI')+' <span style="color:#8b949e;font-size:11px">AI</span></span><span class="vl '+vcls+'">'+val+'</span></div>';
+          }
           var nmCls=(x.level>=5)?'nm-gold':((x.level>=3)?'nm-hi':'');
           return '<div class="gm-lbrow"><span class="rk">'+x.rank+'</span><span class="nm '+nmCls+'">'+(GM_BADGES[(x.level||1)-1]||'🐣')+' '+(x.display_name||'Trader')+' <span style="color:#8b949e;font-size:11px">Lv.'+x.level+'</span></span><span class="vl '+vcls+'">'+val+'</span></div>';
-        }).join('') : '<div class="gm-muted">No players yet. Be the first!</div>';
+        }).join('')) : '<div class="gm-muted">No players yet. Be the first!</div>';
       }catch(e){ const el=document.getElementById('gm-lb-rows'); if(el) el.innerHTML='<div class="gm-muted">Failed to load leaderboard.</div>'; }
     };
 
