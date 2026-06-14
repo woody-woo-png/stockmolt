@@ -141,42 +141,50 @@ Deno.serve(async (req) => {
           last_played_date: tradeDate,
         }).eq("id", playerId);
       }
-      // === 로스터 에이전트 채점 + game_capital 복리 (standings) — priceMap 재사용, 멱등 ===
-      const { data: agentPicks } = await supabase.from("game_agent_pick")
-        .select("id, agent_id, ticker, direction, resolved").eq("trade_date", tradeDate);
-      const picksByAgent: Record<string, { ticker: string; direction: string }[]> = {};
-      for (const ap of agentPicks ?? []) {
-        if (!ap.resolved) {
-          const pm = priceMap[ap.ticker];
-          if (pm) {
-            const ret = computeReturnPct(ap.direction as "long" | "short", pm.entry, pm.exit);
-            await supabase.from("game_agent_pick")
-              .update({ return_pct: ret, correct: isCorrect(ret), resolved: true }).eq("id", ap.id);
-          }
+      // === 로스터 에이전트 채점 + game_capital 복리 (standings) — priceMap 재사용, 멱등.
+      // 사람 판정 경로와 런타임 격리: 이 블록에서 throw해도 사람 결과/날짜 완료(resolvedDates)에 영향 없게 전체를 try로 감싸고,
+      // 에이전트별로도 try로 감싸 한 에이전트의 실패가 나머지를 건너뛰지 않게 함. (에러는 로깅만)
+      try {
+        const { data: agentPicks } = await supabase.from("game_agent_pick")
+          .select("id, agent_id, ticker, direction, resolved").eq("trade_date", tradeDate);
+        const picksByAgent: Record<string, { ticker: string; direction: string }[]> = {};
+        for (const ap of agentPicks ?? []) {
+          try {
+            if (!ap.resolved) {
+              const pm = priceMap[ap.ticker];
+              if (pm) {
+                const ret = computeReturnPct(ap.direction as "long" | "short", pm.entry, pm.exit);
+                await supabase.from("game_agent_pick")
+                  .update({ return_pct: ret, correct: isCorrect(ret), resolved: true }).eq("id", ap.id);
+              }
+            }
+          } catch (e) { console.error("agent pick resolve error", ap.id, e); }
+          (picksByAgent[ap.agent_id] ??= []).push({ ticker: ap.ticker, direction: ap.direction });
         }
-        (picksByAgent[ap.agent_id] ??= []).push({ ticker: ap.ticker, direction: ap.direction });
-      }
-      for (const [agentId, aplist] of Object.entries(picksByAgent)) {
-        const { data: existedA } = await supabase.from("game_agent_result")
-          .select("id").eq("agent_id", agentId).eq("trade_date", tradeDate).maybeSingle();
-        if (existedA) continue;
-        const aReturns = aplist.map((p) => {
-          const pm = priceMap[p.ticker];
-          return pm ? computeReturnPct(p.direction as "long" | "short", pm.entry, pm.exit) : 0;
-        });
-        const aAvg = avg(aReturns);
-        const aCorrect = aReturns.filter(isCorrect).length;
-        const { data: agRow } = await supabase.from("agents").select("game_capital").eq("id", agentId).single();
-        const capBefore = Number(agRow!.game_capital);
-        const capAfter = Math.round(capBefore * (1 + aAvg / 100) * 100) / 100;
-        await supabase.from("game_agent_result").insert({
-          agent_id: agentId, trade_date: tradeDate,
-          avg_return_pct: Math.round(aAvg * 100) / 100, correct_count: aCorrect,
-          capital_before: capBefore, capital_after: capAfter,
-        });
-        await supabase.from("agents")
-          .update({ game_capital: capAfter, game_updated_at: new Date().toISOString() }).eq("id", agentId);
-      }
+        for (const [agentId, aplist] of Object.entries(picksByAgent)) {
+          try {
+            const { data: existedA } = await supabase.from("game_agent_result")
+              .select("id").eq("agent_id", agentId).eq("trade_date", tradeDate).maybeSingle();
+            if (existedA) continue;
+            const aReturns = aplist.map((p) => {
+              const pm = priceMap[p.ticker];
+              return pm ? computeReturnPct(p.direction as "long" | "short", pm.entry, pm.exit) : 0;
+            });
+            const aAvg = avg(aReturns);
+            const aCorrect = aReturns.filter(isCorrect).length;
+            const { data: agRow } = await supabase.from("agents").select("game_capital").eq("id", agentId).single();
+            const capBefore = Number(agRow!.game_capital);
+            const capAfter = Math.round(capBefore * (1 + aAvg / 100) * 100) / 100;
+            await supabase.from("game_agent_result").insert({
+              agent_id: agentId, trade_date: tradeDate,
+              avg_return_pct: Math.round(aAvg * 100) / 100, correct_count: aCorrect,
+              capital_before: capBefore, capital_after: capAfter,
+            });
+            await supabase.from("agents")
+              .update({ game_capital: capAfter, game_updated_at: new Date().toISOString() }).eq("id", agentId);
+          } catch (e) { console.error("agent standings error", agentId, e); }
+        }
+      } catch (e) { console.error("roster standings block error", tradeDate, e); }
       resolvedDates.push(tradeDate);
     }
 
