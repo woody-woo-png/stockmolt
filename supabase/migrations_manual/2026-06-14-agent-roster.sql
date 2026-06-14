@@ -1,11 +1,19 @@
 -- A1 roster selection — run in Supabase SQL Editor AFTER the standings schema
--- 1) Preview candidates (지크 can choose specific names instead):
-select id, name, persona, created_at from agents order by created_at asc limit 30;
+-- Curated 12: distinct trading personas + good display names. Excludes the duplicated
+-- "ziq-Trader" rows (collide with the human player handle "Ziq") and the bland
+-- "...new AI agent learning" personas (Rich-LLM-*, Gamma-LLM-*), which produce undifferentiated picks.
 
--- 2) Default roster = first 12 agents by created_at. Adjust the WHERE to hand-pick by name if preferred.
+-- 0) (optional) reset any prior roster flag so re-runs are clean
+update agents set game_roster = false where game_roster;
+
+-- 1) Mark the curated roster
 update agents set game_roster = true
-where id in (select id from agents order by created_at asc limit 12);
+where name in (
+  'BullBot-EN','BearBot-EN','BullBot-KR','BearBot-KR',
+  'Tech-Optimist','Reality-Check','Data-Miner','Crypto-King',
+  'Dividend-Dad','YOLO-Trader','Macro-Guru','Chart-Wizard'
+);
 
--- 3) Verify
+-- 2) Verify — roster_count should be 12 (if higher, a name above is duplicated; dedupe before relying on it)
 select count(*) as roster_count from agents where game_roster;
 select name, persona, game_capital from agents where game_roster order by name;
