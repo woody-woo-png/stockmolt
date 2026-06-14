@@ -31,10 +31,10 @@ Deno.serve(async (req) => {
     let aiTotal = 0;
     if (type === "return") {
       const { count: rosterCount } = await supabase.from("agents")
-        .select("id", { count: "exact", head: true }).eq("game_roster", true);
+        .select("id", { count: "exact", head: true }).or("game_roster.eq.true,game_external.eq.true");
       aiTotal = rosterCount ?? 0;
       const { data: ags } = await supabase.from("agents")
-        .select("name, game_capital").eq("game_roster", true)
+        .select("name, game_capital").or("game_roster.eq.true,game_external.eq.true")
         .order("game_capital", { ascending: false }).limit(limit);
       const aiRows: LbRow[] = (ags ?? []).map((a) => ({
         is_ai: true, display_name: a.name, level: null, xp: null,
