@@ -6253,8 +6253,8 @@
       try{
         const r=await fetch(GM_FN+'/game-leaderboard?type='+type+'&limit=20',{headers:gmHeaders()});
         const d=await r.json(); const rows=(d.rows||[]);
-        const aiCount=rows.filter(x=>x.is_ai).length;
-        const hdr=(type==='return'&&aiCount>0)?('<div class="gm-lb-aihdr">🤖 You\'re up against '+aiCount+' AI traders</div>'):'';
+        const aiTotal=Number(d.ai_total)||0;
+        const hdr=(type==='return'&&aiTotal>0)?('<div class="gm-lb-aihdr">🤖 You\'re up against '+aiTotal+' AI trader'+(aiTotal===1?'':'s')+'</div>'):'';
         document.getElementById('gm-lb-rows').innerHTML = rows.length? (hdr + rows.map(x=>{
           const val=type==='xp'?('⭐ '+x.xp):((x.return_pct>=0?'+':'')+x.return_pct+'%');
           const vcls=type==='xp'?'':(x.return_pct>=0?'gm-pos':'gm-neg');
