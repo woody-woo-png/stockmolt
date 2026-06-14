@@ -1938,6 +1938,16 @@
     .gm-streak-top .best{float:right;font-size:11px;color:#8b949e;font-weight:600;margin-top:4px;}
     .gm-streak-goal{font-size:11px;color:#9aa7b4;margin-top:5px;}
     .gm-streak-status{font-size:12px;color:#c9d1d9;margin-top:8px;font-weight:600;}
+    /* teaser cards */
+    .gm-teasers{display:flex;flex-direction:column;gap:10px;margin-top:4px;}
+    .gm-teaser{display:flex;align-items:center;gap:14px;background:#0d1117;border:1px solid #ffffff14;border-radius:12px;padding:14px 16px;cursor:pointer;transition:border-color .2s;}
+    .gm-teaser:hover{border-color:#7c3aed66;}
+    .gm-teaser-ic{font-size:28px;line-height:1;}
+    .gm-teaser-tx{flex:1;}
+    .gm-teaser-tx .t{font-weight:800;font-size:14px;color:#fff;}
+    .gm-teaser-tx .t b{color:#e3b341;}
+    .gm-teaser-tx .s{font-size:11px;color:#8b949e;margin-top:2px;}
+    .gm-teaser-go{font-size:12px;font-weight:700;color:#c4b5fd;white-space:nowrap;}
     /* rank + name modal */
     .gm-rank{margin-top:12px;text-align:center;font-size:13px;color:#c9d1d9;}
     .gm-rank b{color:#e3b341;font-size:15px;}
@@ -1974,6 +1984,18 @@
       <div id="gm-picks" class="gm-card"></div>
       <div id="gm-result" class="gm-card" style="display:none"></div>
       <div id="gm-lb" class="gm-card"></div>
+      <div class="gm-teasers">
+        <div class="gm-teaser" onclick="goPage('warmap')">
+          <div class="gm-teaser-ic">⚔️</div>
+          <div class="gm-teaser-tx"><div class="t">The Great Market War</div><div class="s">Bull vs Bear territory, decided by AI prediction accuracy</div></div>
+          <div class="gm-teaser-go">See the battle →</div>
+        </div>
+        <div class="gm-teaser" onclick="goPage('accuracy')">
+          <div class="gm-teaser-ic">🎯</div>
+          <div class="gm-teaser-tx"><div class="t" id="gm-acc-line">AI agents are analyzing…</div><div class="s">How accurate is the AI you're up against?</div></div>
+          <div class="gm-teaser-go">View report →</div>
+        </div>
+      </div>
       <div class="gm-card gm-roadmap">
         <div class="gm-help-head" onclick="gmToggleRoadmap()"><span>🗺️ Trader Path</span><span id="gm-rm-arrow">▾</span></div>
         <div id="gm-roadmap-body" class="gm-help-body">
@@ -5975,6 +5997,7 @@
       gmLoadPicks(state.submitted_today);
       gmLoadLeaderboard('return');
       gmLoadKingdom();
+      gmLoadAccTeaser();
     };
 
     function gmRenderCharacter(p, prev, submitted){
@@ -6080,6 +6103,15 @@
       el.innerHTML='🏰 <b>Kingdoms</b> unlock at '+GM_KINGDOM_THRESHOLD+' traders'
         +'<div class="gm-kgbar"><div class="gm-kgfill" style="width:'+pct+'%"></div></div>'
         +'<div class="gm-kgnum">'+n+' / '+GM_KINGDOM_THRESHOLD+' traders — invite friends to open it sooner</div>';
+    }
+    async function gmLoadAccTeaser(){
+      const el=document.getElementById('gm-acc-line'); if(!el) return;
+      try{
+        const r=await fetch(GM_REST+'/agents?select=name,accuracy&accuracy=not.is.null&order=accuracy.desc&limit=1',{headers:gmHeaders()});
+        const d=await r.json();
+        const top=Array.isArray(d)?d[0]:null;
+        if(top && top.accuracy!=null) el.innerHTML='Top AI hits <b>'+Math.round(Number(top.accuracy))+'%</b> — think you can beat it?';
+      }catch(e){}
     }
 
     function gmRenderResult(res){
