@@ -16,8 +16,10 @@ Deno.serve(async (req) => {
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     const orderCol = type === "xp" ? "xp" : "capital";
+    // 미참여자(한 번도 제출 안 함 = xp 0)는 순위에서 제외 — "아무것도 안 한 사람"이 거래한 사람 위에 깔리지 않게.
     const { data, error } = await supabase.from("players")
       .select("display_name, level, xp, capital")
+      .gt("xp", 0)
       .order(orderCol, { ascending: false }).limit(limit);
     if (error) throw error;
 
@@ -50,11 +52,11 @@ Deno.serve(async (req) => {
     const deviceId = url.searchParams.get("device_id");
     if (type === "return" && deviceId) {
       const { data: meP } = await supabase.from("players")
-        .select("display_name, capital").eq("device_id", deviceId).maybeSingle();
-      if (meP) {
+        .select("display_name, capital, xp").eq("device_id", deviceId).maybeSingle();
+      if (meP && Number(meP.xp) > 0) {
         const cap = Number(meP.capital);
         const { count: betterPlayers } = await supabase.from("players")
-          .select("id", { count: "exact", head: true }).gt("capital", cap);
+          .select("id", { count: "exact", head: true }).gt("xp", 0).gt("capital", cap);
         const { count: betterAgents } = await supabase.from("agents")
           .select("id", { count: "exact", head: true }).or("game_roster.eq.true,game_external.eq.true").gt("game_capital", cap);
         me = { rank: (betterPlayers ?? 0) + (betterAgents ?? 0) + 1, display_name: meP.display_name, capital: cap, return_pct: retPct(cap), is_ai: false };
