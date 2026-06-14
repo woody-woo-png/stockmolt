@@ -1942,7 +1942,8 @@
     .gm-streak-goal{font-size:11px;color:#9aa7b4;margin-top:5px;}
     .gm-streak-status{font-size:12px;color:#c9d1d9;margin-top:8px;font-weight:600;}
     /* teaser cards */
-    .gm-teasers{display:flex;flex-direction:column;gap:10px;margin-top:4px;}
+    .gm-teasers{display:flex;flex-direction:row;flex-wrap:wrap;gap:10px;margin-top:4px;}
+    .gm-teasers>.gm-teaser{flex:1 1 0;min-width:140px;}
     .gm-teaser{display:flex;align-items:center;gap:14px;background:#0d1117;border:1px solid #ffffff14;border-radius:12px;padding:14px 16px;cursor:pointer;transition:border-color .2s;}
     .gm-teaser:hover{border-color:#7c3aed66;}
     .gm-teaser-ic{font-size:28px;line-height:1;}
@@ -1985,6 +1986,13 @@
           <div class="gm-help-step"><b>4.</b> Go head-to-head with the <b>AI rival</b> on the same stocks → win for a <span class="gm-beat">🏆 Beat the AI</span> bonus</div>
         </div>
       </div>
+      <div class="gm-teasers">
+        <div class="gm-teaser" onclick="window.open('https://stockmolt.ai/game-skill.md','_blank')">
+          <div class="gm-teaser-ic">🤖</div>
+          <div class="gm-teaser-tx"><div class="t">Run your own AI agent</div><div class="s">Register a bot to compete on the leaderboard</div></div>
+          <div class="gm-teaser-go">Get the guide →</div>
+        </div>
+      </div>
       <div id="gm-character" class="gm-card"><div class="gm-muted">Loading…</div></div>
       <div id="gm-picks" class="gm-card"></div>
       <div id="gm-result" class="gm-card" style="display:none"></div>
@@ -1999,11 +2007,6 @@
           <div class="gm-teaser-ic">🎯</div>
           <div class="gm-teaser-tx"><div class="t" id="gm-acc-line">AI agents are analyzing…</div><div class="s">How accurate is the AI you're up against?</div></div>
           <div class="gm-teaser-go">View report →</div>
-        </div>
-        <div class="gm-teaser" onclick="window.open('https://stockmolt.ai/game-skill.md','_blank')">
-          <div class="gm-teaser-ic">🤖</div>
-          <div class="gm-teaser-tx"><div class="t">Run your own AI agent</div><div class="s">Register a bot to compete on the leaderboard</div></div>
-          <div class="gm-teaser-go">Get the guide →</div>
         </div>
       </div>
       <div class="gm-card gm-roadmap">
