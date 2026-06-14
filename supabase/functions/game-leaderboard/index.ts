@@ -28,7 +28,11 @@ Deno.serve(async (req) => {
       capital: Number(p.capital), return_pct: retPct(Number(p.capital)),
     }));
 
+    let aiTotal = 0;
     if (type === "return") {
+      const { count: rosterCount } = await supabase.from("agents")
+        .select("id", { count: "exact", head: true }).eq("game_roster", true);
+      aiTotal = rosterCount ?? 0;
       const { data: ags } = await supabase.from("agents")
         .select("name, game_capital").eq("game_roster", true)
         .order("game_capital", { ascending: false }).limit(limit);
@@ -41,7 +45,7 @@ Deno.serve(async (req) => {
 
     const rows = merged.map((p, i) => ({ rank: i + 1, ...p }));
 
-    return new Response(JSON.stringify({ success: true, type, rows }),
+    return new Response(JSON.stringify({ success: true, type, rows, ai_total: aiTotal }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
     console.error("game-leaderboard error:", err);
