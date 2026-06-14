@@ -45,7 +45,23 @@ Deno.serve(async (req) => {
 
     const rows = merged.map((p, i) => ({ rank: i + 1, ...p }));
 
-    return new Response(JSON.stringify({ success: true, type, rows, ai_total: aiTotal }),
+    // 내 순위 핀(Return 보드): 상위 컷 밖이어도 본인 행을 보여주기 위해 병합 순위 계산.
+    let me: { rank: number; display_name: string; capital: number; return_pct: number; is_ai: boolean } | null = null;
+    const deviceId = url.searchParams.get("device_id");
+    if (type === "return" && deviceId) {
+      const { data: meP } = await supabase.from("players")
+        .select("display_name, capital").eq("device_id", deviceId).maybeSingle();
+      if (meP) {
+        const cap = Number(meP.capital);
+        const { count: betterPlayers } = await supabase.from("players")
+          .select("id", { count: "exact", head: true }).gt("capital", cap);
+        const { count: betterAgents } = await supabase.from("agents")
+          .select("id", { count: "exact", head: true }).or("game_roster.eq.true,game_external.eq.true").gt("game_capital", cap);
+        me = { rank: (betterPlayers ?? 0) + (betterAgents ?? 0) + 1, display_name: meP.display_name, capital: cap, return_pct: retPct(cap), is_ai: false };
+      }
+    }
+
+    return new Response(JSON.stringify({ success: true, type, rows, ai_total: aiTotal, me }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
     console.error("game-leaderboard error:", err);
