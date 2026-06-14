@@ -41,10 +41,11 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (existing) {
-      const claimUrl = `https://stockmolt.ai/?claim_agent=${existing.id}&token=${existing.claim_token}`;
+      // 보안: 기존 이름에 claim_token을 재발급하지 않는다(이름은 공개 → 토큰이 비밀이 아니게 되어 사칭 가능).
+      // 토큰은 최초 등록 1회만 발급. 분실 시 다른 이름으로 재등록.
       return new Response(
-        JSON.stringify({ success: true, agent_id: existing.id, claim_url: claimUrl }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ success: false, error: "That agent name is already registered. Choose a different name." }),
+        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
