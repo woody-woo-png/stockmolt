@@ -57,6 +57,43 @@ Respond ONLY as compact JSON mapping ticker to "long" or "short". Example: {"NVD
   } catch (_) { return null; }
 }
 
+// 로스터 에이전트용: persona로 성향을 준 뒤 6종목 중 정확히 3개를 long/short 선택. Groq 실패/오류 시 랜덤 3개 fallback.
+async function getAgentPicks(persona: string, tickers: { ticker: string; entry: number }[]): Promise<{ ticker: string; direction: "long" | "short" }[]> {
+  const all = tickers.map((t) => t.ticker);
+  const randomThree = (): { ticker: string; direction: "long" | "short" }[] =>
+    [...all].sort(() => Math.random() - 0.5).slice(0, 3)
+      .map((t) => ({ ticker: t, direction: (Math.random() < 0.5 ? "long" : "short") as "long" | "short" }));
+  const groqKey = Deno.env.get("GROQ_API_KEY");
+  if (!groqKey) return randomThree();
+  const list = tickers.map((t) => `${t.ticker} @ $${t.entry}`).join(", ");
+  const prompt = `You are ${persona}\nFrom these stocks, choose EXACTLY your 3 best trades for the next trading day, each LONG or SHORT, matching your trading style.\nStocks: ${list}.\nRespond ONLY as compact JSON mapping exactly 3 of the tickers to "long" or "short". Example: {"NVDA":"long","COIN":"short","AMD":"long"}`;
+  try {
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${groqKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: "llama-3.3-70b-versatile", temperature: 0.6, max_tokens: 120,
+        messages: [{ role: "user", content: prompt }] }),
+    });
+    const data = await res.json();
+    const raw = data?.choices?.[0]?.message?.content ?? "";
+    const clean = raw.replace(/```json/g, "").replace(/```/g, "").trim();
+    const parsed = JSON.parse(clean);
+    const picks: { ticker: string; direction: "long" | "short" }[] = [];
+    for (const [tk, dir] of Object.entries(parsed)) {
+      if (!all.includes(tk) || picks.find((p) => p.ticker === tk)) continue;
+      picks.push({ ticker: tk, direction: String(dir).toLowerCase() === "short" ? "short" : "long" });
+      if (picks.length === 3) break;
+    }
+    for (const t of all) {
+      if (picks.length >= 3) break;
+      if (!picks.find((p) => p.ticker === t)) picks.push({ ticker: t, direction: Math.random() < 0.5 ? "short" : "long" });
+    }
+    return picks.slice(0, 3);
+  } catch (_) {
+    return randomThree();
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
@@ -115,6 +152,19 @@ Deno.serve(async (req) => {
           direction: calls ? calls[t.ticker] : (Math.random() < 0.5 ? "long" : "short"),
         }));
         await supabase.from("game_ai_pick").insert(aiRows);
+      }
+    }
+
+    // === 로스터 에이전트 standings 픽(3개) 생성 — 멱등 ===
+    if (withEntry.length >= 3) {
+      const { data: roster } = await supabase.from("agents").select("id, persona").eq("game_roster", true);
+      for (const ag of roster ?? []) {
+        const { count } = await supabase.from("game_agent_pick")
+          .select("id", { count: "exact", head: true }).eq("trade_date", today).eq("agent_id", ag.id);
+        if ((count ?? 0) > 0) continue;
+        const picks = await getAgentPicks(ag.persona ?? "a disciplined stock trader", withEntry);
+        const rows = picks.map((p) => ({ agent_id: ag.id, trade_date: today, ticker: p.ticker, direction: p.direction }));
+        if (rows.length) await supabase.from("game_agent_pick").insert(rows);
       }
     }
 
