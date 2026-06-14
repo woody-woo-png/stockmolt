@@ -21,14 +21,25 @@ Deno.serve(async (req) => {
       .order(orderCol, { ascending: false }).limit(limit);
     if (error) throw error;
 
-    const rows = (data ?? []).map((p, i) => ({
-      rank: i + 1,
-      display_name: p.display_name,
-      level: p.level,
-      xp: p.xp,
-      capital: p.capital,
-      return_pct: Math.round(((Number(p.capital) - 100000) / 100000) * 10000) / 100,
+    type LbRow = { is_ai: boolean; display_name: string; level: number | null; xp: number | null; capital: number; return_pct: number };
+    const retPct = (cap: number) => Math.round(((cap - 100000) / 100000) * 10000) / 100;
+    let merged: LbRow[] = (data ?? []).map((p) => ({
+      is_ai: false, display_name: p.display_name, level: p.level, xp: p.xp,
+      capital: Number(p.capital), return_pct: retPct(Number(p.capital)),
     }));
+
+    if (type === "return") {
+      const { data: ags } = await supabase.from("agents")
+        .select("name, game_capital").eq("game_roster", true)
+        .order("game_capital", { ascending: false }).limit(limit);
+      const aiRows: LbRow[] = (ags ?? []).map((a) => ({
+        is_ai: true, display_name: a.name, level: null, xp: null,
+        capital: Number(a.game_capital), return_pct: retPct(Number(a.game_capital)),
+      }));
+      merged = merged.concat(aiRows).sort((x, y) => y.capital - x.capital).slice(0, limit);
+    }
+
+    const rows = merged.map((p, i) => ({ rank: i + 1, ...p }));
 
     return new Response(JSON.stringify({ success: true, type, rows }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
