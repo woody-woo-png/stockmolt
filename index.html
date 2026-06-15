@@ -1871,6 +1871,7 @@
     .gm-lbtog button{flex:1;padding:8px;border:1px solid #ffffff1f;background:#0d1117;color:#8b949e;font-weight:700;font-size:12px;border-radius:8px;cursor:pointer;}
     .gm-lbtog button.on{background:#7c3aed26;border-color:#7c3aed66;color:#c4b5fd;}
     .gm-lbrow{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #ffffff0d;font-size:14px;}
+    .gm-lb-found{font-size:12px;color:#e3b341;background:#e3b34112;border:1px solid #e3b34133;border-radius:8px;padding:8px 12px;margin:6px 0 10px;text-align:center;font-weight:600;}
     .gm-lb-aihdr{font-size:11px;color:#8b949e;margin-bottom:8px;text-align:center;}
     .gm-lb-mediv{text-align:center;color:#8b949e;font-size:16px;line-height:1;margin:6px 0;letter-spacing:3px;}
     .gm-lb-me{background:#7c3aed1a;border-radius:8px;}
@@ -6259,7 +6260,7 @@
 
     window.gmLoadLeaderboard=async function(type){
       const box=document.getElementById('gm-lb');
-      box.innerHTML='<h3>🏆 Leaderboard</h3><div class="gm-lbtog"><button id="gmlb-return" class="'+(type==='return'?'on':'')+'" onclick="gmLoadLeaderboard(\'return\')">💰 Return</button><button id="gmlb-xp" class="'+(type==='xp'?'on':'')+'" onclick="gmLoadLeaderboard(\'xp\')">⭐ XP</button></div><div id="gm-lb-rows"><div class="gm-muted">Loading…</div></div>';
+      box.innerHTML='<h3>🏆 Leaderboard</h3><div class="gm-lb-found">⭐ Founding season — the board is just getting started. Climb in early.</div><div class="gm-lbtog"><button id="gmlb-return" class="'+(type==='return'?'on':'')+'" onclick="gmLoadLeaderboard(\'return\')">💰 Return</button><button id="gmlb-xp" class="'+(type==='xp'?'on':'')+'" onclick="gmLoadLeaderboard(\'xp\')">⭐ XP</button></div><div id="gm-lb-rows"><div class="gm-muted">Loading…</div></div>';
       try{
         const r=await fetch(GM_FN+'/game-leaderboard?type='+type+'&limit=20&device_id='+encodeURIComponent(gmDeviceId()),{headers:gmHeaders()});
         const d=await r.json(); const rows=(d.rows||[]);
