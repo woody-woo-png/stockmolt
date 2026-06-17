@@ -30,7 +30,7 @@ select cron.alter_job((select jobid from cron.job where jobname = 'game-resolve-
 select cron.schedule('game-live-prices', '*/2 13-20 * * 1-5',
   $$ select net.http_post(
        url := 'https://oyatbvqpilvbhqpiafwp.supabase.co/functions/v1/update-live-prices',
-       headers := '{"Content-Type":"application/json"}'::jsonb) $$);
+       headers := '{"Content-Type":"application/json","apikey":"sb_publishable_8-tR6LbXU-l0qdgFmYnH-A_WxSuuBi0","Authorization":"Bearer sb_publishable_8-tR6LbXU-l0qdgFmYnH-A_WxSuuBi0"}'::jsonb) $$);
 
 ------------------------------------------------------------------------
 -- 4) Verify final schedules — THIS IS A HARD GATE, DO NOT SKIM.
