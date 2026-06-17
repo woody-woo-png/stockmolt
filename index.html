@@ -4807,7 +4807,7 @@
         grid: { left: 50, right: 20, top: 40, bottom: 40 },
         xAxis: { type: 'category', data: (d.series[0].points || []).map(p => p[0]),
                  axisLabel: { color: '#8b949e' } },
-        yAxis: { type: 'value', name: 'Growth of 1', axisLabel: { color: '#8b949e' } },
+        yAxis: { type: 'value', axisLabel: { color: '#8b949e' } },
         animationDuration: 1400,
         series: d.series.map(s => ({
           name: s.name, type: 'line', showSymbol: false,
