@@ -6235,6 +6235,11 @@
         nextBadge: next===null?null:(GM_BADGES[lvl]||'👑'),
         remaining: next===null?0:(next-xp)};
     }
+    // maps a level (1-10) to its cosmetic ladder class; used by card + leaderboard
+    function gmNameClass(level){
+      const l = Math.max(1, Math.min(10, Number(level) || 1));
+      return 'gm-lv' + l;
+    }
     function gmStreakInfo(cur){
       cur = Number(cur) || 0;
       const ms = GM_STREAK_MILESTONES;
