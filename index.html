@@ -1886,6 +1886,26 @@
     .gm-lbrow .nm.nm-hi{color:#fff;font-weight:800;}
     .gm-lbrow .nm.nm-gold,.gm-name.nm-gold{background:linear-gradient(90deg,#e3b341,#f0c674);-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:800;}
     .gm-name.nm-hi{color:#fff;}
+    /* level cosmetic ladder — applied to card name (.gm-name) + leaderboard name (.gm-lbrow .nm) */
+    .gm-lbrow .nm.gm-lv1,.gm-name.gm-lv1{color:#8b949e;}
+    .gm-lbrow .nm.gm-lv2,.gm-name.gm-lv2{color:#7ee3f5;font-weight:700;}
+    .gm-lbrow .nm.gm-lv3,.gm-name.gm-lv3{color:#ffffff;font-weight:800;}
+    .gm-lbrow .nm.gm-lv4,.gm-name.gm-lv4{color:#22d3ee;font-weight:800;}
+    .gm-lbrow .nm.gm-lv5,.gm-name.gm-lv5,
+    .gm-lbrow .nm.gm-lv6,.gm-name.gm-lv6,
+    .gm-lbrow .nm.gm-lv7,.gm-name.gm-lv7,
+    .gm-lbrow .nm.gm-lv8,.gm-name.gm-lv8,
+    .gm-lbrow .nm.gm-lv9,.gm-name.gm-lv9,
+    .gm-lbrow .nm.gm-lv10,.gm-name.gm-lv10{-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:800;}
+    .gm-lbrow .nm.gm-lv5,.gm-name.gm-lv5{background-image:linear-gradient(90deg,#e3b341,#f0c674);}
+    .gm-lbrow .nm.gm-lv6,.gm-name.gm-lv6{background-image:linear-gradient(90deg,#e3b341,#f0c674);filter:drop-shadow(0 0 6px #e3b34177);}
+    .gm-lbrow .nm.gm-lv7,.gm-name.gm-lv7{background-image:linear-gradient(90deg,#7c3aed,#22d3ee);filter:drop-shadow(0 0 6px #7c3aed88);}
+    .gm-lbrow .nm.gm-lv8,.gm-name.gm-lv8{background-image:linear-gradient(90deg,#7c3aed,#22d3ee,#7c3aed);background-size:200% auto;animation:gmShimmer 3s linear infinite;}
+    .gm-lbrow .nm.gm-lv9,.gm-name.gm-lv9{background-image:linear-gradient(90deg,#7c3aed,#22d3ee,#7c3aed);background-size:200% auto;animation:gmShimmer 3s linear infinite,gmAura 2s ease-in-out infinite;}
+    .gm-lbrow .nm.gm-lv10,.gm-name.gm-lv10{background-image:linear-gradient(90deg,#e3b341,#ffffff,#e3b341);background-size:200% auto;animation:gmShimmer 2.5s linear infinite,gmAuraGold 2s ease-in-out infinite;}
+    @keyframes gmShimmer{to{background-position:200% center;}}
+    @keyframes gmAura{0%,100%{filter:drop-shadow(0 0 3px #22d3ee55);}50%{filter:drop-shadow(0 0 9px #22d3eecc);}}
+    @keyframes gmAuraGold{0%,100%{filter:drop-shadow(0 0 4px #e3b34166);}50%{filter:drop-shadow(0 0 11px #e3b341dd);}}
     .gm-lbrow .vl{font-weight:800;}
     .gm-hero-cta{font-size:13px;color:#9aa7b4;margin-top:4px;}
     .gm-muted{color:#8b949e;font-size:13px;text-align:center;padding:14px 0;}
