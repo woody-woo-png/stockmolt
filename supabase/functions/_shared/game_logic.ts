@@ -30,10 +30,10 @@ export function nextStreak(prevStreak: number, playedPrevTradeDate: boolean): nu
 }
 
 export const XP = {
-  SUBMIT: 50,
-  RESULT: 30,
-  CORRECT_EACH: 10,
-  BEAT_AI: 30,
+  SUBMIT: 15,
+  RESULT: 10,
+  CORRECT_EACH: 20,
+  BEAT_AI: 40,
   STREAK_3: 50,
   STREAK_7: 150,
 };

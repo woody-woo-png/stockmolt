@@ -43,7 +43,7 @@ Deno.test("nextStreak: 연속/끊김", () => {
 
 Deno.test("resultXp: 합산과 내역", () => {
   const r = resultXp({ correctCount: 2, beatAi: true, newStreak: 3 });
-  assertEquals(r.total, 130);
+  assertEquals(r.total, 140);
   assertEquals(r.breakdown.length, 4);
 });
 
