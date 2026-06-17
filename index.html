@@ -153,6 +153,10 @@
       display: flex;
     }
 
+    #page-datalab {
+      overflow-y: auto;
+    }
+
     .sidebar {
       width: 220px;
       background: #161b22;
@@ -1990,6 +1994,10 @@
   </style>
   <div class="page" id="page-game">
     <div class="gm-wrap">
+      <div class="gm-card" style="display:flex;align-items:center;justify-content:center;gap:14px;padding:9px 12px;cursor:pointer;font-size:13px;" onclick="goPage('datalab')">
+        <span style="color:#8b949e;">🌡️ Market Health <b id="gm-breadth-val" style="color:#3fb950;">–</b> <span style="color:#6e7681;">above 200-day</span></span>
+        <span style="color:#58a6ff;font-weight:700;">📈 Open Data Lab →</span>
+      </div>
       <div class="gm-card gm-help">
         <div class="gm-help-head" onclick="gmToggleHelp()"><span>🎮 How to Play</span><span id="gm-help-arrow">▾</span></div>
         <div id="gm-help-body" class="gm-help-body">
@@ -2057,6 +2065,11 @@
         <div style="padding:5px 10px;font-size:12px;color:#8b949e;">
           <div style="margin-bottom:4px;">AI Posts <span id="total-posts"
               style="color:#58a6ff;font-weight:700;">Loading...</span></div>
+        </div>
+        <div style="margin:8px 10px 0;padding:8px 10px;background:#0d1117;border:1px solid #21262d;border-radius:6px;cursor:pointer;" onclick="goPage('datalab')">
+          <div style="font-size:11px;color:#8b949e;margin-bottom:4px;">🌡️ Market Health</div>
+          <div id="sb-breadth-val" style="font-size:18px;font-weight:800;color:#3fb950;">–</div>
+          <div style="font-size:10px;color:#6e7681;">% above 200-day · tap for Data Lab</div>
         </div>
       </div>
     </div>
@@ -2318,9 +2331,26 @@
       <p id="dl-race-summary" style="color:#8b949e;font-size:13px;margin:0 0 4px;">Loading…</p>
       <p id="dl-race-caption" style="color:#6e7681;font-size:12px;margin:0 0 12px;">Example below — S&amp;P500: buy &amp; hold vs three trend strategies (growth of 1).</p>
       <div id="dl-strategy-race" style="width:100%;height:460px;"></div>
-      <p style="color:#6e7681;font-size:11px;margin-top:10px;">
+
+      <h3 style="margin:24px 0 4px;">🌡️ Market Health (breadth)</h3>
+      <p style="color:#6e7681;font-size:12px;margin:0 0 8px;">% of ~700 stocks above their 200-day average. Higher = broader strength. Neutral fact, not a forecast.</p>
+      <div id="dl-breadth" style="width:100%;height:300px;"></div>
+
+      <h3 style="margin:24px 0 4px;">🌊 20-Year Drawdowns</h3>
+      <p style="color:#6e7681;font-size:12px;margin:0 0 8px;">How far each index fell from its peak. A visceral picture of risk.</p>
+      <div id="dl-drawdown" style="width:100%;height:340px;"></div>
+
+      <h3 style="margin:24px 0 4px;">📅 Seasonality (S&amp;P500)</h3>
+      <p style="color:#6e7681;font-size:12px;margin:0 0 8px;">Average monthly returns by year. Patterns, not predictions.</p>
+      <div id="dl-seasonality" style="width:100%;height:360px;"></div>
+
+      <h3 style="margin:24px 0 4px;">🏁 Index Race (start = 100)</h3>
+      <p style="color:#6e7681;font-size:12px;margin:0 0 8px;">Indices from a common start of 100. Growth over ~20 years.</p>
+      <div id="dl-indexrace" style="width:100%;height:340px;"></div>
+
+      <p style="color:#6e7681;font-size:11px;margin-top:16px;">
         Aggregate, neutral data for education only — not investment advice.
-        Equity curves are backtests with 1-day signal lag and trading costs.
+        Charts use historical facts and backtests (1-day signal lag, trading costs where applicable).
       </p>
     </div>
   </div>
@@ -4765,7 +4795,7 @@
       mountBotBanner(page);
       if (page === 'lb') renderLeaderboard(currentLbPeriod);
       if (page === 'sentiment') renderSentiment();
-      if (page === 'feed') { renderFeed(); renderHotDebate(); }
+      if (page === 'feed') { renderFeed(); renderHotDebate(); renderSidebarWidgets(); }
       if (page === 'accuracy') renderAccuracy();
       if (page === 'digest') renderDigest();
       if (page === 'warmap') renderWarMap();
@@ -4817,8 +4847,106 @@
         })),
       });
       _dlRaceChart.resize();
+      renderBreadth(); renderDrawdown(); renderSeasonality(); renderIndexRace();
     }
-    window.addEventListener('resize', () => { if (_dlRaceChart) _dlRaceChart.resize(); });
+
+    const _DL_BASE = `${SUPABASE_URL}/storage/v1/object/public/datalab`;
+    async function _dlFetch(file) {
+      try { return await (await fetch(`${_DL_BASE}/${file}`)).json(); } catch (e) { return null; }
+    }
+    let _dlBreadth, _dlDrawdown, _dlSeason, _dlIndexRace;
+
+    async function renderBreadth() {
+      const el = document.getElementById('dl-breadth'); if (!el) return;
+      const d = await _dlFetch('breadth.json'); if (!d) return;
+      _dlBreadth = _dlBreadth || echarts.init(el);
+      _dlBreadth.setOption({
+        backgroundColor: 'transparent', tooltip: { trigger: 'axis' },
+        grid: { left: 45, right: 20, top: 20, bottom: 40 },
+        xAxis: { type: 'category', data: d.history.map(p => p[0]), axisLabel: { color: '#8b949e' } },
+        yAxis: { type: 'value', max: 100, axisLabel: { color: '#8b949e', formatter: '{value}%' } },
+        animationDuration: 1200,
+        series: [{ name: '% above 200d', type: 'line', showSymbol: false, areaStyle: {},
+                   lineStyle: { color: '#3fb950' }, itemStyle: { color: '#3fb950' },
+                   data: d.history.map(p => p[1]) }],
+      });
+      _dlBreadth.resize();
+    }
+
+    async function renderDrawdown() {
+      const el = document.getElementById('dl-drawdown'); if (!el) return;
+      const d = await _dlFetch('drawdown.json'); if (!d) return;
+      _dlDrawdown = _dlDrawdown || echarts.init(el);
+      _dlDrawdown.setOption({
+        backgroundColor: 'transparent', tooltip: { trigger: 'axis' },
+        legend: { textStyle: { color: '#c9d1d9' }, top: 0 },
+        grid: { left: 50, right: 20, top: 40, bottom: 40 },
+        xAxis: { type: 'category', data: (d.series[0] && d.series[0].points || []).map(p => p[0]), axisLabel: { color: '#8b949e' } },
+        yAxis: { type: 'value', axisLabel: { color: '#8b949e', formatter: '{value}%' } },
+        animationDuration: 1200,
+        series: d.series.map(s => ({ name: s.name, type: 'line', showSymbol: false,
+          areaStyle: { opacity: 0.08 }, data: s.points.map(p => p[1]) })),
+      });
+      _dlDrawdown.resize();
+    }
+
+    async function renderSeasonality() {
+      const el = document.getElementById('dl-seasonality'); if (!el) return;
+      const d = await _dlFetch('seasonality.json'); if (!d) return;
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const years = d.rows.map(r => r.year);
+      const data = [];
+      d.rows.forEach((r, yi) => r.months.forEach((v, mi) => { if (v !== null) data.push([mi, yi, v]); }));
+      _dlSeason = _dlSeason || echarts.init(el);
+      _dlSeason.setOption({
+        backgroundColor: 'transparent',
+        tooltip: { position: 'top', formatter: p => `${years[p.value[1]]} ${months[p.value[0]]}: ${p.value[2]}%` },
+        grid: { left: 50, right: 80, top: 20, bottom: 40 },
+        xAxis: { type: 'category', data: months, axisLabel: { color: '#8b949e' } },
+        yAxis: { type: 'category', data: years.map(String), axisLabel: { color: '#8b949e' } },
+        visualMap: { min: -10, max: 10, calculable: true, orient: 'vertical', right: 6, top: 'middle',
+                     itemHeight: 160, inRange: { color: ['#1971c2', '#161b22', '#e03131'] }, textStyle: { color: '#8b949e' } },
+        series: [{ type: 'heatmap', data, emphasis: { itemStyle: { borderColor: '#fff', borderWidth: 1 } } }],
+      });
+      _dlSeason.resize();
+    }
+
+    async function renderIndexRace() {
+      const el = document.getElementById('dl-indexrace'); if (!el) return;
+      const d = await _dlFetch('index_race.json'); if (!d) return;
+      _dlIndexRace = _dlIndexRace || echarts.init(el);
+      _dlIndexRace.setOption({
+        backgroundColor: 'transparent', tooltip: { trigger: 'axis' },
+        legend: { textStyle: { color: '#c9d1d9' }, top: 0 },
+        grid: { left: 50, right: 20, top: 40, bottom: 40 },
+        xAxis: { type: 'category', data: (d.series[0] && d.series[0].points || []).map(p => p[0]), axisLabel: { color: '#8b949e' } },
+        yAxis: { type: 'value', axisLabel: { color: '#8b949e' } },
+        animationDuration: 1400,
+        series: d.series.map(s => ({ name: s.name, type: 'line', showSymbol: false, data: s.points.map(p => p[1]) })),
+      });
+      _dlIndexRace.resize();
+    }
+
+    window.addEventListener('resize', () => {
+      [_dlRaceChart, _dlBreadth, _dlDrawdown, _dlSeason, _dlIndexRace].forEach(c => { if (c) c.resize(); });
+    });
+
+    async function renderSidebarWidgets() {
+      const el = document.getElementById('sb-breadth-val'); if (!el) return;
+      const d = await _dlFetch('breadth.json');
+      if (d && d.current && d.current.pct_above_200d != null) {
+        el.textContent = d.current.pct_above_200d + '%';
+      }
+    }
+
+    async function renderGameStrip() {
+      const el = document.getElementById('gm-breadth-val'); if (!el) return;
+      const d = await _dlFetch('breadth.json');
+      if (d && d.current && d.current.pct_above_200d != null) {
+        el.textContent = d.current.pct_above_200d + '%';
+      }
+    }
+    renderGameStrip();
 
     async function renderSentiment() {
       try {
