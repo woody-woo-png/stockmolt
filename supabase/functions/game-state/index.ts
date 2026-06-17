@@ -50,10 +50,13 @@ Deno.serve(async (req) => {
     const { data: prestigeRows } = await supabase.from("game_prestige")
       .select("season_no").eq("player_id", player.id).order("season_no", { ascending: true });
     const prestige = (prestigeRows ?? []).map((r: any) => r.season_no);
+    const { data: awardRows } = await supabase.from("game_season_award")
+      .select("season_no, tier").eq("player_id", player.id).order("season_no", { ascending: true });
+    const season_awards = (awardRows ?? []).map((r: any) => ({ season_no: r.season_no, tier: r.tier }));
     const safePlayer = {
       id: player.id, display_name: player.display_name, level: player.level, xp: player.xp,
       streak_current: player.streak_current, streak_best: player.streak_best,
-      capital: player.capital, claimed: player.claimed, prestige,
+      capital: player.capital, claimed: player.claimed, prestige, season_awards,
     };
 
     return new Response(JSON.stringify({
