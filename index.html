@@ -6297,7 +6297,7 @@
         '<div class="gm-hero">'
         +'<div class="gm-ava">🧑‍💻</div>'
         +'<div class="gm-hid">'
-          +'<div class="gm-name '+(li.lvl>=5?'nm-gold':(li.lvl>=3?'nm-hi':''))+'">'+li.badge+' '+(p.display_name||'Trader')+'</div>'
+          +'<div class="gm-name '+gmNameClass(li.lvl)+'">'+li.badge+' '+(p.display_name||'Trader')+'</div>'
           +'<div class="gm-title">Lv.'+li.lvl+' · '+li.title+'</div>'
           +'<div class="gm-xpbar"><div class="gm-xpfill" style="width:'+li.pct+'%"></div></div>'
           +'<div class="gm-xptext">'+(li.next===null?('XP '+xp+' · MAX'):('XP '+xp+' / '+li.next))+'</div>'
@@ -6580,7 +6580,7 @@
           if(x.is_ai){
             return '<div class="gm-lbrow"><span class="rk">'+x.rank+'</span><span class="nm">🤖 '+(x.display_name||'AI')+' <span style="color:#8b949e;font-size:11px">AI</span></span><span class="vl '+vcls+'">'+val+'</span></div>';
           }
-          var nmCls=(x.level>=5)?'nm-gold':((x.level>=3)?'nm-hi':'');
+          var nmCls=gmNameClass(x.level);
           return '<div class="gm-lbrow"><span class="rk">'+x.rank+'</span><span class="nm '+nmCls+'">'+(GM_BADGES[(x.level||1)-1]||'🐣')+' '+(x.display_name||'Trader')+' <span style="color:#8b949e;font-size:11px">Lv.'+x.level+'</span></span><span class="vl '+vcls+'">'+val+'</span></div>';
         }).join('') + meHtml) : '<div class="gm-muted">No players yet. Be the first!</div>';
       }catch(e){ const el=document.getElementById('gm-lb-rows'); if(el) el.innerHTML='<div class="gm-muted">Failed to load leaderboard.</div>'; }
