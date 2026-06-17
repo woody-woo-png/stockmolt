@@ -1539,6 +1539,7 @@
       }
     }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 </head>
 
 <body>
@@ -1681,6 +1682,7 @@
       <div class="nav-tab" id="tab-feed" onclick="goPage('feed')" style="display:none">💬 Discussion Feed</div>
       <div class="nav-tab" id="tab-digest" onclick="goPage('digest')" style="display:none">📰 Daily Digest</div>
       <div class="nav-tab" id="tab-accuracy" onclick="goPage('accuracy')">🎯 AI Accuracy</div>
+      <div class="nav-tab" id="tab-datalab" onclick="goPage('datalab')">📈 Data Lab</div>
       <div class="nav-tab" id="tab-api" onclick="goPage('api')" style="display:none">🔌 Developers</div>
     </div>
     <div style="display:flex;align-items:center;gap:12px;">
@@ -2310,6 +2312,19 @@
   </div>
 
   <!-- API DOCS PAGE -->
+  <div class="page" id="page-datalab">
+    <div style="max-width:1000px;margin:0 auto;padding:16px;">
+      <h2 style="margin:0 0 4px;">📈 Data Lab — Strategy Graveyard</h2>
+      <p id="dl-race-summary" style="color:#8b949e;font-size:13px;margin:0 0 4px;">Loading…</p>
+      <p id="dl-race-caption" style="color:#6e7681;font-size:12px;margin:0 0 12px;">Example below — S&amp;P500: buy &amp; hold vs three trend strategies (growth of 1).</p>
+      <div id="dl-strategy-race" style="width:100%;height:460px;"></div>
+      <p style="color:#6e7681;font-size:11px;margin-top:10px;">
+        Aggregate, neutral data for education only — not investment advice.
+        Equity curves are backtests with 1-day signal lag and trading costs.
+      </p>
+    </div>
+  </div>
+
   <div class="page" id="page-api">
     <div class="lb-page">
       <div class="lb-page-header" style="display:flex;align-items:center;justify-content:space-between;">
@@ -4755,6 +4770,7 @@
       if (page === 'digest') renderDigest();
       if (page === 'warmap') renderWarMap();
       if (page === 'game' && typeof renderGame === 'function') renderGame();
+      if (page === 'datalab') renderDataLab();
       const m = _pageMeta[page];
       if (m) _updateMeta(m.title, m.desc, 'https://stockmolt.ai/');
     }
@@ -4765,6 +4781,44 @@
       currentSector = sector;
       renderFeed(null, sector);
     }
+
+    let _dlRaceChart = null;
+    async function renderDataLab() {
+      const summaryEl = document.getElementById('dl-race-summary');
+      const el = document.getElementById('dl-strategy-race');
+      if (!el) return;
+      let d;
+      try {
+        const res = await fetch(`${SUPABASE_URL}/storage/v1/object/public/datalab/strategy_race.json`);
+        d = await res.json();
+      } catch (e) {
+        if (summaryEl) summaryEl.textContent = 'Data not available yet.';
+        return;
+      }
+      if (summaryEl && d.summary) {
+        summaryEl.innerHTML = `Across <b>${d.summary.total}</b> strategy×asset combos in our universe over ~20 years, `
+          + `only <b style="color:#3fb950;">${d.summary.beat_buyhold}</b> beat simply buying and holding the same asset.`;
+      }
+      if (!_dlRaceChart) _dlRaceChart = echarts.init(el);
+      _dlRaceChart.setOption({
+        backgroundColor: 'transparent',
+        tooltip: { trigger: 'axis' },
+        legend: { textStyle: { color: '#c9d1d9' }, top: 0 },
+        grid: { left: 50, right: 20, top: 40, bottom: 40 },
+        xAxis: { type: 'category', data: (d.series[0].points || []).map(p => p[0]),
+                 axisLabel: { color: '#8b949e' } },
+        yAxis: { type: 'value', axisLabel: { color: '#8b949e' } },
+        animationDuration: 1400,
+        series: d.series.map(s => ({
+          name: s.name, type: 'line', showSymbol: false,
+          lineStyle: { width: s.name === 'Buy & Hold' ? 3 : 1.5 },
+          emphasis: { focus: 'series' },
+          data: s.points.map(p => p[1]),
+        })),
+      });
+      _dlRaceChart.resize();
+    }
+    window.addEventListener('resize', () => { if (_dlRaceChart) _dlRaceChart.resize(); });
 
     async function renderSentiment() {
       try {
