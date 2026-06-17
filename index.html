@@ -1921,6 +1921,10 @@
     .gm-vs .tag.clash{background:#3a1618;color:#f85149;}
     .gm-vssum{text-align:center;font-size:13px;color:#c9d1d9;margin-top:10px;line-height:1.6;}
     .gm-vssum b{color:#e3b341;}
+    /* scoring update notice */
+    .gm-notice{position:relative;display:flex;align-items:center;gap:10px;background:#1a2a1a;border:1px solid #3fb95044;border-radius:12px;padding:11px 14px;font-size:13px;color:#aef5b8;line-height:1.45;}
+    .gm-notice-x{position:absolute;top:8px;right:10px;background:none;border:none;color:#8b949e;font-size:16px;cursor:pointer;padding:0 4px;line-height:1;}
+    .gm-notice-x:hover{color:#c9d1d9;}
     /* same-day live loop: phase banner + live P&L */
     .gm-phase{display:flex;align-items:center;gap:8px;justify-content:center;font-size:13px;font-weight:700;padding:9px 12px;border-radius:10px;margin-bottom:4px;}
     .gm-phase b{font-weight:800;}
@@ -6222,6 +6226,18 @@
     function fmtMoney(n){ return '$'+Math.round(Number(n)).toLocaleString(); }
     function toast(m){ if(typeof showToast==='function') showToast(m); }
 
+    function gmShowScoringNotice(){
+      if(localStorage.getItem('sm_scoring_v2_seen')==='1') return;
+      if(document.getElementById('gm-scoring-notice')) return;
+      const wrap = document.querySelector('.gm-wrap'); if(!wrap) return;
+      localStorage.setItem('sm_scoring_v2_seen','1');
+      const n = document.createElement('div');
+      n.id = 'gm-scoring-notice'; n.className = 'gm-notice';
+      n.innerHTML = '&#x26A1; Scoring update &mdash; accuracy &amp; beating the AI now earn more XP, and streaks reward you all the way to a 100-day milestone. Keep your streak alive!'
+        +'<button class="gm-notice-x" onclick="var e=document.getElementById(\'gm-scoring-notice\');if(e)e.remove();" aria-label="Dismiss">&times;</button>';
+      wrap.insertBefore(n, wrap.firstChild);
+    }
+
     window.renderGame = async function(){
       // ④ new-user gate: no device_id ⟺ no named player yet → force the name modal first
       if(!localStorage.getItem('sm_device_id')){ gmShowNameModal(); return; }
@@ -6236,6 +6252,7 @@
       if(state.player && state.player.display_name === 'Trader-'+String(did).slice(0,6)){ gmShowNameModal({rename:true, did:did}); return; }
       gmStartBattle(state.submitted_today);
       gmRenderCharacter(state.player, gmPlayer, state.submitted_today);
+      gmShowScoringNotice();
       gmStreakCheck(state.player.streak_current);
       gmLoadRank(did, state.player.xp);
       gmRenderResult(state.last_result);
