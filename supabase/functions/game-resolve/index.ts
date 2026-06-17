@@ -146,6 +146,17 @@ Deno.serve(async (req) => {
           streak_current: newStreak, streak_best: Math.max(player!.streak_best, newStreak),
           last_played_date: tradeDate,
         }).eq("id", playerId);
+        // Phase 2a: one-time "Legend" prestige when crossing to Lv.10 within a season
+        try {
+          if (levelFromXp(player!.xp) < 10 && levelFromXp(newXp) === 10) {
+            const { data: season } = await supabase.from("game_seasons")
+              .select("season_no").lte("start_date", tradeDate).gte("end_date", tradeDate).maybeSingle();
+            if (season) {
+              await supabase.from("game_prestige")
+                .upsert({ player_id: playerId, season_no: season.season_no }, { onConflict: "player_id,season_no", ignoreDuplicates: true });
+            }
+          }
+        } catch (e) { console.error("prestige award error", playerId, e); }
       }
       // === 로스터 에이전트 채점 + game_capital 복리 (standings) — priceMap 재사용, 멱등.
       // 사람 판정 경로와 런타임 격리: 이 블록에서 throw해도 사람 결과/날짜 완료(resolvedDates)에 영향 없게 전체를 try로 감싸고,
