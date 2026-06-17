@@ -4897,11 +4897,11 @@
       _dlSeason.setOption({
         backgroundColor: 'transparent',
         tooltip: { position: 'top', formatter: p => `${years[p.value[1]]} ${months[p.value[0]]}: ${p.value[2]}%` },
-        grid: { left: 50, right: 20, top: 20, bottom: 40 },
+        grid: { left: 50, right: 80, top: 20, bottom: 40 },
         xAxis: { type: 'category', data: months, axisLabel: { color: '#8b949e' } },
         yAxis: { type: 'category', data: years.map(String), axisLabel: { color: '#8b949e' } },
-        visualMap: { min: -10, max: 10, calculable: true, orient: 'horizontal', left: 'center', bottom: 0,
-                     inRange: { color: ['#1971c2', '#161b22', '#e03131'] }, textStyle: { color: '#8b949e' } },
+        visualMap: { min: -10, max: 10, calculable: true, orient: 'vertical', right: 6, top: 'middle',
+                     itemHeight: 160, inRange: { color: ['#1971c2', '#161b22', '#e03131'] }, textStyle: { color: '#8b949e' } },
         series: [{ type: 'heatmap', data, emphasis: { itemStyle: { borderColor: '#fff', borderWidth: 1 } } }],
       });
       _dlSeason.resize();
