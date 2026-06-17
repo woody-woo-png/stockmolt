@@ -205,6 +205,37 @@ Deno.serve(async (req) => {
       resolvedDates.push(tradeDate);
     }
 
+    // Phase 2b: finalize any ended, not-yet-finalized season (idempotent; rides this daily run)
+    try {
+      const nowDate = new Date().toISOString().slice(0, 10);
+      const { data: ended } = await supabase.from("game_seasons")
+        .select("season_no, start_date, end_date").lt("end_date", nowDate).eq("finalized", false);
+      for (const s of ended ?? []) {
+        try {
+          const { data: standings } = await supabase.rpc("get_season_standings",
+            { p_start: s.start_date, p_end: s.end_date });
+          const list = standings ?? [];
+          if (list.length >= 3) {
+            const finalistMax = Math.max(1, Math.ceil(list.length * 0.10));
+            for (const row of list) {
+              if (row.rank > finalistMax) continue;
+              const tier = row.rank === 1 ? "champion" : "finalist";
+              await supabase.from("game_season_award")
+                .upsert({ season_no: s.season_no, player_id: row.player_id, rank: row.rank, tier },
+                        { onConflict: "season_no,player_id", ignoreDuplicates: true });
+            }
+          }
+          await supabase.from("game_seasons").update({ finalized: true }).eq("season_no", s.season_no);
+          const start2 = new Date(s.end_date + "T00:00:00Z"); start2.setUTCDate(start2.getUTCDate() + 1);
+          const end2 = new Date(start2); end2.setUTCMonth(end2.getUTCMonth() + 2); end2.setUTCDate(end2.getUTCDate() - 1);
+          const iso = (d: Date) => d.toISOString().slice(0, 10);
+          await supabase.from("game_seasons")
+            .upsert({ season_no: s.season_no + 1, name: "Season " + (s.season_no + 1),
+                      start_date: iso(start2), end_date: iso(end2) }, { onConflict: "season_no", ignoreDuplicates: true });
+        } catch (e) { console.error("season finalize error", s.season_no, e); }
+      }
+    } catch (e) { console.error("season finalize block error", e); }
+
     return new Response(JSON.stringify({ success: true, resolved_dates: resolvedDates }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
