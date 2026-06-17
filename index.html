@@ -6248,6 +6248,8 @@
             +rows
             +'<div class="gm-vssum">⚡ <b>Live — not final.</b> Settles at the 4 PM ET close.</div>';
           gmLiveTimer=setTimeout(()=>gmLoadPicks(submitted),75000);
+        } else if(submitted){
+          box.innerHTML=banner+'<h3 style="margin-top:12px">🔒 Picks locked · ⚡ LIVE</h3><div class="gm-muted">Your picks are <b>locked in</b> for today. Open this on the device where you picked to watch your <b>live P&L vs the AI</b> — the result settles at the 4 PM ET close.</div>';
         } else {
           box.innerHTML=banner+'<h3 style="margin-top:12px">🔒 The market is open</h3><div class="gm-muted">You sat out this round — picks lock at the 9:30 AM ET open. Come back before the bell next time to join the <b>⚡ live race vs the AI</b>.</div>';
         }
@@ -6261,6 +6263,8 @@
           const rmap={}; (rival||[]).forEach(x=>rmap[x.ticker]=x.direction);
           const rows=myPicks.map(p=>{ const ai=rmap[p.ticker]; const tag=!ai?'':(ai===p.direction?'<span class="tag agree">🤝 AI agreed</span>':'<span class="tag clash">⚡ Clashed</span>'); return '<div class="gm-vs"><span class="tkn">'+p.ticker+'</span><span class="side">'+dirHtml(p.direction)+'</span><span class="mid">⚔️</span><span class="side">'+(ai?dirHtml(ai):'—')+'</span>'+tag+'</div>'; }).join('');
           box.innerHTML=banner+'<h3 style="margin-top:12px">⚔️ You vs AI — today\'s duel</h3>'+rows+'<div class="gm-vssum">Final numbers are in the result card below.</div>';
+        } else if(submitted){
+          box.innerHTML=banner+'<div class="gm-muted">✅ Your picks are <b>settled</b> — see <b>today\'s result</b> in the card below. 🔥 Streak kept; come back ~6:30 AM ET for the next round.</div>';
         } else {
           box.innerHTML=banner+'<div class="gm-muted">You sat out today. <b>Next round opens ~6:30 AM ET</b> — pick before the 9:30 bell to join the live race.</div>';
         }
