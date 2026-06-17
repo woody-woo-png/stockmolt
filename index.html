@@ -1915,6 +1915,16 @@
     .gm-vs .tag.clash{background:#3a1618;color:#f85149;}
     .gm-vssum{text-align:center;font-size:13px;color:#c9d1d9;margin-top:10px;line-height:1.6;}
     .gm-vssum b{color:#e3b341;}
+    /* same-day live loop: phase banner + live P&L */
+    .gm-phase{display:flex;align-items:center;gap:8px;justify-content:center;font-size:13px;font-weight:700;padding:9px 12px;border-radius:10px;margin-bottom:4px;}
+    .gm-phase b{font-weight:800;}
+    .gm-phase.pick{background:#0e2a16;color:#56d364;border:1px solid #2ea04340;}
+    .gm-phase.live{background:#2a1e3d;color:#c4b5fd;border:1px solid #7c3aed55;}
+    .gm-phase.settled{background:#13233f;color:#79c0ff;border:1px solid #2563eb40;}
+    .gm-liveagg{display:flex;gap:10px;margin:10px 0 4px;}
+    .gm-liveagg>div{flex:1;background:#0d1117;border:1px solid #ffffff14;border-radius:12px;padding:10px;text-align:center;}
+    .gm-liveagg .lbl{display:block;font-size:11px;color:#8b949e;margin-bottom:2px;font-weight:700;}
+    .gm-livetag{text-align:center;margin-bottom:8px;min-height:20px;}
     /* level preview + roadmap */
     .gm-nextlv{font-size:11px;color:#c4b5fd;margin-top:6px;}
     .gm-nextlv b{color:#fff;}
@@ -1981,10 +1991,11 @@
       <div class="gm-card gm-help">
         <div class="gm-help-head" onclick="gmToggleHelp()"><span>🎮 How to Play</span><span id="gm-help-arrow">▾</span></div>
         <div id="gm-help-body" class="gm-help-body">
-          <div class="gm-help-step"><b>1.</b> Each day, pick <b>exactly 3 of 6</b> stocks — go ▲ Long (up) or ▼ Short (down)</div>
-          <div class="gm-help-step"><b>2.</b> Auto-scored after the next market close — <b>get it right and your capital &amp; XP grow</b></div>
-          <div class="gm-help-step"><b>3.</b> XP <b>levels up your trader</b> (rises just by playing); capital climbs the <b>leaderboard</b></div>
-          <div class="gm-help-step"><b>4.</b> Go head-to-head with the <b>AI rival</b> on the same stocks → win for a <span class="gm-beat">🏆 Beat the AI</span> bonus</div>
+          <div class="gm-help-step"><b>1.</b> <b>Before the bell</b>, pick <b>exactly 3 of 6</b> stocks — ▲ Long or ▼ Short</div>
+          <div class="gm-help-step"><b>2.</b> Picks <b>lock at the 9:30 AM ET open</b> 🔒 — choose before then</div>
+          <div class="gm-help-step"><b>3.</b> Watch them go <span class="gm-beat">⚡ LIVE</span> vs the AI all session — capital &amp; XP climb the <b>leaderboard</b></div>
+          <div class="gm-help-step"><b>4.</b> Win/lose settles at the <b>4 PM ET close — same day</b>. XP &amp; capital update; <span class="gm-beat">🏆 Beat the AI</span> for a bonus</div>
+          <div class="gm-help-step" style="opacity:.7;font-size:11px">⏰ All times are US market time (ET).</div>
         </div>
       </div>
       <div id="gm-character" class="gm-card"><div class="gm-muted">Loading…</div></div>
@@ -5725,6 +5736,7 @@
     let gmPlayer = null;      // last rendered player (for count-up baseline)
     let gmLastResult = null;  // last rendered verdict result (for share text)
     let gmLastPicks = null;   // picks from the submit that just happened (this session)
+    let gmLiveTimer = null;   // live P&L poll timer (cleared/re-armed each gmLoadPicks)
     let gmAnim = false;       // animate character card on next render (post-submit)
     let gmNameTimer = null;   // debounce for name availability check
     let gmNameOK = false;     // current name passed availability check
@@ -6171,11 +6183,31 @@
         +'<button class="gm-sharebtn" onclick="gmShareResult()">📣 Share result</button>';
     }
 
+    // 현재 라운드 단계: 'pick'(개장 전) | 'live'(장중, 잠금) | 'settled'(마감 후). 시각은 EDT(13:30/20:00 UTC).
+    function gmRoundPhase(tradeDate){
+      const now=new Date();
+      const open=new Date(tradeDate+'T13:30:00Z'), close=new Date(tradeDate+'T20:00:00Z');
+      if(now<open) return 'pick';
+      if(now<close) return 'live';
+      return 'settled';
+    }
+    function gmFmtCountdown(ms){ const m=Math.max(0,Math.floor(ms/60000)); return m>=60?(Math.floor(m/60)+'h '+(m%60)+'m'):(m+'m'); }
+    function gmPhaseBanner(phase,tradeDate){
+      if(phase==='pick'){ const ms=new Date(tradeDate+'T13:30:00Z')-new Date(); return '<div class="gm-phase pick">🟢 Picks open — <b>lock at 9:30 AM ET</b> (in '+gmFmtCountdown(ms)+')</div>'; }
+      if(phase==='live'){ return '<div class="gm-phase live">🔒 Locked · <b>⚡ LIVE</b> — results at 4 PM ET</div>'; }
+      return '<div class="gm-phase settled">📊 <b>Today\'s results are in</b> ↓</div>';
+    }
+    function gmMyPicksLocal(today){
+      let mp=gmLastPicks;
+      if(!mp){ try{ const raw=localStorage.getItem('sm_game_picks_'+today); if(raw) mp=JSON.parse(raw); }catch(e){} }
+      return (mp&&mp.length)?mp:null;
+    }
     async function gmLoadPicks(submitted){
+      if(gmLiveTimer){ clearTimeout(gmLiveTimer); gmLiveTimer=null; }
       const box=document.getElementById('gm-picks');
       const today=gmToday();
       let pool=[];
-      try{ const r=await fetch(GM_REST+'/game_ticker_pool?trade_date=eq.'+today+'&select=ticker,entry_price&order=ticker.asc',{headers:gmHeaders()}); pool=await r.json(); }catch(e){}
+      try{ const r=await fetch(GM_REST+'/game_ticker_pool?trade_date=eq.'+today+'&select=ticker,entry_price,live_price&order=ticker.asc',{headers:gmHeaders()}); pool=await r.json(); }catch(e){}
       if(!Array.isArray(pool)||pool.length===0){
         const wd = new Date().getUTCDay(); // 0=Sun, 6=Sat
         if(wd===0 || wd===6){
@@ -6183,40 +6215,70 @@
           const safe = sc>0 ? '🔥 Your '+sc+'-day streak is safe — see you then!<br>' : '';
           box.innerHTML='<h3>🎯 Today\'s Picks</h3><div class="gm-muted">🗓️ <b>Next round opens Monday.</b><br>'+safe+'Check the leaderboard and grow your trader while you wait.</div>';
         } else {
-          box.innerHTML='<h3>🎯 Today\'s Picks</h3><div class="gm-muted">Today\'s stocks aren\'t ready yet. Check back shortly.</div>';
+          box.innerHTML='<h3>🎯 Today\'s Picks</h3><div class="gm-muted">🗓️ <b>Next round opens ~6:30 AM ET</b> (pre-market). Check back to lock your picks before the 9:30 AM ET open. <span style="opacity:.7">(US market time)</span></div>';
         }
         return;
       }
-      if(submitted){
-        let rival=[];
-        try{ const rr=await fetch(GM_REST+'/game_ai_pick?trade_date=eq.'+today+'&select=ticker,direction',{headers:gmHeaders()}); rival=await rr.json(); }catch(e){}
+      const phase=gmRoundPhase(today);
+      const banner=gmPhaseBanner(phase,today);
+      const dirHtml=d=>d==='long'?'<span class="gm-pos">▲ LONG</span>':d==='short'?'<span class="gm-neg">▼ SHORT</span>':'—';
+      const pct=v=>(v>=0?'+':'')+v.toFixed(2)+'%';
+      const cls=v=>v>=0?'gm-pos':'gm-neg';
+      const pmap={}; pool.forEach(t=>{ pmap[t.ticker]={entry:Number(t.entry_price),live:(t.live_price!=null?Number(t.live_price):Number(t.entry_price))}; });
+      const liveRet=(dir,tk)=>{ const m=pmap[tk]; if(!m||!m.entry) return 0; return (dir==='long'?1:-1)*((m.live-m.entry)/m.entry)*100; };
+      const myPicks=gmMyPicksLocal(today);
+
+      // ── LIVE: 잠금 + 라이브 P&L (내 3종목 기준, 정산과 동일 공식) ──
+      if(phase==='live'){
+        let rival=[]; try{ const rr=await fetch(GM_REST+'/game_ai_pick?trade_date=eq.'+today+'&select=ticker,direction',{headers:gmHeaders()}); rival=await rr.json(); }catch(e){}
         const rmap={}; (rival||[]).forEach(x=>rmap[x.ticker]=x.direction);
-        // my picks: this session's submit, else restored from this browser for today
-        let myPicks=gmLastPicks;
-        if(!myPicks){ try{ const raw=localStorage.getItem('sm_game_picks_'+today); if(raw) myPicks=JSON.parse(raw); }catch(e){} }
-        const head='<h3>🎯 Today\'s Picks</h3><div class="gm-done"><div class="big">✅ Submitted!</div><div class="gm-muted">Results reveal after the next market close.</div></div>';
-        const dirHtml=d=>d==='long'?'<span class="gm-pos">▲ LONG</span>':d==='short'?'<span class="gm-neg">▼ SHORT</span>':'—';
-        if(myPicks && myPicks.length && rival && rival.length){
-          // You vs AI duel — whenever we know this browser's picks for today
-          let clash=0;
-          const rows=myPicks.map(mp=>{
-            const ai=rmap[mp.ticker]; const agree=ai && ai===mp.direction;
-            if(ai && !agree) clash++;
-            const tag=!ai?'':agree?'<span class="tag agree">🤝 AI agrees</span>':'<span class="tag clash">⚡ Clash</span>';
-            return '<div class="gm-vs"><span class="tkn">'+mp.ticker+'</span><span class="side">'+dirHtml(mp.direction)+'</span><span class="mid">⚔️</span><span class="side">'+(ai?dirHtml(ai):'—')+'</span>'+tag+'</div>';
-          }).join('');
-          const sum=clash>0
-            ? 'You\'re going head-to-head with the AI on <b>'+clash+' of 3</b> calls. Who\'s right? Come back after the next market close.'
-            : 'You and the AI <b>agree on all 3</b> today. Settle it after the next market close.';
-          box.innerHTML=head+'<h3 style="margin-top:16px">⚔️ You vs AI — today\'s duel</h3>'+rows+'<div class="gm-vssum">'+sum+'</div>';
+        if(myPicks){
+          const youRets=myPicks.map(p=>liveRet(p.direction,p.ticker));
+          const youAgg=youRets.reduce((a,b)=>a+b,0)/youRets.length;
+          const aiRets=myPicks.map(p=>rmap[p.ticker]?liveRet(rmap[p.ticker],p.ticker):null).filter(x=>x!=null);
+          const aiAgg=aiRets.length?aiRets.reduce((a,b)=>a+b,0)/aiRets.length:null;
+          const beating=aiAgg!=null&&youAgg>aiAgg;
+          const rows=myPicks.map(p=>{ const yr=liveRet(p.direction,p.ticker); return '<div class="gm-vs"><span class="tkn">'+p.ticker+'</span><span class="side">'+dirHtml(p.direction)+'</span><span class="'+cls(yr)+'" style="font-weight:800;min-width:64px;text-align:right">'+pct(yr)+'</span></div>'; }).join('');
+          const tag=aiAgg==null?'':(beating?'<span class="gm-beat">🏆 Beating the AI</span>':'<span style="display:inline-block;background:#3a1618;color:#f85149;font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px">⚠️ Behind the AI</span>');
+          box.innerHTML=banner
+            +'<h3 style="margin-top:12px">⚡ LIVE — your picks vs the AI</h3>'
+            +'<div class="gm-liveagg"><div><span class="lbl">You</span><span class="'+cls(youAgg)+'" style="font-weight:800">'+pct(youAgg)+'</span></div>'
+            +'<div><span class="lbl">AI rival</span><span class="'+(aiAgg==null?'gm-muted':cls(aiAgg))+'" style="font-weight:800">'+(aiAgg==null?'—':pct(aiAgg))+'</span></div></div>'
+            +'<div class="gm-livetag">'+tag+'</div>'
+            +rows
+            +'<div class="gm-vssum">⚡ <b>Live — not final.</b> Settles at the 4 PM ET close.</div>';
+          gmLiveTimer=setTimeout(()=>gmLoadPicks(submitted),75000);
         } else {
-          box.innerHTML=head
-            +((rival&&rival.length)?('<h3 style="margin-top:16px">🤖 Today\'s AI Rival Calls</h3>'+pool.map(t=>'<div class="gm-rrow"><span class="k">'+t.ticker+'</span><span>'+dirHtml(rmap[t.ticker])+'</span></div>').join('')):'');
+          box.innerHTML=banner+'<h3 style="margin-top:12px">🔒 The market is open</h3><div class="gm-muted">You sat out this round — picks lock at the 9:30 AM ET open. Come back before the bell next time to join the <b>⚡ live race vs the AI</b>.</div>';
         }
+        return;
+      }
+
+      // ── SETTLED: 결과 확정 (수치 상세는 아래 결과 카드) ──
+      if(phase==='settled'){
+        if(submitted && myPicks){
+          let rival=[]; try{ const rr=await fetch(GM_REST+'/game_ai_pick?trade_date=eq.'+today+'&select=ticker,direction',{headers:gmHeaders()}); rival=await rr.json(); }catch(e){}
+          const rmap={}; (rival||[]).forEach(x=>rmap[x.ticker]=x.direction);
+          const rows=myPicks.map(p=>{ const ai=rmap[p.ticker]; const tag=!ai?'':(ai===p.direction?'<span class="tag agree">🤝 AI agreed</span>':'<span class="tag clash">⚡ Clashed</span>'); return '<div class="gm-vs"><span class="tkn">'+p.ticker+'</span><span class="side">'+dirHtml(p.direction)+'</span><span class="mid">⚔️</span><span class="side">'+(ai?dirHtml(ai):'—')+'</span>'+tag+'</div>'; }).join('');
+          box.innerHTML=banner+'<h3 style="margin-top:12px">⚔️ You vs AI — today\'s duel</h3>'+rows+'<div class="gm-vssum">Final numbers are in the result card below.</div>';
+        } else {
+          box.innerHTML=banner+'<div class="gm-muted">You sat out today. <b>Next round opens ~6:30 AM ET</b> — pick before the 9:30 bell to join the live race.</div>';
+        }
+        return;
+      }
+
+      // ── PICK: 개장 전. 라이벌은 개장 후 공개(leak gate) ──
+      if(submitted){
+        const rows=(myPicks||[]).map(p=>'<div class="gm-vs"><span class="tkn">'+p.ticker+'</span><span class="side">'+dirHtml(p.direction)+'</span></div>').join('');
+        box.innerHTML=banner
+          +'<h3 style="margin-top:12px">✅ Locked in!</h3>'
+          +rows
+          +'<div class="gm-vssum">Your rival stays hidden until the bell. Watch the <b>⚡ live race vs the AI</b> when the market opens at 9:30 AM ET.</div>';
         return;
       }
       gmSel={};
-      box.innerHTML='<h3>🎯 Today\'s Round — pick exactly 3 of 6 with ▲/▼</h3>'
+      box.innerHTML=banner
+        +'<h3 style="margin-top:8px">🎯 Today\'s Round — pick exactly 3 of 6 with ▲/▼</h3>'
         +'<div class="gm-pickgrid">'
         +pool.map(t=>'<div class="gm-pick" data-tk="'+t.ticker+'"><div class="tk">'+t.ticker+'</div><div class="pr">$'+(t.entry_price!=null?Number(t.entry_price).toLocaleString():'—')+'</div>'
           +'<div class="gm-dir"><button class="long" onclick="gmPick(\''+t.ticker+'\',\'long\',this)">▲ Long</button><button class="short" onclick="gmPick(\''+t.ticker+'\',\'short\',this)">▼ Short</button></div></div>').join('')
