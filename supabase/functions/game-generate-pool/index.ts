@@ -124,7 +124,8 @@ Deno.serve(async (req) => {
         entry = await getPrice(supabaseUrl, anonKey, t);
         if (entry != null) {
           await supabase.from("game_ticker_pool")
-            .update({ entry_price: entry, entry_price_at: new Date().toISOString(), price_source: "get-price" })
+            .update({ entry_price: entry, entry_price_at: new Date().toISOString(), price_source: "get-price",
+                      live_price: entry, live_price_at: new Date().toISOString() })
             .eq("trade_date", today).eq("ticker", t);
         }
       }
