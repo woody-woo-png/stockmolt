@@ -6305,6 +6305,7 @@
           +'<div class="gm-name '+gmNameClass(li.lvl)+'">'+li.badge+' '+(p.display_name||'Trader')+'</div>'
           +'<div class="gm-title">Lv.'+li.lvl+' · '+li.title+'</div>'
           +((p.prestige&&p.prestige.length)?'<div class="gm-prestige">'+p.prestige.map(function(n){return '🏆 S'+n+' Legend';}).join(' ')+'</div>':'')
+          +((p.season_awards&&p.season_awards.length)?'<div class="gm-prestige">'+p.season_awards.map(function(a){return (a.tier==='champion'?'🥇 S'+a.season_no+' Champion':'🏅 S'+a.season_no+' Finalist');}).join(' ')+'</div>':'')
           +(gmSeason?'<div class="gm-season-cd">🏆 '+gmSeason.name+' · ends in '+gmSeason.ends_in_days+' day'+(gmSeason.ends_in_days===1?'':'s')+'</div>':'')
           +'<div class="gm-xpbar"><div class="gm-xpfill" style="width:'+li.pct+'%"></div></div>'
           +'<div class="gm-xptext">'+(li.next===null?('XP '+xp+' · MAX'):('XP '+xp+' / '+li.next))+'</div>'
