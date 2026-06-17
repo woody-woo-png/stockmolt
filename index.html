@@ -1994,6 +1994,10 @@
   </style>
   <div class="page" id="page-game">
     <div class="gm-wrap">
+      <div class="gm-card" style="display:flex;align-items:center;justify-content:center;gap:14px;padding:9px 12px;cursor:pointer;font-size:13px;" onclick="goPage('datalab')">
+        <span style="color:#8b949e;">🌡️ Market Health <b id="gm-breadth-val" style="color:#3fb950;">–</b> <span style="color:#6e7681;">above 200-day</span></span>
+        <span style="color:#58a6ff;font-weight:700;">📈 Open Data Lab →</span>
+      </div>
       <div class="gm-card gm-help">
         <div class="gm-help-head" onclick="gmToggleHelp()"><span>🎮 How to Play</span><span id="gm-help-arrow">▾</span></div>
         <div id="gm-help-body" class="gm-help-body">
@@ -4934,6 +4938,15 @@
         el.textContent = d.current.pct_above_200d + '%';
       }
     }
+
+    async function renderGameStrip() {
+      const el = document.getElementById('gm-breadth-val'); if (!el) return;
+      const d = await _dlFetch('breadth.json');
+      if (d && d.current && d.current.pct_above_200d != null) {
+        el.textContent = d.current.pct_above_200d + '%';
+      }
+    }
+    renderGameStrip();
 
     async function renderSentiment() {
       try {
