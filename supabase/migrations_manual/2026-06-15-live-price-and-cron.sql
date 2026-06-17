@@ -33,7 +33,16 @@ select cron.schedule('game-live-prices', '*/2 13-20 * * 1-5',
        headers := '{"Content-Type":"application/json"}'::jsonb) $$);
 
 ------------------------------------------------------------------------
--- 4) Verify final schedules
+-- 4) Verify final schedules — THIS IS A HARD GATE, DO NOT SKIM.
+--    Expected output:
+--      game-pool-daily     30 10 * * 1-5
+--      game-resolve-daily  30 20 * * 1-5
+--      game-live-prices    */2 13-20 * * 1-5
+--    ⚠️ FAILURE MODE: if a jobname was wrong, alter_job no-ops silently and
+--    generate keeps firing at 21:30 UTC. A pool born at 21:30 is already PAST
+--    the 20:00 close -> the frontend reads phase='settled' -> NEVER pickable
+--    -> the whole game silently breaks. If the rows below do NOT show the
+--    three schedules above, STOP and fix the jobnames before walking away.
 ------------------------------------------------------------------------
 select jobname, schedule, active
 from cron.job
