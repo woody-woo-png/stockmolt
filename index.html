@@ -5754,8 +5754,8 @@
           const pool=await r.json();
           if(Array.isArray(pool)) gmBattleUnits=pool.map(t=>({ticker:t.ticker,dir:null}));
         }
-        // AI direction is gated: fetch + assign ONLY after the user has submitted
-        if(submitted && gmBattleUnits.length && !gmBattleUnits.some(u=>u.dir)){
+        // AI direction is gated: revealed ONLY after the market opens (post-lock), never pre-open
+        if(submitted && gmRoundPhase(today)!=='pick' && gmBattleUnits.length && !gmBattleUnits.some(u=>u.dir)){
           const rr=await fetch(GM_REST+'/game_ai_pick?trade_date=eq.'+today+'&select=ticker,direction',{headers:gmHeaders()});
           const ai=await rr.json();
           if(Array.isArray(ai)){ const m={}; ai.forEach(x=>{ m[x.ticker]=x.direction; }); gmBattleUnits.forEach(u=>{ u.dir=m[u.ticker]||null; }); }
