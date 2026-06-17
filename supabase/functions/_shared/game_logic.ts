@@ -36,6 +36,9 @@ export const XP = {
   BEAT_AI: 40,
   STREAK_3: 50,
   STREAK_7: 150,
+  STREAK_14: 300,
+  STREAK_30: 600,
+  STREAK_100: 2000,
 };
 
 export interface ResultXpInput {
@@ -53,6 +56,9 @@ export function resultXp(
   if (beatAi) breakdown.push({ reason: "beat_ai", xp: XP.BEAT_AI });
   if (newStreak === 3) breakdown.push({ reason: "streak_3", xp: XP.STREAK_3 });
   if (newStreak === 7) breakdown.push({ reason: "streak_7", xp: XP.STREAK_7 });
+  if (newStreak === 14) breakdown.push({ reason: "streak_14", xp: XP.STREAK_14 });
+  if (newStreak === 30) breakdown.push({ reason: "streak_30", xp: XP.STREAK_30 });
+  if (newStreak === 100) breakdown.push({ reason: "streak_100", xp: XP.STREAK_100 });
   const total = breakdown.reduce((s, b) => s + b.xp, 0);
   return { total, breakdown };
 }

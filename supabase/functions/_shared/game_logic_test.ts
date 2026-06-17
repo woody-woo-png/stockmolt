@@ -52,3 +52,25 @@ Deno.test("resultXp: 무적중·패배·스트릭1", () => {
   assertEquals(r.total, XP.RESULT);
   assertEquals(r.breakdown.length, 1);
 });
+
+Deno.test("resultXp: 14일 스트릭 보너스", () => {
+  const r = resultXp({ correctCount: 0, beatAi: false, newStreak: 14 });
+  assertEquals(r.total, 310); // RESULT 10 + STREAK_14 300
+  assertEquals(r.breakdown.length, 2);
+});
+
+Deno.test("resultXp: 30일 스트릭 보너스", () => {
+  const r = resultXp({ correctCount: 0, beatAi: false, newStreak: 30 });
+  assertEquals(r.total, 610); // RESULT 10 + STREAK_30 600
+});
+
+Deno.test("resultXp: 100일 스트릭 보너스", () => {
+  const r = resultXp({ correctCount: 0, beatAi: false, newStreak: 100 });
+  assertEquals(r.total, 2010); // RESULT 10 + STREAK_100 2000
+});
+
+Deno.test("resultXp: 비마일스톤 스트릭은 보너스 없음", () => {
+  const r = resultXp({ correctCount: 0, beatAi: false, newStreak: 8 });
+  assertEquals(r.total, 10); // RESULT only — streak 8 is not a milestone
+  assertEquals(r.breakdown.length, 1);
+});
