@@ -43,6 +43,13 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ success: false, error: "Today's stocks aren't ready yet" }),
         { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
+    // 픽 잠금: 개장(13:30 UTC, EDT) 이후엔 제출 불가 — 가격 보고 고르는 것 방지
+    const nowUtc = new Date();
+    const openUtc = new Date(`${today}T13:30:00Z`);
+    if (nowUtc >= openUtc) {
+      return new Response(JSON.stringify({ success: false, error: "Picks are locked — the market is open. Come back before the next open." }),
+        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
     for (const t of tickers) {
       if (!poolTickers.has(t)) {
         return new Response(JSON.stringify({ success: false, error: `Ticker not in today's pool: ${t}` }),

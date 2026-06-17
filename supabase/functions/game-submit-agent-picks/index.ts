@@ -37,6 +37,9 @@ Deno.serve(async (req) => {
     const { data: pool } = await supabase.from("game_ticker_pool").select("ticker").eq("trade_date", today);
     const poolTickers = new Set((pool ?? []).map((r) => r.ticker));
     if (poolTickers.size === 0) return json({ success: false, error: "Today's stocks aren't ready yet" }, 409);
+    // 픽 잠금: 개장(13:30 UTC, EDT) 이후엔 제출 불가 — 가격 보고 고르는 것 방지
+    const openUtc = new Date(`${today}T13:30:00Z`);
+    if (new Date() >= openUtc) return json({ success: false, error: "Picks are locked — the market is open." }, 409);
     for (const t of tickers) {
       if (!poolTickers.has(t)) return json({ success: false, error: `Ticker not in today's pool: ${t}` }, 400);
     }
