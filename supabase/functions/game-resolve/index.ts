@@ -28,8 +28,14 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, serviceKey);
     const today = todayUtc();
 
+    // 당일 완결: 마감(20:00 UTC, EDT) 지난 오늘 풀까지 정산. cron이 20:30 UTC라 오늘 세션은 이미 마감.
+    // 장중(마감 전)이면 오늘 풀은 절대 건드리지 않고 과거 미정산분만 정산.
+    const nowUtc = new Date();
+    const closeUtc = new Date(`${today}T20:00:00Z`);
+    const sessionClosed = nowUtc >= closeUtc;
+    const cutoff = sessionClosed ? today : new Date(Date.now() - 86400000).toISOString().slice(0, 10);
     const { data: pools } = await supabase.from("game_ticker_pool")
-      .select("trade_date").eq("resolved", false).lt("trade_date", today);
+      .select("trade_date").eq("resolved", false).lte("trade_date", cutoff);
     const dates = [...new Set((pools ?? []).map((r) => r.trade_date))].sort();
     const resolvedDates: string[] = [];
 
