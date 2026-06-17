@@ -39,10 +39,21 @@ Deno.serve(async (req) => {
     const { data: lastResult } = await supabase.from("game_daily_result")
       .select("*").eq("player_id", player.id).order("trade_date", { ascending: false }).limit(1).maybeSingle();
 
+    const { data: season } = await supabase.from("game_seasons")
+      .select("season_no, name, end_date").lte("start_date", today).gte("end_date", today).maybeSingle();
+    let current_season = null;
+    if (season) {
+      const ends = Math.max(0, Math.ceil(
+        (new Date(season.end_date + "T00:00:00Z").getTime() - new Date(today + "T00:00:00Z").getTime()) / 86400000));
+      current_season = { season_no: season.season_no, name: season.name, end_date: season.end_date, ends_in_days: ends };
+    }
+    const { data: prestigeRows } = await supabase.from("game_prestige")
+      .select("season_no").eq("player_id", player.id).order("season_no", { ascending: true });
+    const prestige = (prestigeRows ?? []).map((r: any) => r.season_no);
     const safePlayer = {
       id: player.id, display_name: player.display_name, level: player.level, xp: player.xp,
       streak_current: player.streak_current, streak_best: player.streak_best,
-      capital: player.capital, claimed: player.claimed,
+      capital: player.capital, claimed: player.claimed, prestige,
     };
 
     return new Response(JSON.stringify({
@@ -50,6 +61,7 @@ Deno.serve(async (req) => {
       player: safePlayer,
       submitted_today: (pickCount ?? 0) > 0,
       last_result: lastResult ?? null,
+      current_season,
     }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
     console.error("game-state error:", err);
