@@ -1906,6 +1906,9 @@
     @keyframes gmShimmer{to{background-position:200% center;}}
     @keyframes gmAura{0%,100%{filter:drop-shadow(0 0 3px #22d3ee55);}50%{filter:drop-shadow(0 0 9px #22d3eecc);}}
     @keyframes gmAuraGold{0%,100%{filter:drop-shadow(0 0 4px #e3b34166);}50%{filter:drop-shadow(0 0 11px #e3b341dd);}}
+    .gm-lb-season{font-size:12px;font-weight:800;color:#e3b341;text-align:center;padding:6px 0 2px;}
+    .gm-prestige{font-size:12px;color:#e3b341;font-weight:700;margin-top:3px;}
+    .gm-season-cd{font-size:12px;color:#7ee3f5;font-weight:700;margin-top:6px;}
     .gm-lbrow .vl{font-weight:800;}
     .gm-hero-cta{font-size:13px;color:#9aa7b4;margin-top:4px;}
     .gm-muted{color:#8b949e;font-size:13px;text-align:center;padding:14px 0;}
@@ -5950,6 +5953,7 @@
     const GM_STREAK_MILESTONES = [3, 7, 14, 30, 100];
     const GM_STREAK_BONUS = {3: 50, 7: 150, 14: 300, 30: 600, 100: 2000};
     let gmSel = {};
+    let gmSeason = null;     // current season (from game-state) for card countdown
     let gmPlayer = null;      // last rendered player (for count-up baseline)
     let gmLastResult = null;  // last rendered verdict result (for share text)
     let gmLastPicks = null;   // picks from the submit that just happened (this session)
@@ -6275,6 +6279,7 @@
       if(!state || !state.success){ document.getElementById('gm-character').innerHTML='<div class="gm-muted">Failed to load player.</div>'; return; }
       // auto-named player (Trader-xxxxxx) → force choosing a real name before entering
       if(state.player && state.player.display_name === 'Trader-'+String(did).slice(0,6)){ gmShowNameModal({rename:true, did:did}); return; }
+      gmSeason = state.current_season || null;
       gmStartBattle(state.submitted_today);
       gmRenderCharacter(state.player, gmPlayer, state.submitted_today);
       gmShowScoringNotice();
@@ -6299,6 +6304,8 @@
         +'<div class="gm-hid">'
           +'<div class="gm-name '+gmNameClass(li.lvl)+'">'+li.badge+' '+(p.display_name||'Trader')+'</div>'
           +'<div class="gm-title">Lv.'+li.lvl+' · '+li.title+'</div>'
+          +((p.prestige&&p.prestige.length)?'<div class="gm-prestige">'+p.prestige.map(function(n){return '🏆 S'+n+' Legend';}).join(' ')+'</div>':'')
+          +(gmSeason?'<div class="gm-season-cd">🏆 '+gmSeason.name+' · ends in '+gmSeason.ends_in_days+' day'+(gmSeason.ends_in_days===1?'':'s')+'</div>':'')
           +'<div class="gm-xpbar"><div class="gm-xpfill" style="width:'+li.pct+'%"></div></div>'
           +'<div class="gm-xptext">'+(li.next===null?('XP '+xp+' · MAX'):('XP '+xp+' / '+li.next))+'</div>'
           +(li.next===null?'<div class="gm-nextlv">🏆 Max level reached — Legend status</div>':'<div class="gm-nextlv">▲ '+li.remaining+' XP to <b>Lv.'+(li.lvl+1)+' '+li.nextBadge+' '+li.nextTitle+'</b></div>')
@@ -6561,18 +6568,27 @@
 
     window.gmLoadLeaderboard=async function(type){
       const box=document.getElementById('gm-lb');
-      box.innerHTML='<h3>🏆 Leaderboard</h3><div class="gm-lb-found">⭐ Founding season — the board is just getting started. Climb in early.</div><div class="gm-lbtog"><button id="gmlb-return" class="'+(type==='return'?'on':'')+'" onclick="gmLoadLeaderboard(\'return\')">💰 Return</button><button id="gmlb-xp" class="'+(type==='xp'?'on':'')+'" onclick="gmLoadLeaderboard(\'xp\')">⭐ XP</button></div><div id="gm-lb-rows"><div class="gm-muted">Loading…</div></div>';
+      box.innerHTML='<h3>🏆 Leaderboard</h3><div class="gm-lb-found">⭐ Founding season — the board is just getting started. Climb in early.</div><div class="gm-lbtog"><button id="gmlb-return" class="'+(type==='return'?'on':'')+'" onclick="gmLoadLeaderboard(\'return\')">💰 Return</button><button id="gmlb-xp" class="'+(type==='xp'?'on':'')+'" onclick="gmLoadLeaderboard(\'xp\')">🏆 Season</button></div><div id="gm-lb-rows"><div class="gm-muted">Loading…</div></div>';
       try{
         const r=await fetch(GM_FN+'/game-leaderboard?type='+type+'&limit=20&device_id='+encodeURIComponent(gmDeviceId()),{headers:gmHeaders()});
         const d=await r.json(); const rows=(d.rows||[]);
         const aiTotal=Number(d.ai_total)||0;
-        const hdr=(type==='return'&&aiTotal>0)?('<div class="gm-lb-aihdr">🤖 You\'re up against '+aiTotal+' AI trader'+(aiTotal===1?'':'s')+'</div>'):'';
-        // 내 순위 핀: Return 보드에서 상위 컷 밖이면 맨 아래에 내 행 고정
+        let hdr=(type==='return'&&aiTotal>0)?('<div class="gm-lb-aihdr">🤖 You\'re up against '+aiTotal+' AI trader'+(aiTotal===1?'':'s')+'</div>'):'';
+        if(type==='xp' && d.season){
+          let endTxt='';
+          if(d.season.end_date){ const dd=Math.max(0,Math.ceil((new Date(d.season.end_date+'T00:00:00Z')-new Date())/86400000)); endTxt=' · ends in '+dd+' day'+(dd===1?'':'s'); }
+          hdr='<div class="gm-lb-season">🏆 '+(d.season.name||'Season')+endTxt+'</div>'+hdr;
+        }
+        // 내 순위 핀: 상위 컷 밖이면 맨 아래에 내 행 고정 (return=수익률, xp=시즌XP)
         const me=d.me; let meHtml='';
-        if(type==='return' && me && me.rank>rows.length){
-          const mvcls=me.return_pct>=0?'gm-pos':'gm-neg';
-          const mval=(me.return_pct>=0?'+':'')+me.return_pct+'%';
-          meHtml='<div class="gm-lb-mediv">⋯</div><div class="gm-lbrow gm-lb-me"><span class="rk">'+me.rank+'</span><span class="nm">🧑‍💻 '+(me.display_name||'You')+' <span style="color:#8b949e;font-size:11px">YOU</span></span><span class="vl '+mvcls+'">'+mval+'</span></div>';
+        if(me && me.rank>rows.length){
+          if(type==='xp'){
+            meHtml='<div class="gm-lb-mediv">⋯</div><div class="gm-lbrow gm-lb-me"><span class="rk">'+me.rank+'</span><span class="nm">🧑‍💻 '+(me.display_name||'You')+' <span style="color:#8b949e;font-size:11px">YOU</span></span><span class="vl">⭐ '+me.xp+'</span></div>';
+          } else {
+            const mvcls=me.return_pct>=0?'gm-pos':'gm-neg';
+            const mval=(me.return_pct>=0?'+':'')+me.return_pct+'%';
+            meHtml='<div class="gm-lb-mediv">⋯</div><div class="gm-lbrow gm-lb-me"><span class="rk">'+me.rank+'</span><span class="nm">🧑‍💻 '+(me.display_name||'You')+' <span style="color:#8b949e;font-size:11px">YOU</span></span><span class="vl '+mvcls+'">'+mval+'</span></div>';
+          }
         }
         document.getElementById('gm-lb-rows').innerHTML = rows.length? (hdr + rows.map(x=>{
           const val=type==='xp'?('⭐ '+x.xp):((x.return_pct>=0?'+':'')+x.return_pct+'%');
