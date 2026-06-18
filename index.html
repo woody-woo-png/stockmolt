@@ -5954,6 +5954,13 @@
     const GM_STREAK_BONUS = {3: 50, 7: 150, 14: 300, 30: 600, 100: 2000};
     let gmSel = {};
     let gmSeason = null;     // current season (from game-state) for card countdown
+    let gmTodayRival = null;  // {name, persona} from game-state, for the rival banner
+    function gmEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+    function gmRivalLine(){
+      if(!gmTodayRival){ return '<div class="gm-vssum">⚔️ Today\'s rival posts at the open.</div>'; }
+      var p=(gmTodayRival.persona||'').trim(); if(p.length>60) p=p.slice(0,57)+'…';
+      return '<div class="gm-vssum">⚔️ Today\'s rival: <b>'+gmEsc(gmTodayRival.name)+'</b>'+(p?' · '+gmEsc(p):'')+'</div>';
+    }
     let gmPlayer = null;      // last rendered player (for count-up baseline)
     let gmLastResult = null;  // last rendered verdict result (for share text)
     let gmLastPicks = null;   // picks from the submit that just happened (this session)
@@ -6280,6 +6287,7 @@
       // auto-named player (Trader-xxxxxx) → force choosing a real name before entering
       if(state.player && state.player.display_name === 'Trader-'+String(did).slice(0,6)){ gmShowNameModal({rename:true, did:did}); return; }
       gmSeason = state.current_season || null;
+      gmTodayRival = state.today_rival || null;
       gmStartBattle(state.submitted_today);
       gmRenderCharacter(state.player, gmPlayer, state.submitted_today);
       gmShowScoringNotice();
@@ -6420,7 +6428,17 @@
         '<h3>📊 Last round · '+res.trade_date+'</h3>'
         +'<div class="gm-rrow"><span class="k">Your avg return</span><span class="'+avgCls+'" style="font-weight:800">'+(avg>=0?'+':'')+avg.toFixed(2)+'%</span></div>'
         +'<div class="gm-rrow"><span class="k">Correct</span><span>'+res.correct_count+' / '+res.picks_count+'</span></div>'
-        +'<div class="gm-rrow"><span class="k">vs AI</span><span>'+(res.beat_ai?'<span class="gm-beat">🏆 BEAT THE AI</span>':'Lost this time')+'</span></div>'
+        +(function(){
+           var rd=res.rival_display;
+           if(rd && rd.has_scoreboard){
+             return '<div class="gm-rrow"><span class="k">⚔️ Rival</span><span style="font-weight:800">'+gmEsc(rd.rival_name)+'</span></div>'
+               +(res.rival_persona?'<div class="gm-rrow"><span class="k"></span><span class="gm-muted" style="font-size:12px">'+gmEsc(res.rival_persona)+'</span></div>':'')
+               +'<div class="gm-rrow"><span class="k">You</span><span style="font-weight:800">'+rd.you_pct+'</span></div>'
+               +'<div class="gm-rrow"><span class="k">'+gmEsc(rd.rival_name)+'</span><span style="font-weight:800">'+rd.rival_pct+'</span></div>'
+               +'<div class="gm-rrow"><span class="k">Result</span><span>'+(res.beat_ai?'<span class="gm-beat">'+gmEsc(rd.verdict)+'</span>':gmEsc(rd.verdict))+' <span class="gm-muted" style="font-size:12px">'+rd.margin+'</span></span></div>';
+           }
+           return '<div class="gm-rrow"><span class="k">vs AI</span><span>'+(res.beat_ai?'<span class="gm-beat">🏆 BEAT THE AI</span>':'Lost this time')+'</span></div>';
+         })()
         +'<div class="gm-rrow"><span class="k">XP earned</span><span style="font-weight:800;color:#c4b5fd">+'+res.xp_earned+'</span></div>'
         +'<div class="gm-rrow"><span class="k">Capital</span><span>'+fmtMoney(res.capital_before)+' → '+fmtMoney(res.capital_after)+'</span></div>'
         +'<button class="gm-sharebtn" onclick="gmShareResult()">📣 Share result</button>';
@@ -6486,7 +6504,7 @@
           box.innerHTML=banner
             +'<h3 style="margin-top:12px">⚡ LIVE — your picks vs the AI</h3>'
             +'<div class="gm-liveagg"><div><span class="lbl">You</span><span class="'+cls(youAgg)+'" style="font-weight:800">'+pct(youAgg)+'</span></div>'
-            +'<div><span class="lbl">AI rival</span><span class="'+(aiAgg==null?'gm-muted':cls(aiAgg))+'" style="font-weight:800">'+(aiAgg==null?'—':pct(aiAgg))+'</span></div></div>'
+            +'<div><span class="lbl">'+(gmTodayRival?gmEsc(gmTodayRival.name):'AI rival')+'</span><span class="'+(aiAgg==null?'gm-muted':cls(aiAgg))+'" style="font-weight:800">'+(aiAgg==null?'—':pct(aiAgg))+'</span></div></div>'
             +'<div class="gm-livetag">'+tag+'</div>'
             +rows
             +'<div class="gm-vssum">⚡ <b>Live — not final.</b> Settles at the 4 PM ET close.</div>';
@@ -6520,7 +6538,8 @@
         box.innerHTML=banner
           +'<h3 style="margin-top:12px">✅ Locked in!</h3>'
           +rows
-          +'<div class="gm-vssum">Your rival stays hidden until the bell. Watch the <b>⚡ live race vs the AI</b> when the market opens at 9:30 AM ET.</div>';
+          +gmRivalLine()
+          +'<div class="gm-vssum">Their picks stay hidden until the bell — watch the <b>⚡ live race vs the AI</b> when the market opens at 9:30 AM ET.</div>';
         return;
       }
       gmSel={};
