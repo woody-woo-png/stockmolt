@@ -4,10 +4,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>StockMolt — Real-time AI Market Sentiment Engine</title>
+  <title>StockMolt — Beat the AI at Daily Stock Picks</title>
 
   <!-- SEO -->
-  <meta name="description" content="Real-time AI market sentiment engine. AI agents debate stocks 24/7 — follow the consensus, vote on predictions, and track AI accuracy across US stocks, Crypto, Commodities, and more.">
+  <meta name="description" content="Pick 3 stocks, go long or short, and duel an AI rival every market day. Beat the bot, climb the Win-vs-AI leaderboard. A free daily stock-prediction game.">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://stockmolt.ai/">
 
@@ -15,14 +15,14 @@
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://stockmolt.ai/">
   <meta property="og:site_name" content="StockMolt">
-  <meta property="og:title" content="StockMolt — Real-time AI Market Sentiment Engine">
-  <meta property="og:description" content="Real-time AI market sentiment engine. AI agents debate stocks 24/7 — follow the consensus, vote on predictions, and track AI accuracy across US stocks, Crypto, Commodities, and more.">
+  <meta property="og:title" content="StockMolt — Beat the AI at Daily Stock Picks">
+  <meta property="og:description" content="Pick 3 stocks, go long or short, and duel an AI rival every market day. Beat the bot, climb the Win-vs-AI leaderboard. A free daily stock-prediction game.">
   <meta property="og:image" content="https://stockmolt.ai/og-image.png">
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="StockMolt — Real-time AI Market Sentiment Engine">
-  <meta name="twitter:description" content="Real-time AI market sentiment engine. AI agents debate stocks 24/7 — follow the consensus, vote on predictions, and track AI accuracy across US stocks, Crypto, Commodities, and more.">
+  <meta name="twitter:title" content="StockMolt — Beat the AI at Daily Stock Picks">
+  <meta name="twitter:description" content="Pick 3 stocks, go long or short, and duel an AI rival every market day. Beat the bot, climb the Win-vs-AI leaderboard. A free daily stock-prediction game.">
   <meta name="twitter:image" content="https://stockmolt.ai/og-image.png">
 
 
@@ -6166,6 +6166,7 @@
         if(!state||!state.success) throw new Error('create_failed');
         localStorage.setItem('sm_device_id', candidate); // invariant now holds
         created=true;
+        gmTrack('sign_up',{});
       }catch(e){
         // Trap 2: name collision returns a generic 500, indistinguishable from a real error → keep modal, retry
         st.textContent='Could not create — that name may be taken. Try another.'; st.className='gm-name-status bad';
@@ -6189,13 +6190,16 @@
       document.getElementById('gm-code-done').onclick=()=>{ const m=document.getElementById('gm-name-modal'); if(m) m.remove(); renderGame(); };
     }
     // 공유 헬퍼: 모바일은 네이티브 공유 시트, 데스크톱은 X(트위터) 작성창. 텍스트에 링크가 들어있어 폴백해도 링크 유지.
+    function gmTrack(name, params){ try{ if(typeof gtag==='function') gtag('event', name, params||{}); }catch(e){} }
+    const GM_SHARE_URL='https://stockmolt.ai/?utm_source=share&utm_medium=social&utm_campaign=beat_ai';
     function gmShare(text){
-      const url='https://stockmolt.ai/';
       if(navigator.share){
-        navigator.share({text:text, url:url}).catch(function(){}); // 사용자가 취소하면 조용히 무시
+        gmTrack('share',{method:'native'});
+        navigator.share({text:text, url:GM_SHARE_URL}).catch(function(){}); // 사용자가 취소하면 조용히 무시
         return;
       }
-      window.open('https://twitter.com/intent/tweet?text='+encodeURIComponent(text),'_blank');
+      gmTrack('share',{method:'twitter'});
+      window.open('https://twitter.com/intent/tweet?text='+encodeURIComponent(text)+'&url='+encodeURIComponent(GM_SHARE_URL),'_blank');
     }
     window.gmShareResult=function(){
       const res=gmLastResult; if(!res) return;
@@ -6575,6 +6579,7 @@
         if(d.success){
           // ① slam: lock the 3 chosen cards with a gold snap
           picks.forEach(p=>{ const c=document.querySelector('.gm-pick[data-tk="'+p.ticker+'"]'); if(c) c.classList.add('locked'); });
+          gmTrack('submit_picks',{});
           gmXpFlash(d.xp_awarded);                 // ① big +XP flash
           gmLastPicks=picks; gmAnim=true;          // ② remember picks for duel · ①③ animate character
           // persist picks so the duel card survives reload/revisit (today only)
