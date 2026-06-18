@@ -106,7 +106,8 @@ Deno.serve(async (req) => {
       roster: A.filter((a: any) => a.game_roster).length,
       external: A.filter((a: any) => a.game_external).length,
       registered_only: A.filter((a: any) => !a.game_roster && !a.game_external).length,
-      list: A.map((a: any) => ({
+      // list = currently IN THE GAME only (roster or external); legacy posting bots excluded
+      list: A.filter((a: any) => a.game_roster || a.game_external).map((a: any) => ({
         name: a.name,
         type: aType(a),
         capital: a.game_capital == null ? null : Number(a.game_capital),
