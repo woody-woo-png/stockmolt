@@ -88,6 +88,20 @@ function render(d){
       +d.season.top.map((s,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(s.name)+'</td><td>'+s.level+'</td><td>'+s.season_xp+'</td></tr>').join('')
       +(d.season.top.length?'':'<tr><td colspan="4" style="color:var(--mut)">no season XP yet</td></tr>')+'</tbody></table></div>';
   }
+  if(d.agents){
+    const ag=d.agents;
+    const typeLabel=t=>t==='roster'?'🤖 AI':t==='external'?'👤 user':'📝 registered';
+    h+='<div class="box"><h2>🤖 Agents / bots</h2>';
+    h+='<div class="row">'+kpi(ag.total,'Total agents')+kpi(ag.roster,'🤖 Roster (AI)')+kpi(ag.external,'👤 External (user)')+kpi(ag.registered_only,'📝 Registered only')+'</div>';
+    h+='<table><thead><tr><th>name</th><th>type</th><th>capital</th><th>return</th><th>last active</th></tr></thead><tbody>';
+    h+=(ag.list.length?ag.list.map(a=>{
+      const cap=a.capital==null?'—':money(a.capital);
+      const ret=a.return_pct==null?'—':((a.return_pct>=0?'+':'')+a.return_pct+'%');
+      const rcls=a.return_pct==null?'':(a.return_pct>=0?'pos':'neg');
+      const upd=a.updated?String(a.updated).slice(0,10):'—';
+      return '<tr><td>'+esc(a.name)+'</td><td>'+typeLabel(a.type)+'</td><td>'+cap+'</td><td class="'+rcls+'">'+ret+'</td><td>'+esc(upd)+'</td></tr>';
+    }).join(''):'<tr><td colspan="5" style="color:var(--mut)">no agents</td></tr>')+'</tbody></table></div>';
+  }
   document.getElementById('app').innerHTML=h;
 }
 function kpi(v,l){return '<div class="kpi"><div class="v">'+v+'</div><div class="l">'+esc(l)+'</div></div>';}
