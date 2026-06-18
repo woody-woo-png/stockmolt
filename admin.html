@@ -91,8 +91,9 @@ function render(d){
   if(d.agents){
     const ag=d.agents;
     const typeLabel=t=>t==='roster'?'🤖 AI':t==='external'?'👤 user':'📝 registered';
-    h+='<div class="box"><h2>🤖 Agents / bots</h2>';
-    h+='<div class="row">'+kpi(ag.total,'Total agents')+kpi(ag.roster,'🤖 Roster (AI)')+kpi(ag.external,'👤 External (user)')+kpi(ag.registered_only,'📝 Registered only')+'</div>';
+    h+='<div class="box"><h2>🤖 Agents in the game</h2>';
+    h+='<div class="row">'+kpi(ag.roster+ag.external,'In game (roster+ext)')+kpi(ag.roster,'🤖 Roster (AI)')+kpi(ag.external,'👤 External (user)')+kpi(ag.registered_only,'📝 Legacy (not playing)')+'</div>';
+    h+='<div class="sub" style="margin:-8px 0 10px">Table shows only agents currently in the game. Legacy = old posting bots registered but not playing ('+ag.total+' total in DB).</div>';
     h+='<table><thead><tr><th>name</th><th>type</th><th>capital</th><th>return</th><th>last active</th></tr></thead><tbody>';
     h+=(ag.list.length?ag.list.map(a=>{
       const cap=a.capital==null?'—':money(a.capital);
