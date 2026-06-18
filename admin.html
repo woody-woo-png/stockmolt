@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>StockMolt · Admin</title>
+<style>
+  :root{--bg:#0d1117;--card:#161b22;--line:#30363d;--mut:#8b949e;--txt:#f0f6fc;--vio:#7c3aed;--cy:#22d3ee;--gold:#e3b341;--grn:#3fb950;--red:#f85149;}
+  *{box-sizing:border-box;font-family:system-ui,Segoe UI,Roboto,sans-serif;}
+  body{margin:0;background:var(--bg);color:var(--txt);padding:18px;max-width:1100px;margin:0 auto;}
+  h1{font-size:20px;margin:0 0 4px;} .sub{color:var(--mut);font-size:12px;margin-bottom:18px;}
+  .row{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:18px;}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 18px;min-width:130px;}
+  .kpi .v{font-size:30px;font-weight:800;} .kpi .l{color:var(--mut);font-size:12px;margin-top:2px;}
+  .box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:18px;}
+  .box h2{font-size:14px;margin:0 0 12px;color:var(--cy);text-transform:uppercase;letter-spacing:1px;}
+  table{width:100%;border-collapse:collapse;font-size:13px;} th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);white-space:nowrap;}
+  th{color:var(--mut);font-weight:600;} .grid span{font-family:monospace;letter-spacing:1px;}
+  .barwrap{display:flex;align-items:flex-end;gap:4px;height:70px;}
+  .bar{flex:1;background:var(--vio);border-radius:3px 3px 0 0;min-height:2px;}
+  .bar.a{background:var(--cy);} .barlabels{display:flex;gap:4px;font-size:9px;color:var(--mut);margin-top:4px;}
+  .barlabels span{flex:1;text-align:center;}
+  #login{max-width:320px;margin:80px auto;text-align:center;}
+  input,button{font-size:15px;padding:10px 14px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--txt);}
+  button{background:var(--vio);border-color:var(--vio);font-weight:700;cursor:pointer;margin-top:10px;width:100%;}
+  .err{color:var(--red);font-size:13px;margin-top:10px;} .pos{color:var(--grn);} .neg{color:var(--red);}
+</style></head>
+<body>
+<div id="login">
+  <h1>🔒 StockMolt Admin</h1>
+  <div class="sub">Enter admin token</div>
+  <input id="tok" type="password" placeholder="admin token" autocomplete="off" style="width:100%">
+  <button onclick="saveTok()">Unlock</button>
+  <div id="loginerr" class="err"></div>
+</div>
+<div id="app" style="display:none"></div>
+<script>
+const FN='https://oyatbvqpilvbhqpiafwp.supabase.co/functions/v1';
+const ANON='sb_publishable_8-tR6LbXU-l0qdgFmYnH-A_WxSuuBi0';
+function tok(){return localStorage.getItem('sm_admin_token')||'';}
+function saveTok(){const v=document.getElementById('tok').value.trim();if(!v)return;localStorage.setItem('sm_admin_token',v);load();}
+function logout(){localStorage.removeItem('sm_admin_token');location.reload();}
+function esc(s){return String(s==null?'':s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+function money(n){return '$'+Math.round(Number(n)).toLocaleString();}
+
+async function load(){
+  try{
+    const r=await fetch(FN+'/admin-stats',{headers:{'apikey':ANON,'Authorization':'Bearer '+ANON,'x-admin-token':tok()}});
+    if(r.status===401){fail('Wrong token.');return;}
+    const d=await r.json(); if(!d.success){fail('Error loading.');return;}
+    document.getElementById('login').style.display='none';
+    document.getElementById('app').style.display='block';
+    render(d);
+  }catch(e){fail('Network error.');}
+}
+function fail(m){
+  const inLogin=document.getElementById('app').style.display!=='block';
+  if(inLogin){document.getElementById('loginerr').textContent=m;}
+  else{document.getElementById('app').innerHTML='<div class="err">'+esc(m)+'</div>';}
+}
+
+function bars(series,key,cls){
+  const max=Math.max(1,...series.map(x=>x[key]));
+  return '<div class="barwrap">'+series.map(x=>'<div class="bar '+cls+'" style="height:'+Math.round(x[key]/max*100)+'%" title="'+x.date+': '+x[key]+'"></div>').join('')+'</div>'
+    +'<div class="barlabels">'+series.map(x=>'<span>'+x.date.slice(5)+'</span>').join('')+'</div>';
+}
+
+function render(d){
+  const t=d.totals,c=d.cohort,sd=d.streak_dist;
+  let h='';
+  h+='<h1>📊 StockMolt Admin <button onclick="logout()" style="width:auto;float:right;background:var(--card);border-color:var(--line);font-size:12px;padding:6px 12px">Logout</button></h1>';
+  h+='<div class="sub">Generated '+esc(d.generated_at)+' · counts (not rates) at founding scale</div>';
+  h+='<div class="row">'
+    +kpi(t.players,'Total players')+kpi(t.named,'Named')+kpi(t.active_today,'Active today')+kpi(t.with_streak,'Live streaks')
+    +kpi(c.returning,'Returning (≥2 days)')+kpi(c.one_and_done,'One-and-done')+kpi(c.active_7d,'Active 7d')+'</div>';
+  h+='<div class="box"><h2>New players · last 14 days</h2>'+bars(d.days14,'new_players','')+'</div>';
+  h+='<div class="box"><h2>Active players · last 14 days</h2>'+bars(d.days14,'active_players','a')+'</div>';
+  h+='<div class="box"><h2>Streak distribution</h2><div class="row">'+Object.keys(sd).map(k=>kpi(sd[k],'streak '+k)).join('')+'</div></div>';
+  h+='<div class="box"><h2>Players</h2><table><thead><tr><th>name</th><th>created</th><th>last</th><th>days</th><th>streak</th><th>lvl</th><th>capital</th><th>rounds</th><th>beat AI</th><th>14d</th></tr></thead><tbody>';
+  h+=d.users.map(u=>{
+    const grid=u.grid.map(g=>g?'<span style="color:var(--grn)">●</span>':'<span style="color:var(--line)">·</span>').join('');
+    const cap=Number(u.capital), capCls=cap>=100000?'pos':'neg';
+    return '<tr><td>'+esc(u.name)+'</td><td>'+esc(u.created)+'</td><td>'+esc(u.last_active||'—')+'</td><td>'+u.active_days+'</td><td>'+u.streak+'/'+u.best+'</td><td>'+u.level+'</td><td class="'+capCls+'">'+money(u.capital)+'</td><td>'+u.rounds+'</td><td>'+u.beat_rate+'%</td><td class="grid">'+grid+'</td></tr>';
+  }).join('')+'</tbody></table></div>';
+  if(d.season){
+    h+='<div class="box"><h2>🏆 '+esc(d.season.name)+' — top season XP</h2><table><thead><tr><th>#</th><th>name</th><th>lvl</th><th>season XP</th></tr></thead><tbody>'
+      +d.season.top.map((s,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(s.name)+'</td><td>'+s.level+'</td><td>'+s.season_xp+'</td></tr>').join('')
+      +(d.season.top.length?'':'<tr><td colspan="4" style="color:var(--mut)">no season XP yet</td></tr>')+'</tbody></table></div>';
+  }
+  document.getElementById('app').innerHTML=h;
+}
+function kpi(v,l){return '<div class="kpi"><div class="v">'+v+'</div><div class="l">'+esc(l)+'</div></div>';}
+
+if(tok()) load();
+</script>
+</body></html>
