@@ -6287,7 +6287,7 @@
       gmLoadRank(did, state.player.xp);
       gmRenderResult(state.last_result);
       gmLoadPicks(state.submitted_today);
-      gmLoadLeaderboard('return');
+      gmLoadLeaderboard('skill');
       gmLoadKingdom();
       gmLoadAccTeaser();
     };
@@ -6569,11 +6569,29 @@
 
     window.gmLoadLeaderboard=async function(type){
       const box=document.getElementById('gm-lb');
-      box.innerHTML='<h3>🏆 Leaderboard</h3><div class="gm-lb-found">⭐ Founding season — the board is just getting started. Climb in early.</div><div class="gm-lbtog"><button id="gmlb-return" class="'+(type==='return'?'on':'')+'" onclick="gmLoadLeaderboard(\'return\')">💰 Return</button><button id="gmlb-xp" class="'+(type==='xp'?'on':'')+'" onclick="gmLoadLeaderboard(\'xp\')">🏆 Season</button></div><div id="gm-lb-rows"><div class="gm-muted">Loading…</div></div>';
+      box.innerHTML='<h3>🏆 Leaderboard</h3><div class="gm-lb-found">⭐ Founding season — the board is just getting started. Climb in early.</div><div class="gm-lbtog"><button id="gmlb-skill" class="'+(type==='skill'?'on':'')+'" onclick="gmLoadLeaderboard(\'skill\')">🎯 Win vs AI</button><button id="gmlb-return" class="'+(type==='return'?'on':'')+'" onclick="gmLoadLeaderboard(\'return\')">💰 Return</button><button id="gmlb-xp" class="'+(type==='xp'?'on':'')+'" onclick="gmLoadLeaderboard(\'xp\')">🏆 Season</button></div><div id="gm-lb-rows"><div class="gm-muted">Loading…</div></div>';
       try{
         const r=await fetch(GM_FN+'/game-leaderboard?type='+type+'&limit=20&device_id='+encodeURIComponent(gmDeviceId()),{headers:gmHeaders()});
         const d=await r.json(); const rows=(d.rows||[]);
         const aiTotal=Number(d.ai_total)||0;
+        if(type==='skill'){
+          const SKILL_MIN=3;
+          let shdr=(aiTotal>0)?('<div class="gm-lb-aihdr">🤖 '+aiTotal+' AI rival'+(aiTotal===1?'':'s')+' — beat them</div>'):'';
+          const sme=d.me; let smeHtml='';
+          if(sme){
+            if(sme.needs>0){
+              smeHtml='<div class="gm-lb-mediv">⋯</div><div class="gm-muted" style="text-align:center">Play '+sme.needs+' more round'+(sme.needs===1?'':'s')+' to appear here.</div>';
+            } else if(sme.rank>rows.length){
+              smeHtml='<div class="gm-lb-mediv">⋯</div><div class="gm-lbrow gm-lb-me"><span class="rk">'+sme.rank+'</span><span class="nm">🧑‍💻 '+(sme.display_name||'You')+' <span style="color:#8b949e;font-size:11px">YOU</span></span><span class="vl">🆚 '+sme.win_rate+'% · 🎯 '+sme.accuracy+'%</span></div>';
+            }
+          }
+          const sbody = rows.length ? (shdr + rows.map(x=>{
+            var nmCls=gmNameClass(x.level);
+            return '<div class="gm-lbrow"><span class="rk">'+x.rank+'</span><span class="nm '+nmCls+'">'+(GM_BADGES[(x.level||1)-1]||'🐣')+' '+(x.display_name||'Trader')+' <span style="color:#8b949e;font-size:11px">Lv.'+x.level+'</span></span><span class="vl">🆚 '+x.win_rate+'% <span style="color:#8b949e;font-size:11px">('+x.wins+'/'+x.rounds+')</span> · 🎯 '+x.accuracy+'%</span></div>';
+          }).join('') + smeHtml) : (shdr + '<div class="gm-muted">Win vs the AI in '+SKILL_MIN+' rounds to claim the top skill rank.</div>' + smeHtml);
+          const sel=document.getElementById('gm-lb-rows'); if(sel) sel.innerHTML=sbody;
+          return;
+        }
         let hdr=(type==='return'&&aiTotal>0)?('<div class="gm-lb-aihdr">🤖 You\'re up against '+aiTotal+' AI trader'+(aiTotal===1?'':'s')+'</div>'):'';
         if(type==='xp' && d.season){
           let endTxt='';
