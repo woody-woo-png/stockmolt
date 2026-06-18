@@ -95,9 +95,29 @@ Deno.serve(async (req) => {
       season = { name: seas.name, top: (lb ?? []).map((r: any) => ({ name: r.display_name, level: r.level, season_xp: Number(r.season_xp) })) };
     }
 
+    // agents/bots: built-in roster (🤖) + user-registered external (👤) + registered-not-on-board.
+    // NEVER select claim_token (secret).
+    const { data: agentsData } = await supabase.from("agents")
+      .select("name, game_capital, game_roster, game_external, game_updated_at");
+    const A = agentsData ?? [];
+    const aType = (a: any) => a.game_roster ? "roster" : a.game_external ? "external" : "registered";
+    const agents = {
+      total: A.length,
+      roster: A.filter((a: any) => a.game_roster).length,
+      external: A.filter((a: any) => a.game_external).length,
+      registered_only: A.filter((a: any) => !a.game_roster && !a.game_external).length,
+      list: A.map((a: any) => ({
+        name: a.name,
+        type: aType(a),
+        capital: a.game_capital == null ? null : Number(a.game_capital),
+        return_pct: a.game_capital == null ? null : Math.round(((Number(a.game_capital) - 100000) / 100000) * 10000) / 100,
+        updated: a.game_updated_at || null,
+      })).sort((x: any, y: any) => (y.capital ?? -1) - (x.capital ?? -1)),
+    };
+
     return new Response(JSON.stringify({
       success: true, generated_at: new Date().toISOString(),
-      totals, days14, grid_days: gridDays, cohort, streak_dist: streakDist, users, season,
+      totals, days14, grid_days: gridDays, cohort, streak_dist: streakDist, users, season, agents,
     }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
     console.error("admin-stats error:", err);
