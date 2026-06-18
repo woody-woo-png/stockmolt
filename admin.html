@@ -16,7 +16,9 @@
   table{width:100%;border-collapse:collapse;font-size:13px;} th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);white-space:nowrap;}
   th{color:var(--mut);font-weight:600;} .grid span{font-family:monospace;letter-spacing:1px;}
   .barwrap{display:flex;align-items:flex-end;gap:4px;height:70px;}
-  .bar{flex:1;background:var(--vio);border-radius:3px 3px 0 0;min-height:2px;}
+  .barcol{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;}
+  .barv{font-size:10px;font-weight:800;color:var(--txt);margin-bottom:2px;line-height:1;}
+  .bar{width:100%;background:var(--vio);border-radius:3px 3px 0 0;min-height:2px;}
   .bar.a{background:var(--cy);} .barlabels{display:flex;gap:4px;font-size:9px;color:var(--mut);margin-top:4px;}
   .barlabels span{flex:1;text-align:center;}
   #login{max-width:320px;margin:80px auto;text-align:center;}
@@ -60,7 +62,7 @@ function fail(m){
 
 function bars(series,key,cls){
   const max=Math.max(1,...series.map(x=>x[key]));
-  return '<div class="barwrap">'+series.map(x=>'<div class="bar '+cls+'" style="height:'+Math.round(x[key]/max*100)+'%" title="'+x.date+': '+x[key]+'"></div>').join('')+'</div>'
+  return '<div class="barwrap">'+series.map(x=>'<div class="barcol"><span class="barv">'+x[key]+'</span><div class="bar '+cls+'" style="height:'+Math.round(x[key]/max*100)+'%" title="'+x.date+': '+x[key]+'"></div></div>').join('')+'</div>'
     +'<div class="barlabels">'+series.map(x=>'<span>'+x.date.slice(5)+'</span>').join('')+'</div>';
 }
 
