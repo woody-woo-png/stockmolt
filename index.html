@@ -1544,6 +1544,19 @@
         display: none;
       }
     }
+    /* Weekend Quiz */
+    .gm-quiz-progress { display:flex; align-items:center; gap:10px; margin:10px 0 16px; }
+    .gm-quiz-bar { flex:1; height:6px; background:#21262d; border-radius:3px; overflow:hidden; }
+    .gm-quiz-fill { height:100%; background:#58a6ff; border-radius:3px; transition:width .3s; }
+    .gm-quiz-q { font-size:17px; font-weight:600; line-height:1.5; margin:16px 0 20px; padding:16px; background:#161b22; border:1px solid #21262d; border-radius:10px; }
+    .gm-quiz-btns { display:flex; gap:10px; }
+    .gm-quiz-btn { flex:1; padding:14px; border-radius:10px; border:2px solid #30363d; background:#161b22; color:#e6edf3; font-size:15px; font-weight:700; cursor:pointer; transition:all .15s; }
+    .gm-quiz-btn.true:hover { background:#1a3a2a; border-color:#3fb950; color:#3fb950; }
+    .gm-quiz-btn.false:hover { background:#3a1618; border-color:#f85149; color:#f85149; }
+    .gm-quiz-reward { font-size:16px; font-weight:700; color:#e3b341; margin:6px 0; }
+    /* Weekend coins in character card */
+    .gm-weekend-coins { font-size:13px; color:#8b949e; margin:6px 0 4px; cursor:default; }
+    .gm-weekend-coins:hover { color:#e3b341; }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 </head>
@@ -6410,6 +6423,7 @@
           return '<div class="gm-streak"><div class="gm-streak-top">🔥 <b>'+sc+'</b>-day streak<span class="best">best '+(Number(p.streak_best)||0)+'</span></div>'+bar+'<div class="gm-streak-goal">'+goal+'</div><div class="gm-streak-status">'+status+'</div></div>';
         })()
         +'<div id="gm-rank" class="gm-rank"></div>'
+        +'<div id="gm-weekend-coins" class="gm-weekend-coins" title="Weekend Coins — spend on cosmetics coming soon">🪙 0 Weekend Coins</div>'
         +'<button class="gm-sharebtn" onclick="gmShareTrader()">📣 Share my trader</button>'
         +'<div class="gm-savenote">💾 Your trader is saved to <b>this browser</b>. Save your recovery code to log in on another device.</div>'
         +'<button class="gm-codebtn" onclick="gmRevealCode()">🔑 Show recovery code</button>';
