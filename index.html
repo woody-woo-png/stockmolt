@@ -6448,6 +6448,125 @@
       setTimeout(()=>{ o.classList.add('out'); },2200);
       setTimeout(()=>{ o.remove(); },2800);
     }
+
+    let gmQuizAnswers = [];  // collected answers for current session
+    let gmQuizIndices = [];  // today's 5 question indices
+
+    function gmRenderWeekendQuiz(quizState) {
+      // quizState = {weekend_coins, submitted_today} from weekend-quiz-state
+      const box = document.getElementById('gm-picks');
+      const todayStr = gmToday(); // "YYYY-MM-DD"
+      gmQuizIndices = weekendQuizIndices(todayStr);
+
+      if (quizState && quizState.submitted_today) {
+        // Already submitted — load cached result from localStorage
+        let cached = null;
+        try { cached = JSON.parse(localStorage.getItem('sm_quiz_result_' + todayStr) || 'null'); } catch(e) {}
+        gmRenderQuizResult(box, cached, quizState.weekend_coins);
+        return;
+      }
+
+      // Show first question
+      gmQuizAnswers = [];
+      gmShowQuizQuestion(box, 0);
+    }
+
+    function gmShowQuizQuestion(box, qIdx) {
+      const qi = gmQuizIndices[qIdx];
+      const q = WEEKEND_QUIZ[qi];
+      const total = gmQuizIndices.length; // always 5
+      const pct = Math.round((qIdx / total) * 100);
+
+      box.innerHTML =
+        '<h3>🗓️ Weekend Market Quiz</h3>'
+        + '<div class="gm-muted" style="margin-bottom:8px">Earn XP + 🪙 Weekend Coins</div>'
+        + '<div class="gm-quiz-progress">'
+          + '<div class="gm-quiz-bar"><div class="gm-quiz-fill" style="width:' + pct + '%"></div></div>'
+          + '<span class="gm-muted" style="font-size:12px">Q' + (qIdx + 1) + ' / ' + total + '</span>'
+        + '</div>'
+        + '<div class="gm-quiz-q">' + gmEsc(q.q) + '</div>'
+        + '<div class="gm-quiz-btns">'
+          + '<button class="gm-quiz-btn true" onclick="gmQuizAnswer(true,' + qIdx + ')">✅ TRUE</button>'
+          + '<button class="gm-quiz-btn false" onclick="gmQuizAnswer(false,' + qIdx + ')">❌ FALSE</button>'
+        + '</div>';
+    }
+
+    window.gmQuizAnswer = function(answer, qIdx) {
+      gmQuizAnswers.push(answer);
+      const next = qIdx + 1;
+      const box = document.getElementById('gm-picks');
+
+      if (next < gmQuizIndices.length) {
+        gmShowQuizQuestion(box, next);
+        return;
+      }
+
+      // All 5 answered — submit
+      box.innerHTML = '<div class="gm-muted" style="padding:24px 0;text-align:center">Submitting… ⏳</div>';
+      const did = gmDeviceId();
+      fetch(GM_FN + '/weekend-quiz-submit', {
+        method: 'POST',
+        headers: gmHeaders(),
+        body: JSON.stringify({ device_id: did, answers: gmQuizAnswers })
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (!data.success) {
+          box.innerHTML = '<div class="gm-muted">⚠️ ' + gmEsc(data.error || 'Submit failed') + '</div>';
+          return;
+        }
+        // Cache result for re-visits
+        const todayStr = gmToday();
+        const resultCache = {
+          score: data.score,
+          xp_earned: data.xp_earned,
+          coins_earned: data.coins_earned,
+          correct: data.correct,
+          indices: gmQuizIndices,
+        };
+        try { localStorage.setItem('sm_quiz_result_' + todayStr, JSON.stringify(resultCache)); } catch(e) {}
+        // Update weekend coins display in character card
+        gmUpdateWeekendCoins(data.total_weekend_coins);
+        gmRenderQuizResult(box, resultCache, data.total_weekend_coins);
+      })
+      .catch(() => {
+        box.innerHTML = '<div class="gm-muted">⚠️ Connection failed — try again.</div>';
+      });
+    };
+
+    function gmRenderQuizResult(box, result, totalCoins) {
+      const sc = (gmPlayer && Number(gmPlayer.streak_current)) || 0;
+      const streakSafe = sc > 0 ? '<div class="gm-muted" style="margin-top:6px">🔥 Your ' + sc + '-day streak is safe — see you Monday!</div>' : '';
+
+      if (!result) {
+        // Submitted but no cached data (cleared localStorage)
+        box.innerHTML =
+          '<h3>✅ Quiz complete!</h3>'
+          + '<div class="gm-muted">You\'ve already submitted today\'s quiz.</div>'
+          + '<div class="gm-muted">🪙 Total Weekend Coins: ' + (totalCoins || 0) + '</div>'
+          + '<div class="gm-muted" style="margin-top:8px">🗓️ Next round opens Monday.</div>'
+          + streakSafe;
+        return;
+      }
+
+      const dotRow = result.correct.map(function(c) {
+        return '<span style="color:' + (c ? '#3fb950' : '#f85149') + ';font-size:18px">' + (c ? '✅' : '❌') + '</span>';
+      }).join(' ');
+
+      box.innerHTML =
+        '<h3>Quiz Complete! 🎉</h3>'
+        + '<div style="font-size:22px;font-weight:800;margin:8px 0">' + result.score + ' / 5 correct</div>'
+        + '<div class="gm-quiz-reward">+' + result.xp_earned + ' XP &nbsp;·&nbsp; +' + result.coins_earned + ' 🪙 Weekend Coins</div>'
+        + '<div style="margin:12px 0;letter-spacing:4px">' + dotRow + '</div>'
+        + '<div class="gm-muted" style="margin-top:8px">🗓️ Next round opens Monday.</div>'
+        + streakSafe;
+    }
+
+    function gmUpdateWeekendCoins(coins) {
+      const el = document.getElementById('gm-weekend-coins');
+      if (el) el.textContent = '🪙 ' + coins + ' Weekend Coins';
+    }
+
     function gmStreakCheck(cur){
       cur = Number(cur) || 0;
       let celebrated = Number(localStorage.getItem('sm_streak_celebrated')) || 0;
