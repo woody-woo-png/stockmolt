@@ -6664,9 +6664,20 @@
       if(!Array.isArray(pool)||pool.length===0){
         const wd = new Date().getUTCDay(); // 0=Sun, 6=Sat
         if(wd===0 || wd===6){
-          const sc = (gmPlayer && Number(gmPlayer.streak_current)) || 0;
-          const safe = sc>0 ? '🔥 Your '+sc+'-day streak is safe — see you then!<br>' : '';
-          box.innerHTML='<h3>🎯 Today\'s Picks</h3><div class="gm-muted">🗓️ <b>Next round opens Monday.</b><br>'+safe+'Check the leaderboard and grow your trader while you wait.</div>';
+          // Weekend: load quiz state then render quiz or result
+          const did = gmDeviceId();
+          let quizState = null;
+          try {
+            const qr = await fetch(GM_FN+'/weekend-quiz-state', {
+              method: 'POST', headers: gmHeaders(),
+              body: JSON.stringify({device_id: did})
+            });
+            quizState = await qr.json();
+            if (quizState && quizState.success && quizState.weekend_coins != null) {
+              gmUpdateWeekendCoins(quizState.weekend_coins);
+            }
+          } catch(e) {}
+          gmRenderWeekendQuiz(quizState && quizState.success ? quizState : null);
         } else {
           box.innerHTML='<h3>🎯 Today\'s Picks</h3><div class="gm-muted">🗓️ <b>Next round opens ~6:30 AM ET</b> (pre-market). Check back to lock your picks before the 9:30 AM ET open. <span style="opacity:.7">(US market time)</span></div>';
         }
