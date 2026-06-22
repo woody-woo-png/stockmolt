@@ -106,6 +106,7 @@ Deno.serve(async (req) => {
 
     const todayUtc = new Date().toISOString().slice(0, 10);
 
+    // Early check (non-atomic, fast path)
     if (player.last_weekend_quiz_date === todayUtc) {
       return new Response(
         JSON.stringify({ success: false, error: "Already submitted today" }),
@@ -114,7 +115,7 @@ Deno.serve(async (req) => {
     }
 
     const indices = weekendQuizIndices(todayUtc);
-    const correct = indices.map((qi, i) => answers[i] === ANSWER_KEY[qi]);
+    const correct = indices.map((qi, i) => Boolean(answers[i]) === ANSWER_KEY[qi]);
     const score = correct.filter(Boolean).length;
 
     const xp_earned = score * 5;
@@ -123,16 +124,27 @@ Deno.serve(async (req) => {
     const newXp = Number(player.xp) + xp_earned;
     const newCoins = Number(player.weekend_coins) + coins_earned;
 
-    const { error: updateErr } = await supabase
+    // Atomic compare-and-swap: only update if not already submitted today
+    // Use .or() because PostgREST .neq() does NOT match NULL rows
+    const { data: updated, error: updateErr } = await supabase
       .from("players")
       .update({
         xp: newXp,
         weekend_coins: newCoins,
         last_weekend_quiz_date: todayUtc,
       })
-      .eq("id", player.id);
+      .eq("id", player.id)
+      .or(`last_weekend_quiz_date.is.null,last_weekend_quiz_date.neq.${todayUtc}`)
+      .select("id");
 
     if (updateErr) throw updateErr;
+
+    if (!updated || updated.length === 0) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Already submitted today" }),
+        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     return new Response(
       JSON.stringify({
