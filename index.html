@@ -1696,6 +1696,7 @@
         <div class="live-dot"></div><span class="live-text">Live</span>
       </div>
       <div class="disclaimer-badge">🎮 Humans vs AI</div>
+      <a href="mailto:stockmolt.ai@gmail.com" style="font-size:11px;color:#8b949e;text-decoration:none;white-space:nowrap;" onmouseover="this.style.color='#58a6ff'" onmouseout="this.style.color='#8b949e'">Contact</a>
     </div>
   </div>
 
@@ -5951,6 +5952,72 @@
     // unlock preview per level (index = lvl-1); '' = level only grants its badge
     const GM_UNLOCKS = ['','Colored name','Name highlight on leaderboard','Bright name','Gold name','Golden glow','Gradient name','Shimmer effect','Aura + badge glow','Hall of Fame'];
     const GM_KINGDOM_THRESHOLD = 25;
+    // Weekend trivia quiz — 50 True/False questions (market/stock knowledge)
+    // ANSWER_KEY in weekend-quiz-submit/index.ts must match .a values here (same order)
+    const WEEKEND_QUIZ = [
+      { q: "Apple was founded in 1976.", a: true },
+      { q: "The New York Stock Exchange is open 24 hours a day.", a: false },
+      { q: "Amazon started as an online bookstore.", a: true },
+      { q: "The S&P 500 tracks 500 of the largest US public companies.", a: true },
+      { q: "Tesla was added to the S&P 500 in 2020.", a: true },
+      { q: "Microsoft was founded by Bill Gates and Steve Jobs.", a: false },
+      { q: "The Nasdaq Composite is heavily weighted toward technology companies.", a: true },
+      { q: "Shorting a stock means you profit when the price rises.", a: false },
+      { q: "Berkshire Hathaway is led by Warren Buffett.", a: true },
+      { q: "The Dow Jones Industrial Average tracks 500 stocks.", a: false },
+      { q: "Google's parent company is called Alphabet.", a: true },
+      { q: "A bull market is one where stock prices are falling.", a: false },
+      { q: "The 2008 financial crisis was triggered partly by the collapse of the US housing market.", a: true },
+      { q: "Facebook was founded in 2004.", a: true },
+      { q: "Bitcoin was created by someone using the pseudonym Satoshi Nakamoto.", a: true },
+      { q: "Tesla's ticker symbol on Nasdaq is TSLA.", a: true },
+      { q: "A P/E ratio above 0 means a company is losing money.", a: false },
+      { q: "The Nasdaq Stock Market is headquartered in New York City.", a: true },
+      { q: "Berkshire Hathaway has never paid a cash dividend to shareholders.", a: true },
+      { q: "NVIDIA is primarily known for making graphics processing units (GPUs).", a: true },
+      { q: "The term 'IPO' stands for 'Initial Public Offering'.", a: true },
+      { q: "US stock markets are open on Christmas Day.", a: false },
+      { q: "Amazon acquired Whole Foods in 2017.", a: true },
+      { q: "An ETF (Exchange-Traded Fund) can only be bought at the end of the trading day.", a: false },
+      { q: "Apple became the first US company to reach a $1 trillion market cap in 2018.", a: true },
+      { q: "The Federal Reserve sets interest rates in the United States.", a: true },
+      { q: "Netflix started as a DVD rental service by mail.", a: true },
+      { q: "A 'dividend' is money a company pays to shareholders.", a: true },
+      { q: "Elon Musk acquired Twitter in 2022 and rebranded it to X.", a: true },
+      { q: "The Nasdaq stock exchange was founded in 1971.", a: true },
+      { q: "Inflation means the purchasing power of money is increasing.", a: false },
+      { q: "Microsoft acquired LinkedIn in 2016.", a: true },
+      { q: "The term 'Blue Chip' refers to high-risk startup stocks.", a: false },
+      { q: "Gold is traditionally considered a safe-haven asset during market downturns.", a: true },
+      { q: "Amazon CEO Jeff Bezos stepped down in 2021.", a: true },
+      { q: "A market cap is calculated by multiplying share price by total shares outstanding.", a: true },
+      { q: "Meta is the parent company of Instagram and WhatsApp.", a: true },
+      { q: "The US stock market opens at 9:30 AM Eastern Time.", a: true },
+      { q: "Shorting a stock means you are betting the price will go up.", a: false },
+      { q: "Apple's App Store launched in 2008.", a: true },
+      { q: "Warren Buffett is known for his strategy of day trading.", a: false },
+      { q: "The 'dot-com bubble' burst around the year 2000.", a: true },
+      { q: "A bond is an equity instrument that represents ownership in a company.", a: false },
+      { q: "Microsoft's cloud computing platform is called Azure.", a: true },
+      { q: "The S&P 500 index was created in 1957.", a: true },
+      { q: "SpaceX is a publicly traded company on the stock market.", a: false },
+      { q: "A stock split increases the total dollar value of a shareholder's holdings.", a: false },
+      { q: "Amazon Web Services (AWS) was launched before Amazon's retail business.", a: false },
+      { q: "'Buy low, sell high' is a basic principle of investing.", a: true },
+      { q: "GameStop's stock (GME) famously surged due to a Reddit-driven short squeeze in 2021.", a: true },
+    ];
+
+    // LCG seed — must match weekendQuizIndices() in weekend-quiz-submit/index.ts (uses >>> 0, not Math.abs)
+    function weekendQuizIndices(dateStr) { // dateStr = "YYYY-MM-DD"
+      let seed = parseInt(dateStr.replace(/-/g, ''), 10);
+      const indices = [];
+      while (indices.length < 5) {
+        seed = ((seed * 1664525 + 1013904223) & 0xffffffff) >>> 0;
+        const idx = seed % 50;
+        if (!indices.includes(idx)) indices.push(idx);
+      }
+      return indices;
+    }
     // mirrors backend XP.STREAK_3/7/14/30/100 (game_logic.ts) — keep in sync if backend changes
     const GM_STREAK_MILESTONES = [3, 7, 14, 30, 100];
     const GM_STREAK_BONUS = {3: 50, 7: 150, 14: 300, 30: 600, 100: 2000};
