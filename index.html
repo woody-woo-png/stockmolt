@@ -1808,7 +1808,7 @@
   </div>
   <!-- ===== GAME (Trader RPG) ===== -->
   <style>
-    #page-game{overflow-y:auto;position:relative;}
+    #page-game{overflow-y:auto;position:relative;overflow-anchor:none;}
     /* ambient backdrop: fills the desktop side margins behind the cards (CSS-only, pointer-events:none) */
     #page-game::before{content:'';position:absolute;inset:0;z-index:0;pointer-events:none;
       background:radial-gradient(38vw 38vw at 16% 26%,#7c3aed26,transparent 70%),radial-gradient(34vw 34vw at 84% 74%,#22d3ee1f,transparent 70%);
@@ -6466,6 +6466,7 @@
       gmLoadLeaderboard('skill');
       gmLoadKingdom();
       gmLoadAccTeaser();
+      const _pg = document.getElementById('page-game'); if (_pg) _pg.scrollTop = 0;
     };
 
     function gmRenderCharacter(p, prev, submitted){
