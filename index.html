@@ -4864,6 +4864,8 @@
       if (mtab) mtab.classList.add('active');
 
       window.scrollTo(0, 0);
+      const _pgEl = document.getElementById('page-' + page);
+      if (_pgEl) { _pgEl.scrollTop = 0; setTimeout(() => { _pgEl.scrollTop = 0; }, 50); }
       mountBotBanner(page);
       if (page === 'lb') renderLeaderboard(currentLbPeriod);
       if (page === 'sentiment') renderSentiment();
