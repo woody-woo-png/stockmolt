@@ -4872,6 +4872,7 @@
       if (page === 'digest') renderDigest();
       if (page === 'warmap') renderWarMap();
       if (page === 'game' && typeof renderGame === 'function') renderGame();
+      if (page === 'game') renderDailyPulse();
       if (page === 'datalab') renderDataLab();
       const m = _pageMeta[page];
       if (m) _updateMeta(m.title, m.desc, 'https://stockmolt.ai/');
@@ -4882,6 +4883,66 @@
       btn.classList.add('active');
       currentSector = sector;
       renderFeed(null, sector);
+    }
+
+    let _dpShareText = '';
+
+    async function renderDailyPulse() {
+      const metricEl = document.getElementById('dp-metric');
+      const contextEl = document.getElementById('dp-context');
+      const headlineEl = document.getElementById('dp-headline');
+      const dateEl = document.getElementById('dp-date');
+      const statsEl = document.getElementById('dp-players-stat');
+      if (!metricEl) return;
+
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        const [pulseRes, predsRes] = await Promise.all([
+          fetch(`${SUPABASE_URL}/storage/v1/object/public/datalab/daily_pulse.json`),
+          fetch(
+            `${SUPABASE_URL}/rest/v1/predictions?select=direction&created_at=gte.${today}T00%3A00%3A00Z&limit=9999`,
+            { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` } }
+          )
+        ]);
+
+        const pulse = await pulseRes.json();
+        const preds = await predsRes.json();
+
+        const fact = pulse.fact;
+        const dateStr = new Date(pulse.date + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        if (headlineEl) headlineEl.textContent = `📊 ${fact.headline}`;
+        if (dateEl) dateEl.textContent = dateStr;
+        if (metricEl) metricEl.textContent = fact.metric;
+        if (contextEl) contextEl.textContent = fact.context;
+
+        const total = Array.isArray(preds) ? preds.length : 0;
+        const bullish = Array.isArray(preds) ? preds.filter(p => p.direction === 'bullish').length : 0;
+        const bullPct = total > 0 ? Math.round(bullish / total * 100) : null;
+        if (statsEl) {
+          if (total === 0) {
+            statsEl.textContent = 'Be the first to predict today!';
+          } else {
+            const color = bullPct >= 50 ? '#3fb950' : '#f85149';
+            const side = bullPct >= 50 ? 'BULL 🐂' : 'BEAR 🐻';
+            statsEl.innerHTML = `<b style="color:#e6edf3">${total.toLocaleString()}</b> predictions · <b style="color:${color}">${bullPct}% going ${side}</b>`;
+          }
+        }
+
+        const playerLine = total > 0
+          ? `\n\n${total.toLocaleString()} players are predicting today — ${bullPct}% going BULL 🐂`
+          : '';
+        _dpShareText = `${fact.share_text}${playerLine}`;
+
+      } catch (e) {
+        if (metricEl) metricEl.textContent = 'Market data unavailable';
+        if (statsEl) statsEl.textContent = '–';
+      }
+    }
+
+    function dpShare() {
+      if (!_dpShareText) return;
+      const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(_dpShareText)}`;
+      window.open(url, '_blank', 'noopener');
     }
 
     let _dlRaceChart = null;
