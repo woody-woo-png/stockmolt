@@ -2039,17 +2039,19 @@
   <div class="page" id="page-game">
     <div class="gm-wrap">
       <div id="daily-pulse" class="gm-card" style="padding:0;overflow:hidden;">
-        <div style="padding:14px 16px;">
+        <div style="padding:12px 16px 10px;">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-            <span style="font-size:11px;font-weight:700;color:#8b949e;text-transform:uppercase;letter-spacing:.8px;" id="dp-headline">📊 Market Pulse</span>
+            <span style="font-size:11px;font-weight:700;color:#8b949e;text-transform:uppercase;letter-spacing:.8px;">⚡ Yesterday's Battle</span>
             <span style="font-size:11px;color:#6e7681;" id="dp-date"></span>
           </div>
-          <div style="font-size:16px;font-weight:800;color:#e6edf3;margin-bottom:6px;line-height:1.3;" id="dp-metric">Loading…</div>
-          <div style="font-size:12px;color:#8b949e;margin-bottom:12px;" id="dp-context"></div>
-          <div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:10px 12px;margin-bottom:12px;">
-            <div style="font-size:11px;font-weight:700;color:#58a6ff;margin-bottom:2px;">🎮 Today's Players</div>
-            <div style="font-size:13px;color:#e6edf3;" id="dp-players-stat">Loading…</div>
+          <div id="dp-yesterday" style="display:flex;flex-direction:column;gap:3px;min-height:44px;">
+            <span style="color:#6e7681;font-size:12px;">Loading…</span>
           </div>
+        </div>
+        <div style="border-top:1px solid #21262d;"></div>
+        <div style="padding:10px 16px 14px;">
+          <div style="font-size:11px;font-weight:700;color:#58a6ff;margin-bottom:5px;">🎮 Today's Pulse</div>
+          <div style="font-size:13px;color:#e6edf3;margin-bottom:10px;" id="dp-players-stat">Loading…</div>
           <div style="display:flex;gap:8px;">
             <button onclick="document.getElementById('gm-picks').scrollIntoView({behavior:'smooth'})" style="flex:1;background:#238636;border:none;border-radius:8px;padding:9px 12px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;">Join the prediction →</button>
             <button onclick="dpShare()" style="background:#21262d;border:1px solid #30363d;border-radius:8px;padding:9px 14px;color:#8b949e;font-size:12px;font-weight:700;cursor:pointer;">Share 𝕏</button>
@@ -2394,6 +2396,13 @@
         📊 A data playground built from ~20 years of market history — facts, <b>not stock tips</b>.
         New to charts? Each one has a <b>📖 How to read</b> line in plain English. No predictions, no buy/sell calls.
       </p>
+
+      <h3 style="margin:0 0 4px;">🧠 Crowd Intelligence</h3>
+      <p style="color:#6e7681;font-size:12px;margin:0 0 8px;">Accuracy by ticker — how well did the crowd call each stock over the last 30 days?</p>
+      <p style="color:#a9b1ba;font-size:12px;margin:0 0 10px;font-style:italic;">📖 How to read: green = crowd was right more than half the time. Red = the crowd got burned. Hover for exact counts.</p>
+      <div id="dl-crowd-intel" style="width:100%;height:260px;"></div>
+
+      <div style="border-top:1px solid #21262d;margin:20px 0 16px;"></div>
 
       <h3 style="margin:0 0 4px;">⚰️ Strategy Graveyard</h3>
       <p id="dl-race-summary" style="color:#8b949e;font-size:13px;margin:0 0 4px;">Loading…</p>
@@ -4905,54 +4914,85 @@
     let _dpShareText = '';
 
     async function renderDailyPulse() {
-      const metricEl = document.getElementById('dp-metric');
-      const contextEl = document.getElementById('dp-context');
-      const headlineEl = document.getElementById('dp-headline');
-      const dateEl = document.getElementById('dp-date');
+      const ydEl = document.getElementById('dp-yesterday');
       const statsEl = document.getElementById('dp-players-stat');
-      if (!metricEl) return;
+      const dateEl = document.getElementById('dp-date');
+      if (!ydEl) return;
+
+      const todayUTC = new Date().toISOString().split('T')[0];
+      const ydDate = new Date(Date.now() - 86400000);
+      const ydUTC = ydDate.toISOString().split('T')[0];
+      const hdrs = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` };
 
       try {
-        const today = new Date().toISOString().split('T')[0];
-        const [pulseRes, predsRes] = await Promise.all([
-          fetch(`${SUPABASE_URL}/storage/v1/object/public/datalab/daily_pulse.json`),
-          fetch(
-            `${SUPABASE_URL}/rest/v1/predictions?select=direction&created_at=gte.${today}T00%3A00%3A00Z&limit=9999`,
-            { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` } }
-          )
+        const [todayRes, ydRes] = await Promise.all([
+          fetch(`${SUPABASE_URL}/rest/v1/predictions?select=direction&created_at=gte.${todayUTC}T00%3A00%3A00Z&limit=9999`, { headers: hdrs }),
+          fetch(`${SUPABASE_URL}/rest/v1/predictions?select=ticker,direction,outcome,entry_price,outcome_price&created_at=gte.${ydUTC}T00%3A00%3A00Z&created_at=lt.${todayUTC}T00%3A00%3A00Z&outcome=not.is.null&limit=9999`, { headers: hdrs }),
         ]);
+        const todayPreds = await todayRes.json();
+        const ydPreds = await ydRes.json();
 
-        const pulse = await pulseRes.json();
-        const preds = await predsRes.json();
-
-        const fact = pulse.fact;
-        const dateStr = new Date(pulse.date + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-        if (headlineEl) headlineEl.textContent = `📊 ${fact.headline}`;
-        if (dateEl) dateEl.textContent = dateStr;
-        if (metricEl) metricEl.textContent = fact.metric;
-        if (contextEl) contextEl.textContent = fact.context;
-
-        const total = Array.isArray(preds) ? preds.length : 0;
-        const bullish = Array.isArray(preds) ? preds.filter(p => p.direction === 'bullish').length : 0;
+        // Today stats
+        const total = Array.isArray(todayPreds) ? todayPreds.length : 0;
+        const bullish = Array.isArray(todayPreds) ? todayPreds.filter(p => p.direction === 'bullish').length : 0;
         const bullPct = total > 0 ? Math.round(bullish / total * 100) : null;
+        if (dateEl) dateEl.textContent = ydDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         if (statsEl) {
           if (total === 0) {
             statsEl.textContent = 'Be the first to predict today!';
           } else {
             const color = bullPct >= 50 ? '#3fb950' : '#f85149';
             const side = bullPct >= 50 ? 'BULL 🐂' : 'BEAR 🐻';
-            statsEl.innerHTML = `<b style="color:#e6edf3">${total.toLocaleString()}</b> predictions · <b style="color:${color}">${bullPct}% going ${side}</b>`;
+            statsEl.innerHTML = `<b style="color:#e6edf3">${total.toLocaleString()}</b> predictions · <b style="color:${color}">${bullPct}% ${side}</b>`;
           }
         }
 
-        const playerLine = total > 0
-          ? `\n\n${total.toLocaleString()} players are predicting today — ${bullPct}% going BULL 🐂`
-          : '';
-        _dpShareText = `${fact.share_text}${playerLine}`;
-
-      } catch (e) {
-        if (metricEl) metricEl.textContent = 'Market data unavailable';
-        if (statsEl) statsEl.textContent = '–';
+        // Yesterday's battle
+        const settled = Array.isArray(ydPreds) ? ydPreds.filter(p => p.outcome !== 'inconclusive') : [];
+        if (settled.length > 0) {
+          const byTicker = {};
+          for (const p of settled) {
+            if (!byTicker[p.ticker]) byTicker[p.ticker] = { bull: 0, bear: 0, correct: 0, total: 0, entries: [], exits: [] };
+            const t = byTicker[p.ticker];
+            t.total++;
+            if (p.direction === 'bullish') t.bull++; else t.bear++;
+            if (p.outcome === 'correct') t.correct++;
+            if (p.entry_price) t.entries.push(+p.entry_price);
+            if (p.outcome_price) t.exits.push(+p.outcome_price);
+          }
+          const top = Object.entries(byTicker).sort((a, b) => b[1].total - a[1].total).slice(0, 3);
+          let shareLines = [];
+          ydEl.innerHTML = top.map(([ticker, d]) => {
+            const bPct = Math.round(d.bull / d.total * 100);
+            const majDir = bPct >= 50 ? 'BULL' : 'BEAR';
+            const majPct = bPct >= 50 ? bPct : 100 - bPct;
+            const avgEntry = d.entries.length ? d.entries.reduce((a,b)=>a+b,0)/d.entries.length : 0;
+            const avgExit  = d.exits.length  ? d.exits.reduce((a,b)=>a+b,0)/d.exits.length   : 0;
+            const chg = avgEntry > 0 && avgExit > 0 ? ((avgExit - avgEntry) / avgEntry * 100) : null;
+            const chgStr = chg !== null ? `${chg >= 0 ? '+' : ''}${chg.toFixed(1)}%` : '–';
+            const crowdWon = chg !== null && ((bPct >= 50 && chg > 0) || (bPct < 50 && chg < 0));
+            const icon = chg === null ? '' : crowdWon ? '✅' : '❌';
+            const pColor = chg === null ? '#8b949e' : chg >= 0 ? '#3fb950' : '#f85149';
+            const mColor = bPct >= 50 ? '#3fb950' : '#f85149';
+            shareLines.push(`${ticker} ${majPct}% ${majDir} → ${icon} ${chgStr}`);
+            return `<div style="display:flex;align-items:center;gap:6px;padding:3px 0;font-size:13px;">
+              <span style="font-weight:800;color:#e6edf3;min-width:44px">${ticker}</span>
+              <span style="color:${mColor};min-width:68px">${majPct}% ${majDir}</span>
+              <span style="color:#6e7681">→</span>
+              <span style="font-weight:700;color:${pColor};min-width:42px">${chgStr}</span>
+              <span>${icon}</span>
+            </div>`;
+          }).join('');
+          const todayLine = total > 0 ? `\n\n🎮 ${total.toLocaleString()} predictions today · ${bullPct}% BULL` : '';
+          _dpShareText = `⚡ Yesterday's Battle on StockMolt:\n${shareLines.join('\n')}${todayLine}\n\nCan you call it? → stockmolt.ai`;
+        } else {
+          ydEl.innerHTML = '<span style="color:#6e7681;font-size:12px;">No results yet — check back after market close</span>';
+          _dpShareText = total > 0
+            ? `🎮 ${total.toLocaleString()} players predicting today on StockMolt · ${bullPct}% BULL 🐂\n\nJoin the race → stockmolt.ai`
+            : 'Can you beat the AI at stock predictions? → stockmolt.ai';
+        }
+      } catch(e) {
+        if (ydEl) ydEl.innerHTML = '<span style="color:#6e7681;font-size:12px;">Data unavailable</span>';
       }
     }
 
@@ -4960,6 +5000,61 @@
       if (!_dpShareText) return;
       const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(_dpShareText)}`;
       window.open(url, '_blank', 'noopener');
+    }
+
+    let _dlCrowdChart = null;
+    async function renderCrowdIntel() {
+      const el = document.getElementById('dl-crowd-intel'); if (!el) return;
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
+      const hdrs = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` };
+      let preds;
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/predictions?select=ticker,outcome&created_at=gte.${thirtyDaysAgo}T00%3A00%3A00Z&outcome=not.is.null&limit=9999`, { headers: hdrs });
+        preds = await res.json();
+      } catch(e) { return; }
+      if (!Array.isArray(preds) || preds.length === 0) {
+        el.innerHTML = '<div style="color:#6e7681;padding:20px;font-size:13px;">No prediction data yet.</div>';
+        return;
+      }
+      const byTicker = {};
+      for (const p of preds) {
+        if (p.outcome === 'inconclusive') continue;
+        if (!byTicker[p.ticker]) byTicker[p.ticker] = { correct: 0, total: 0 };
+        byTicker[p.ticker].total++;
+        if (p.outcome === 'correct') byTicker[p.ticker].correct++;
+      }
+      const sorted = Object.entries(byTicker)
+        .filter(([,d]) => d.total >= 3)
+        .sort((a, b) => b[1].total - a[1].total)
+        .slice(0, 10);
+      if (sorted.length === 0) {
+        el.innerHTML = '<div style="color:#6e7681;padding:20px;font-size:13px;">Not enough data yet — play more rounds!</div>';
+        return;
+      }
+      const tickers = sorted.map(([t]) => t);
+      const accuracies = sorted.map(([,d]) => Math.round(d.correct / d.total * 100));
+      const counts = sorted.map(([,d]) => d);
+      _dlCrowdChart = _dlCrowdChart || echarts.init(el);
+      _dlCrowdChart.setOption({
+        backgroundColor: 'transparent',
+        tooltip: {
+          trigger: 'axis', axisPointer: { type: 'none' },
+          formatter: (p) => {
+            const i = p[0].dataIndex;
+            const d = counts[i];
+            return `${tickers[i]}: ${accuracies[i]}% accurate (${d.correct}/${d.total} correct)`;
+          }
+        },
+        grid: { left: 52, right: 60, top: 10, bottom: 10, containLabel: false },
+        xAxis: { type: 'value', max: 100, axisLabel: { color: '#8b949e', formatter: '{value}%' }, splitLine: { lineStyle: { color: '#21262d' } } },
+        yAxis: { type: 'category', data: tickers.slice().reverse(), axisLabel: { color: '#e6edf3', fontWeight: 700 } },
+        series: [{
+          type: 'bar', data: accuracies.slice().reverse(),
+          label: { show: true, position: 'right', color: '#8b949e', formatter: '{c}%' },
+          itemStyle: { color: (p) => p.value >= 60 ? '#3fb950' : p.value >= 50 ? '#e3b341' : '#f85149', borderRadius: 3 },
+        }],
+      });
+      _dlCrowdChart.resize();
     }
 
     let _dlRaceChart = null;
@@ -4997,7 +5092,7 @@
         })),
       });
       _dlRaceChart.resize();
-      renderBreadth(); renderDrawdown(); renderSeasonality(); renderIndexRace();
+      renderCrowdIntel(); renderBreadth(); renderDrawdown(); renderSeasonality(); renderIndexRace();
     }
 
     const _DL_BASE = `${SUPABASE_URL}/storage/v1/object/public/datalab`;
@@ -5078,7 +5173,7 @@
     }
 
     window.addEventListener('resize', () => {
-      [_dlRaceChart, _dlBreadth, _dlDrawdown, _dlSeason, _dlIndexRace].forEach(c => { if (c) c.resize(); });
+      [_dlCrowdChart, _dlRaceChart, _dlBreadth, _dlDrawdown, _dlSeason, _dlIndexRace].forEach(c => { if (c) c.resize(); });
     });
 
     async function renderSidebarWidgets() {
