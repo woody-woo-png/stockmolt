@@ -1810,6 +1810,9 @@
   <style>
     #page-game{overflow-y:auto;overflow-x:clip;position:relative;overflow-anchor:none;}
     #daily-pulse{position:sticky;top:0;z-index:20;background:#161b22;}
+    body.pg-game{height:auto;overflow-y:auto;}
+    body.pg-game #page-game{overflow-y:visible;height:auto;}
+    body.pg-game .sidebar{position:sticky;top:0;height:100vh;overflow-y:auto;}
     /* ambient backdrop: fills the desktop side margins behind the cards (CSS-only, pointer-events:none) */
     #page-game::before{content:'';position:absolute;inset:0;z-index:0;pointer-events:none;
       background:radial-gradient(38vw 38vw at 16% 26%,#7c3aed26,transparent 70%),radial-gradient(34vw 34vw at 84% 74%,#22d3ee1f,transparent 70%);
@@ -4874,23 +4877,10 @@
       const mtab = document.getElementById('mtab-' + page);
       if (mtab) mtab.classList.add('active');
 
+      document.body.classList.toggle('pg-game', page === 'game');
       window.scrollTo(0, 0);
       const _pgEl = document.getElementById('page-' + page);
-      if (_pgEl) {
-        _pgEl.scrollTop = 0;
-        // Lock scroll to 0 for 2s to defeat browser's async scroll restoration.
-        // Releases immediately if user manually scrolls (wheel/touch).
-        let _locked = true;
-        const _resetScroll = () => { if (_locked) { _pgEl.scrollTop = 0; window.scrollTo(0, 0); } };
-        const _unlock = () => { _locked = false; _pgEl.removeEventListener('scroll', _resetScroll); window.removeEventListener('scroll', _resetScroll); };
-        _pgEl.addEventListener('scroll', _resetScroll, { passive: true });
-        window.addEventListener('scroll', _resetScroll, { passive: true });
-        _pgEl.addEventListener('wheel', _unlock, { passive: true, once: true });
-        _pgEl.addEventListener('touchstart', _unlock, { passive: true, once: true });
-        window.addEventListener('wheel', _unlock, { passive: true, once: true });
-        window.addEventListener('touchstart', _unlock, { passive: true, once: true });
-        setTimeout(_unlock, 2000);
-      }
+      if (_pgEl) _pgEl.scrollTop = 0;
       mountBotBanner(page);
       if (page === 'lb') renderLeaderboard(currentLbPeriod);
       if (page === 'sentiment') renderSentiment();
