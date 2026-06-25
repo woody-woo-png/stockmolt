@@ -4866,7 +4866,21 @@
 
       window.scrollTo(0, 0);
       const _pgEl = document.getElementById('page-' + page);
-      if (_pgEl) { _pgEl.scrollTop = 0; setTimeout(() => { _pgEl.scrollTop = 0; }, 50); }
+      if (_pgEl) {
+        _pgEl.scrollTop = 0;
+        // Lock scroll to 0 for 2s to defeat browser's async scroll restoration.
+        // Releases immediately if user manually scrolls (wheel/touch).
+        let _locked = true;
+        const _resetScroll = () => { if (_locked) { _pgEl.scrollTop = 0; window.scrollTo(0, 0); } };
+        const _unlock = () => { _locked = false; _pgEl.removeEventListener('scroll', _resetScroll); window.removeEventListener('scroll', _resetScroll); };
+        _pgEl.addEventListener('scroll', _resetScroll, { passive: true });
+        window.addEventListener('scroll', _resetScroll, { passive: true });
+        _pgEl.addEventListener('wheel', _unlock, { passive: true, once: true });
+        _pgEl.addEventListener('touchstart', _unlock, { passive: true, once: true });
+        window.addEventListener('wheel', _unlock, { passive: true, once: true });
+        window.addEventListener('touchstart', _unlock, { passive: true, once: true });
+        setTimeout(_unlock, 2000);
+      }
       mountBotBanner(page);
       if (page === 'lb') renderLeaderboard(currentLbPeriod);
       if (page === 'sentiment') renderSentiment();
@@ -6968,24 +6982,6 @@
       gmInitHelp();
     }catch(e){}
 
-    // TEMP DIAG: track daily-pulse card position changes
-    (function(){
-      const dp = document.getElementById('daily-pulse'); if(!dp) return;
-      const t0 = performance.now();
-      let prev = {y:-999, h:-1, s:-1};
-      window.addEventListener('scroll', function(){
-        if(window.scrollY > 0) console.warn('[pulse] SCROLL! scrollY='+window.scrollY, new Error().stack);
-      }, {capture:true, passive:true});
-      new MutationObserver(function(muts){
-        muts.forEach(function(m){ if(m.addedNodes.length) Array.from(m.addedNodes).forEach(function(n){ if(n.nodeType===1) console.log('[pulse] DOM+ '+Math.round(performance.now()-t0)+'ms '+(n.id||n.className)); }); });
-        const r=dp.getBoundingClientRect(); console.log('[pulse-dom] cardY='+Math.round(r.y)+' h='+Math.round(r.height)+' scrollY='+window.scrollY);
-      }).observe(document.querySelector('.gm-wrap')||dp.parentElement, {childList:true});
-      (function tick(){
-        const r=dp.getBoundingClientRect(), y=Math.round(r.y), h=Math.round(r.height), s=Math.round(window.scrollY);
-        if(y!==prev.y||h!==prev.h||s!==prev.s){ console.log('[pulse] '+Math.round(performance.now()-t0)+'ms y:'+y+' h:'+h+' scroll:'+s); if(h===0) console.error('[pulse] COLLAPSED'); prev={y,h,s}; }
-        if(performance.now()-t0<8000) requestAnimationFrame(tick);
-      })();
-    })();
   })();
   </script>
 </body>
