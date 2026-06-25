@@ -6967,6 +6967,25 @@
       else { var pg=document.getElementById('page-game'); if(pg && pg.classList.contains('active')) renderGame(); }
       gmInitHelp();
     }catch(e){}
+
+    // TEMP DIAG: track daily-pulse card position changes
+    (function(){
+      const dp = document.getElementById('daily-pulse'); if(!dp) return;
+      const t0 = performance.now();
+      let prev = {y:-999, h:-1, s:-1};
+      window.addEventListener('scroll', function(){
+        if(window.scrollY > 0) console.warn('[pulse] SCROLL! scrollY='+window.scrollY, new Error().stack);
+      }, {capture:true, passive:true});
+      new MutationObserver(function(muts){
+        muts.forEach(function(m){ if(m.addedNodes.length) Array.from(m.addedNodes).forEach(function(n){ if(n.nodeType===1) console.log('[pulse] DOM+ '+Math.round(performance.now()-t0)+'ms '+(n.id||n.className)); }); });
+        const r=dp.getBoundingClientRect(); console.log('[pulse-dom] cardY='+Math.round(r.y)+' h='+Math.round(r.height)+' scrollY='+window.scrollY);
+      }).observe(document.querySelector('.gm-wrap')||dp.parentElement, {childList:true});
+      (function tick(){
+        const r=dp.getBoundingClientRect(), y=Math.round(r.y), h=Math.round(r.height), s=Math.round(window.scrollY);
+        if(y!==prev.y||h!==prev.h||s!==prev.s){ console.log('[pulse] '+Math.round(performance.now()-t0)+'ms y:'+y+' h:'+h+' scroll:'+s); if(h===0) console.error('[pulse] COLLAPSED'); prev={y,h,s}; }
+        if(performance.now()-t0<8000) requestAnimationFrame(tick);
+      })();
+    })();
   })();
   </script>
 </body>
