@@ -2069,7 +2069,7 @@
             </div>
             <div class="mp3d-bottom">
               <div class="mp3d-fact" id="mp3d-fact"><b>Market Health</b> updates after the daily data run.</div>
-              <button onclick="document.getElementById('gm-picks').scrollIntoView({behavior:'smooth'})" style="pointer-events:auto;background:#238636;border:none;border-radius:8px;padding:9px 12px;color:#fff;font-size:12px;font-weight:800;cursor:pointer;">Make today's picks</button>
+              <button onclick="mp3dMakePicks()" style="pointer-events:auto;background:#238636;border:none;border-radius:8px;padding:9px 12px;color:#fff;font-size:12px;font-weight:800;cursor:pointer;">Make today's picks</button>
             </div>
           </div>
         </div>
@@ -2092,7 +2092,7 @@
           </div>
         </div>
       </div>
-      <div class="gm-card" style="display:flex;align-items:center;justify-content:center;gap:14px;padding:9px 12px;cursor:pointer;font-size:13px;" onclick="goPage('datalab')">
+      <div class="gm-card" style="display:flex;align-items:center;justify-content:center;gap:14px;padding:9px 12px;cursor:pointer;font-size:13px;" onclick="mp3dOpenDataLab()">
         <span style="color:#8b949e;">🌡️ Market Health <b id="gm-breadth-val" style="color:#3fb950;">–</b> <span style="color:#6e7681;">above 200-day</span></span>
         <span style="color:#58a6ff;font-weight:700;">📈 Open Data Lab →</span>
       </div>
@@ -4934,6 +4934,25 @@
 
     let _dpShareText = '';
     let _mp3d = null;
+    let _mp3dViewTracked = false;
+
+    function mp3dTrack(name, params) {
+      try {
+        if (typeof gmTrack === 'function') gmTrack(name, params || {});
+        else if (typeof gtag === 'function') gtag('event', name, params || {});
+      } catch (e) {}
+    }
+
+    function mp3dMakePicks() {
+      mp3dTrack('market_pulse_pick_click', { source: '3d_market_pulse' });
+      const picks = document.getElementById('gm-picks');
+      if (picks) picks.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function mp3dOpenDataLab() {
+      mp3dTrack('market_pulse_datalab_click', { source: 'game_market_health_strip' });
+      goPage('datalab');
+    }
 
     function initMarketPulse3D(pct, universe) {
       const canvas = document.getElementById('mp3d-canvas');
@@ -5066,6 +5085,15 @@
         const context = pulse && pulse.fact && pulse.fact.context ? pulse.fact.context : 'Based on the latest Data Lab run';
         factEl.innerHTML = `<b>${metric}</b><br>${context}`;
         initMarketPulse3D(pct, universe);
+        if (!_mp3dViewTracked) {
+          _mp3dViewTracked = true;
+          mp3dTrack('market_pulse_view', {
+            source: '3d_market_pulse',
+            pct_above_200d: Number(pct),
+            universe: Number(universe || 0),
+            tone
+          });
+        }
       } catch (e) {
         mainEl.textContent = 'Market pulse unavailable';
         if (subEl) subEl.textContent = 'The prediction game still works while Data Lab refreshes.';
