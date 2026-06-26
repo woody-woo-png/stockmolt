@@ -1560,6 +1560,7 @@
     .gm-weekend-coins:hover { color:#e3b341; }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"></script>
 </head>
 
 <body>
@@ -2038,11 +2039,40 @@
     .gm-codebtn:hover{border-color:#7c3aed66;color:#c4b5fd;}
     .gm-sharebtn{margin-top:12px;width:100%;background:#1d9bf0;border:none;color:#fff;font-size:13px;font-weight:800;padding:11px;border-radius:8px;cursor:pointer;transition:filter .15s;}
     .gm-sharebtn:hover{filter:brightness(1.1);}
+    .mp3d{position:relative;height:224px;background:radial-gradient(circle at 28% 25%,#3fb95020,transparent 28%),radial-gradient(circle at 78% 72%,#f8514920,transparent 32%),linear-gradient(180deg,#0b1118,#101821);overflow:hidden;}
+    .mp3d-canvas{position:absolute;inset:0;width:100%;height:100%;}
+    .mp3d-overlay{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-between;padding:14px 16px;pointer-events:none;}
+    .mp3d-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
+    .mp3d-kicker{font-size:10px;color:#7ee3f5;font-weight:800;letter-spacing:.12em;text-transform:uppercase;}
+    .mp3d-main{font-size:24px;line-height:1.05;font-weight:900;color:#e6edf3;margin-top:4px;text-shadow:0 4px 28px #000;}
+    .mp3d-sub{font-size:12px;color:#9aa7b4;margin-top:5px;line-height:1.4;max-width:360px;}
+    .mp3d-chip{font-size:11px;color:#c9d1d9;background:#0d1117bb;border:1px solid #ffffff1a;border-radius:999px;padding:6px 9px;white-space:nowrap;}
+    .mp3d-bottom{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;}
+    .mp3d-fact{font-size:12px;color:#c9d1d9;line-height:1.45;max-width:430px;background:#0d111799;border:1px solid #ffffff12;border-radius:8px;padding:8px 10px;}
+    .mp3d-fact b{color:#fff;}
+    @media(max-width:520px){.mp3d{height:260px}.mp3d-top,.mp3d-bottom{flex-direction:column;align-items:flex-start}.mp3d-main{font-size:22px}.mp3d-chip{white-space:normal}}
     @media(max-width:480px){.gm-pickgrid{grid-template-columns:1fr;}}
   </style>
   <div class="page" id="page-game">
     <div class="gm-wrap">
       <div id="daily-pulse" class="gm-card" style="padding:0;overflow:hidden;">
+        <div class="mp3d">
+          <canvas id="mp3d-canvas" class="mp3d-canvas"></canvas>
+          <div class="mp3d-overlay">
+            <div class="mp3d-top">
+              <div>
+                <div class="mp3d-kicker">3D Market Pulse</div>
+                <div class="mp3d-main" id="mp3d-main">Loading market breadth...</div>
+                <div class="mp3d-sub" id="mp3d-sub">Building the arena from 20 years of market data.</div>
+              </div>
+              <div class="mp3d-chip" id="mp3d-chip">Data Lab</div>
+            </div>
+            <div class="mp3d-bottom">
+              <div class="mp3d-fact" id="mp3d-fact"><b>Market Health</b> updates after the daily data run.</div>
+              <button onclick="document.getElementById('gm-picks').scrollIntoView({behavior:'smooth'})" style="pointer-events:auto;background:#238636;border:none;border-radius:8px;padding:9px 12px;color:#fff;font-size:12px;font-weight:800;cursor:pointer;">Make today's picks</button>
+            </div>
+          </div>
+        </div>
         <div style="padding:12px 16px 10px;">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
             <span style="font-size:11px;font-weight:700;color:#8b949e;text-transform:uppercase;letter-spacing:.8px;">⚡ Yesterday's Battle</span>
@@ -4903,12 +4933,151 @@
     }
 
     let _dpShareText = '';
+    let _mp3d = null;
+
+    function initMarketPulse3D(pct, universe) {
+      const canvas = document.getElementById('mp3d-canvas');
+      if (!canvas || typeof THREE === 'undefined') return;
+      const parent = canvas.parentElement;
+      const width = Math.max(320, parent.clientWidth || 720);
+      const height = Math.max(180, parent.clientHeight || 224);
+      const ratio = Math.max(0, Math.min(100, Number(pct) || 0)) / 100;
+      const count = Math.max(48, Math.min(120, Math.round((Number(universe) || 720) / 8)));
+
+      if (_mp3d && _mp3d.stop) _mp3d.stop();
+
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setSize(width, height, false);
+
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(42, width / height, 0.1, 100);
+      camera.position.set(0, 6.4, 10.5);
+      camera.lookAt(0, 0, 0);
+
+      scene.add(new THREE.AmbientLight(0xffffff, 0.74));
+      const key = new THREE.PointLight(0x7ee3f5, 1.5, 24);
+      key.position.set(-4, 7, 5);
+      scene.add(key);
+      const red = new THREE.PointLight(0xf85149, 1.1, 18);
+      red.position.set(5, 3, -3);
+      scene.add(red);
+
+      const floor = new THREE.Mesh(
+        new THREE.CylinderGeometry(5.9, 5.9, 0.08, 96),
+        new THREE.MeshStandardMaterial({ color: 0x0d1117, roughness: 0.78, metalness: 0.2 })
+      );
+      floor.position.y = -0.06;
+      scene.add(floor);
+
+      const ring = new THREE.Mesh(
+        new THREE.TorusGeometry(5.95, 0.035, 8, 128),
+        new THREE.MeshBasicMaterial({ color: 0x58a6ff, transparent: true, opacity: 0.45 })
+      );
+      ring.rotation.x = Math.PI / 2;
+      scene.add(ring);
+
+      const bullMat = new THREE.MeshStandardMaterial({ color: 0x3fb950, emissive: 0x123c20, roughness: 0.52, metalness: 0.22 });
+      const bearMat = new THREE.MeshStandardMaterial({ color: 0xf85149, emissive: 0x3c1212, roughness: 0.56, metalness: 0.18 });
+      const neutralMat = new THREE.MeshStandardMaterial({ color: 0x8b949e, emissive: 0x111820, roughness: 0.65, metalness: 0.15 });
+      const bars = new THREE.Group();
+      scene.add(bars);
+
+      for (let i = 0; i < count; i++) {
+        const t = i / count;
+        const angle = t * Math.PI * 2;
+        const radius = 0.9 + 4.45 * ((i * 37) % count) / count;
+        const marketBias = i / count < ratio;
+        const h = 0.18 + (marketBias ? 1.05 : 0.54) * (0.4 + ((i * 17) % 19) / 19);
+        const geom = new THREE.BoxGeometry(0.09, h, 0.09);
+        const mat = marketBias ? bullMat : (i % 5 === 0 ? neutralMat : bearMat);
+        const bar = new THREE.Mesh(geom, mat);
+        bar.position.set(Math.cos(angle) * radius, h / 2, Math.sin(angle) * radius);
+        bar.rotation.y = -angle;
+        bars.add(bar);
+      }
+
+      const needle = new THREE.Mesh(
+        new THREE.BoxGeometry(0.08, 0.08, 5.3),
+        new THREE.MeshBasicMaterial({ color: ratio >= 0.5 ? 0x3fb950 : 0xf85149, transparent: true, opacity: 0.75 })
+      );
+      needle.position.y = 0.16;
+      scene.add(needle);
+
+      let frame = 0;
+      let stopped = false;
+      const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      function animate() {
+        if (stopped) return;
+        frame += 0.01;
+        bars.rotation.y = frame * (reduceMotion ? 0.08 : 0.45);
+        ring.rotation.z = -frame * 0.35;
+        needle.rotation.y = frame * 1.4;
+        renderer.render(scene, camera);
+        requestAnimationFrame(animate);
+      }
+      animate();
+
+      _mp3d = {
+        renderer, scene, camera,
+        stop() {
+          stopped = true;
+          renderer.dispose();
+          scene.traverse(obj => {
+            if (obj.geometry) obj.geometry.dispose();
+            if (obj.material) {
+              if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose());
+              else obj.material.dispose();
+            }
+          });
+        },
+        resize() {
+          const w = Math.max(320, parent.clientWidth || width);
+          const hgt = Math.max(180, parent.clientHeight || height);
+          camera.aspect = w / hgt;
+          camera.updateProjectionMatrix();
+          renderer.setSize(w, hgt, false);
+        }
+      };
+    }
+
+    async function renderMarketPulse3D() {
+      const mainEl = document.getElementById('mp3d-main');
+      const subEl = document.getElementById('mp3d-sub');
+      const factEl = document.getElementById('mp3d-fact');
+      const chipEl = document.getElementById('mp3d-chip');
+      if (!mainEl) return;
+      try {
+        const [breadthRes, pulseRes] = await Promise.all([
+          fetch(`${SUPABASE_URL}/storage/v1/object/public/datalab/breadth.json`),
+          fetch(`${SUPABASE_URL}/storage/v1/object/public/datalab/daily_pulse.json`),
+        ]);
+        const breadth = await breadthRes.json();
+        const pulse = await pulseRes.json().catch(() => null);
+        const pct = breadth && breadth.current ? breadth.current.pct_above_200d : null;
+        const universe = breadth && breadth.current ? breadth.current.universe : null;
+        if (pct == null) throw new Error('missing breadth');
+        const rounded = Math.round(Number(pct));
+        const tone = rounded >= 65 ? 'broad strength' : rounded >= 45 ? 'contested market' : 'thin market';
+        mainEl.textContent = `${Number(pct).toFixed(1)}% above 200-day`;
+        subEl.textContent = `${Number(universe || 0).toLocaleString()} stocks mapped as a live market arena.`;
+        chipEl.textContent = tone;
+        const metric = pulse && pulse.fact && pulse.fact.metric ? pulse.fact.metric : `${Number(pct).toFixed(1)}% of ${universe} stocks are above their 200-day average`;
+        const context = pulse && pulse.fact && pulse.fact.context ? pulse.fact.context : 'Based on the latest Data Lab run';
+        factEl.innerHTML = `<b>${metric}</b><br>${context}`;
+        initMarketPulse3D(pct, universe);
+      } catch (e) {
+        mainEl.textContent = 'Market pulse unavailable';
+        if (subEl) subEl.textContent = 'The prediction game still works while Data Lab refreshes.';
+      }
+    }
 
     async function renderDailyPulse() {
       const ydEl = document.getElementById('dp-yesterday');
       const statsEl = document.getElementById('dp-players-stat');
       const dateEl = document.getElementById('dp-date');
       if (!ydEl) return;
+      renderMarketPulse3D();
 
       const todayUTC = new Date().toISOString().split('T')[0];
       const ydDate = new Date(Date.now() - 86400000);
@@ -5165,6 +5334,7 @@
 
     window.addEventListener('resize', () => {
       [_dlCrowdChart, _dlRaceChart, _dlBreadth, _dlDrawdown, _dlSeason, _dlIndexRace].forEach(c => { if (c) c.resize(); });
+      if (_mp3d && _mp3d.resize) _mp3d.resize();
     });
 
     async function renderSidebarWidgets() {
