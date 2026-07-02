@@ -6571,6 +6571,7 @@
   </div>`; pg.appendChild(bf); }
       gmLoadBattleUnits(submitted); // refreshes dir when called again post-submit
       if(gmBattleTimer) return; // only the interval is single-start
+      setTimeout(initDataPanels, 500);
       gmBattleTimer=setInterval(()=>{
         if(document.hidden) return;
         const p=document.getElementById('page-game'); if(!p||!p.classList.contains('active')) return;
@@ -7660,6 +7661,21 @@ function drawRightPanel(drawdown, indexRace) {
     void el.offsetWidth;
     el.style.animation = '';
   });
+}
+
+async function initDataPanels() {
+  const data = await loadDatalabData();
+  if (!data) return;
+
+  if (data.breadth)      window.applyBreadth(data.breadth);
+  if (data.pulse)        window.applyDailyPulse(data.pulse);
+  if (data.strategyRace) drawLeftPanel(data.strategyRace);
+  if (data.drawdown || data.indexRace) drawRightPanel(data.drawdown, data.indexRace);
+
+  if (data.pulse?.fact?.type === 'seasonality') {
+    const el = document.querySelector('#bf-chip-season .bf-chip-val');
+    if (el) el.textContent = data.pulse.fact.metric?.slice(0, 30) || '—';
+  }
 }
 
   </script>
