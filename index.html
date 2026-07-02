@@ -1826,7 +1826,7 @@
     /* ── Data panels (desktop only) ── */
     #bf-layout{display:grid;grid-template-columns:230px 1fr 230px;flex:1;overflow:hidden;position:relative;}
     .bf-panel{background:#111827;border-right:1px solid #1f2937;padding:16px 14px;
-      display:flex;flex-direction:column;gap:10px;overflow:hidden;}
+      display:flex;flex-direction:column;gap:10px;overflow:hidden;position:relative;z-index:1;}
     #bf-panel-right{border-right:none;border-left:1px solid #1f2937;}
     .bf-panel-title{font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:#4b5563;margin-bottom:4px;}
     .bf-chip{background:#0d1117;border:1px solid #1f2937;border-radius:8px;padding:9px 11px;}
@@ -1852,20 +1852,20 @@
     #gm-battlefield{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden;
       background:
         linear-gradient(105deg,#3fb95033,transparent 38%,transparent 62%,#f8514933),
-        radial-gradient(circle at 13% 40%,#3fb950aa 0 5px,transparent 6px),
-        radial-gradient(circle at 13% 40%,transparent 52px,#3fb95033 53px,transparent 59px),
-        radial-gradient(circle at 13% 40%,transparent 90px,#3fb95026 91px,transparent 97px),
-        radial-gradient(circle at 13% 40%,transparent 132px,#3fb9501c 133px,transparent 140px),
-        radial-gradient(circle at 87% 60%,#f85149aa 0 5px,transparent 6px),
-        radial-gradient(circle at 87% 60%,transparent 52px,#f8514933 53px,transparent 59px),
-        radial-gradient(circle at 87% 60%,transparent 90px,#f8514926 91px,transparent 97px),
-        radial-gradient(circle at 87% 60%,transparent 132px,#f851491c 133px,transparent 140px);}
+        radial-gradient(circle at 30% 40%,#3fb950aa 0 5px,transparent 6px),
+        radial-gradient(circle at 30% 40%,transparent 52px,#3fb95033 53px,transparent 59px),
+        radial-gradient(circle at 30% 40%,transparent 90px,#3fb95026 91px,transparent 97px),
+        radial-gradient(circle at 30% 40%,transparent 132px,#3fb9501c 133px,transparent 140px),
+        radial-gradient(circle at 70% 60%,#f85149aa 0 5px,transparent 6px),
+        radial-gradient(circle at 70% 60%,transparent 52px,#f8514933 53px,transparent 59px),
+        radial-gradient(circle at 70% 60%,transparent 90px,#f8514926 91px,transparent 97px),
+        radial-gradient(circle at 70% 60%,transparent 132px,#f851491c 133px,transparent 140px);}
     #gm-battlefield::before,#gm-battlefield::after{position:absolute;font-size:13px;font-weight:900;letter-spacing:3px;opacity:.85;}
-    #gm-battlefield::before{content:'▲ BULL';left:8%;top:33%;color:#3fb950;text-shadow:0 0 14px #3fb950aa;}
-    #gm-battlefield::after{content:'BEAR ▼';right:8%;top:53%;color:#f85149;text-shadow:0 0 14px #f85149aa;}
+    #gm-battlefield::before{content:'▲ BULL';left:calc(230px + 20px);top:clamp(120px,33%,290px);color:#3fb950;text-shadow:0 0 14px #3fb950aa;}
+    #gm-battlefield::after{content:'BEAR ▼';right:calc(230px + 20px);top:clamp(180px,53%,420px);color:#f85149;text-shadow:0 0 14px #f85149aa;}
     .gm-radar{position:absolute;width:300px;height:300px;transform:translate(-50%,-50%);border-radius:50%;pointer-events:none;opacity:.18;mix-blend-mode:screen;}
-    .gm-radar.g{left:13%;top:40%;background:conic-gradient(from 0deg,transparent 0 298deg,#3fb95099 348deg,transparent 360deg);animation:gmSweep 7s linear infinite;}
-    .gm-radar.r{left:87%;top:60%;background:conic-gradient(from 0deg,transparent 0 298deg,#f8514999 348deg,transparent 360deg);animation:gmSweep 7s linear infinite;animation-delay:-3.5s;}
+    .gm-radar.g{left:30%;top:clamp(160px,40%,320px);background:conic-gradient(from 0deg,transparent 0 298deg,#3fb95099 348deg,transparent 360deg);animation:gmSweep 7s linear infinite;}
+    .gm-radar.r{left:70%;top:clamp(240px,60%,440px);background:conic-gradient(from 0deg,transparent 0 298deg,#f8514999 348deg,transparent 360deg);animation:gmSweep 7s linear infinite;animation-delay:-3.5s;}
     @keyframes gmSweep{to{transform:translate(-50%,-50%) rotate(360deg);}}
     .gm-shot{position:absolute;top:0;left:0;width:30px;height:5px;border-radius:3px;pointer-events:none;will-change:transform,opacity;}
     .gm-shot.g{background:linear-gradient(90deg,transparent,#3fb950 60%,#aef5b8);box-shadow:0 0 18px 4px #3fb950cc;}
@@ -1888,8 +1888,8 @@
     .bf-badge-lbl{font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:#6b7280;margin-bottom:3px;}
     .bf-badge-val{font-size:16px;font-weight:800;}
     .bf-badge-sub{font-size:10px;color:#6b7280;margin-top:2px;line-height:1.4;}
-    #bf-badge-breadth{left:14px;top:14px;}
-    #bf-badge-pulse{right:14px;top:14px;text-align:right;}
+    #bf-badge-breadth{left:calc(230px + 14px);top:14px;}
+    #bf-badge-pulse{right:calc(230px + 14px);top:14px;text-align:right;}
     .gm-card{background:rgba(22,27,34,.85);border:1px solid #ffffff14;border-radius:16px;padding:18px 18px;}
     .gm-card h3{font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:#8b949e;margin-bottom:14px;font-weight:700;}
     /* character */
@@ -6581,14 +6581,14 @@
         if(gmBattleUnits.length){ unit=gmBattleUnits[gmBattleIdx % gmBattleUnits.length]; gmBattleIdx++; }
         // side: AI direction only when known (post-submit); otherwise random (no leak)
         const fromLeft = (unit && unit.dir) ? (unit.dir==='long') : (Math.random() < gmBreadthPct / 100);
-        const x0=fromLeft?13:87, x1=fromLeft?87:13;
+        const x0=fromLeft?22:78, x1=fromLeft?78:22;
         const y0=(fromLeft?40:60)+(Math.random()*14-7);
         const y1=(fromLeft?60:40)+(Math.random()*14-7);
         const cls=fromLeft?'g':'r';
         const s=document.createElement('div'); s.className='gm-shot '+cls;
         s.style.setProperty('--x0',x0+'vw'); s.style.setProperty('--x1',x1+'vw');
         s.style.setProperty('--y0',y0+'vh'); s.style.setProperty('--y1',y1+'vh');
-        s.style.animation='gmFly 1.2s linear forwards';
+        s.style.animation='gmFly 2.4s linear forwards';
         field.appendChild(s);
         // ticker label rides the same path (separate element, no scaleX distortion)
         let lbl=null;
@@ -6596,7 +6596,7 @@
           lbl=document.createElement('div'); lbl.className='gm-shotlbl '+cls; lbl.textContent=unit.ticker;
           lbl.style.setProperty('--x0',x0+'vw'); lbl.style.setProperty('--x1',x1+'vw');
           lbl.style.setProperty('--y0',y0+'vh'); lbl.style.setProperty('--y1',y1+'vh');
-          lbl.style.animation='gmFlyLbl 1.2s linear forwards';
+          lbl.style.animation='gmFlyLbl 2.4s linear forwards';
           field.appendChild(lbl);
         }
         setTimeout(()=>{
@@ -6605,7 +6605,7 @@
           b.style.animation='gmBoom .5s ease-out forwards';
           field.appendChild(b); setTimeout(()=>{ b.remove(); },520);
           s.remove(); if(lbl) lbl.remove();
-        }, 1100);
+        }, 2300);
       }, 2600);
     }
 
