@@ -7291,6 +7291,13 @@
       gmInitHelp();
     }catch(e){}
 
+    function applyBreadth(breadth) {
+      if (!breadth?.current) return;
+      const pct = breadth.current.pct_above_200d;
+      if (typeof pct !== 'number') return;
+      gmBreadthPct = pct;
+    }
+
   })();
   </script>
 
@@ -7444,12 +7451,6 @@ async function loadDatalabData() {
   }
 }
 
-function applyBreadth(breadth) {
-  if (!breadth?.current) return;
-  const pct = breadth.current.pct_above_200d;
-  if (typeof pct !== 'number') return;
-  gmBreadthPct = pct;
-}
   </script>
 </body>
 
