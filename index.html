@@ -1823,6 +1823,30 @@
       -webkit-mask-image:radial-gradient(120% 100% at 50% 35%,transparent 45%,#000 92%);mask-image:radial-gradient(120% 100% at 50% 35%,transparent 45%,#000 92%);}
     @keyframes gmAmbient{0%{transform:translate(0,0) scale(1);}100%{transform:translate(2.5%,-2.5%) scale(1.1);}}
     .gm-wrap{max-width:760px;margin:0 auto;padding:18px 16px 80px;display:flex;flex-direction:column;gap:16px;position:relative;z-index:1;}
+    /* ── Data panels (desktop only) ── */
+    #bf-layout{display:grid;grid-template-columns:230px 1fr 230px;flex:1;overflow:hidden;position:relative;}
+    .bf-panel{background:#111827;border-right:1px solid #1f2937;padding:16px 14px;
+      display:flex;flex-direction:column;gap:10px;overflow:hidden;}
+    #bf-panel-right{border-right:none;border-left:1px solid #1f2937;}
+    .bf-panel-title{font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:#4b5563;margin-bottom:4px;}
+    .bf-chip{background:#0d1117;border:1px solid #1f2937;border-radius:8px;padding:9px 11px;}
+    .bf-chip-val{font-size:17px;font-weight:800;}
+    .bf-chip-lbl{font-size:9px;color:#6b7280;text-transform:uppercase;letter-spacing:.06em;margin-top:1px;}
+    .bf-legend{display:flex;flex-direction:column;gap:4px;margin-top:6px;}
+    .bf-leg{display:flex;align-items:center;gap:6px;font-size:10px;color:#9ca3af;}
+    .bf-leg-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+    .bf-leg-dash{width:12px;height:2px;flex-shrink:0;}
+    .bf-chart{flex:1;min-height:160px;position:relative;}
+    .bf-chart svg{width:100%;height:100%;}
+    /* draw-on animation */
+    .bf-curve{fill:none;stroke-dasharray:1200;stroke-dashoffset:1200;
+      animation:bfDraw var(--dur,4s) ease-out forwards, bfLoop var(--loop,16s) var(--dur,4s) linear infinite;}
+    @keyframes bfDraw{to{stroke-dashoffset:0;}}
+    @keyframes bfLoop{0%{stroke-dashoffset:0}6%{stroke-dashoffset:1200}100%{stroke-dashoffset:0}}
+    @media(max-width:760px){
+      #bf-layout{display:block;}
+      .bf-panel{display:none;}
+    }
     @media(max-width:760px){#page-game::after{display:none;}#page-game::before{display:none;}}
     /* battlefield: Bull (green, left) vs Bear (red, right) trade fire across the backdrop */
     #gm-battlefield{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden;
@@ -2064,7 +2088,28 @@
     @media(max-width:480px){.gm-pickgrid{grid-template-columns:1fr;}}
   </style>
   <div class="page" id="page-game">
-    <div class="gm-wrap">
+  <div id="bf-layout">
+  <div id="bf-panel-left" class="bf-panel">
+    <div class="bf-panel-title">📈 S&P 500 · 20yr Return</div>
+    <div class="bf-chip"><div class="bf-chip-val" id="bf-sp-ret" style="color:#3fb950">—</div><div class="bf-chip-lbl">Buy &amp; Hold total return</div></div>
+    <div class="bf-chart">
+      <svg id="bf-svg-left" viewBox="0 0 180 160" preserveAspectRatio="none">
+        <defs><linearGradient id="bf-grad-g" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#3fb950" stop-opacity=".35"/>
+          <stop offset="100%" stop-color="#3fb950" stop-opacity="0"/>
+        </linearGradient></defs>
+        <polygon id="bf-area-left" fill="url(#bf-grad-g)" opacity=".15" points=""/>
+        <polyline id="bf-line-bh" class="bf-curve" style="--dur:3.5s;--loop:15s" stroke="#3fb950" stroke-width="2" points=""/>
+        <polyline id="bf-line-s1" class="bf-curve" style="--dur:5s;--loop:15s;animation-delay:1s" stroke="#58a6ff" stroke-width="1.5" stroke-dasharray="4 4" points=""/>
+      </svg>
+    </div>
+    <div class="bf-legend">
+      <div class="bf-leg"><div class="bf-leg-dot" style="background:#3fb950"></div>Buy &amp; Hold</div>
+      <div class="bf-leg"><div class="bf-leg-dash" style="background:#58a6ff"></div>SMA200 strategy</div>
+    </div>
+    <div class="bf-chip" id="bf-chip-season"><div class="bf-chip-val" style="color:#58a6ff;font-size:13px">—</div><div class="bf-chip-lbl">Seasonality · this month</div></div>
+  </div>
+  <div class="gm-wrap">
       <div id="daily-pulse" class="gm-card" style="padding:0;overflow:hidden;">
         <div class="mp3d">
           <canvas id="mp3d-canvas" class="mp3d-canvas"></canvas>
@@ -2681,8 +2726,27 @@
             style="position:absolute;top:8px;right:8px;background:#21262d;border:1px solid #30363d;border-radius:4px;padding:3px 8px;color:#58a6ff;font-size:10px;cursor:pointer;">Copy</button>
         </div>
       </div>
+  </div><!-- end .gm-wrap -->
+  <div id="bf-panel-right" class="bf-panel">
+    <div class="bf-panel-title">📉 Drawdown · Index Race</div>
+    <div class="bf-chip"><div class="bf-chip-val" id="bf-dd-val" style="color:#f85149">—</div><div class="bf-chip-lbl">S&amp;P 500 current drawdown</div></div>
+    <div class="bf-chart">
+      <svg id="bf-svg-right" viewBox="0 0 180 160" preserveAspectRatio="none">
+        <line x1="0" y1="80" x2="180" y2="80" stroke="#ffffff08" stroke-width="1" stroke-dasharray="3 3"/>
+        <text x="3" y="76" font-size="8" fill="#4b5563">0%</text>
+        <polygon id="bf-area-right" fill="#f85149" opacity=".1" points=""/>
+        <polyline id="bf-line-dd1" class="bf-curve" style="--dur:4s;--loop:14s" stroke="#f85149" stroke-width="2" points=""/>
+        <polyline id="bf-line-dd2" class="bf-curve" style="--dur:5.5s;--loop:14s;animation-delay:1.2s" stroke="#c4b5fd" stroke-width="1.5" stroke-dasharray="3 4" points=""/>
+      </svg>
     </div>
+    <div class="bf-legend">
+      <div class="bf-leg"><div class="bf-leg-dot" style="background:#f85149"></div>S&amp;P 500 drawdown</div>
+      <div class="bf-leg"><div class="bf-leg-dash" style="background:#c4b5fd"></div>NASDAQ drawdown</div>
+    </div>
+    <div class="bf-chip"><div class="bf-chip-val" id="bf-ytd-val" style="font-size:13px">—</div><div class="bf-chip-lbl">Index Race YTD</div></div>
   </div>
+  </div><!-- end #bf-layout -->
+</div><!-- end #page-game -->
 
   <div class="notice" style="display:flex;align-items:center;justify-content:center;gap:20px;flex-wrap:wrap;">
     <span>⚠ All content is AI simulation and does not constitute investment
