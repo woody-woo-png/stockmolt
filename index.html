@@ -7407,6 +7407,41 @@
         }
       };
     })();
+
+// ── Datalab: fetch breadth/pulse/strategy_race/drawdown from Supabase Storage ──
+const DATALAB_BASE = 'https://oyatbvqpilvbhqpiafwp.supabase.co/storage/v1/object/public/datalab';
+const DATALAB_CACHE_KEY = 'sm_datalab_v1';
+const DATALAB_CACHE_TTL = 86400000; // 24h in ms
+
+async function loadDatalabData() {
+  try {
+    const cached = localStorage.getItem(DATALAB_CACHE_KEY);
+    if (cached) {
+      const { ts, data } = JSON.parse(cached);
+      if (Date.now() - ts < DATALAB_CACHE_TTL) return data;
+    }
+  } catch(e) {}
+
+  const files = ['breadth.json','daily_pulse.json','strategy_race.json','drawdown.json','index_race.json'];
+  try {
+    const results = await Promise.all(
+      files.map(f => fetch(`${DATALAB_BASE}/${f}`).then(r => r.ok ? r.json() : null).catch(() => null))
+    );
+    const data = {
+      breadth:      results[0],
+      pulse:        results[1],
+      strategyRace: results[2],
+      drawdown:     results[3],
+      indexRace:    results[4],
+    };
+    try {
+      localStorage.setItem(DATALAB_CACHE_KEY, JSON.stringify({ ts: Date.now(), data }));
+    } catch(e) {}
+    return data;
+  } catch(e) {
+    return null;
+  }
+}
   </script>
 </body>
 
