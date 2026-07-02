@@ -7556,6 +7556,112 @@ async function loadDatalabData() {
   }
 }
 
+function normalizeSvgPoints(dataPoints, viewW, viewH, flipY) {
+  if (!dataPoints || dataPoints.length < 2) return '';
+  const vals = dataPoints.map(p => p[1]);
+  const minV = Math.min(...vals);
+  const maxV = Math.max(...vals);
+  const rangeV = maxV - minV || 1;
+  const n = dataPoints.length;
+  return dataPoints.map((p, i) => {
+    const x = (i / (n - 1)) * viewW;
+    const norm = (p[1] - minV) / rangeV;
+    const y = flipY ? (1 - norm) * viewH * 0.9 + viewH * 0.05
+                    : norm * viewH * 0.9 + viewH * 0.05;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+}
+
+function makeAreaPoints(pointsStr, viewW, viewH) {
+  return pointsStr + ` ${viewW},${viewH} 0,${viewH}`;
+}
+
+function drawLeftPanel(strategyRace) {
+  if (!strategyRace?.series?.length) return;
+  const bh = strategyRace.series.find(s => s.name === 'Buy & Hold');
+  const s1 = strategyRace.series.find(s => s.name && s.name !== 'Buy & Hold');
+  if (!bh?.points?.length) return;
+
+  const VW = 180, VH = 160;
+  const bhPts = normalizeSvgPoints(bh.points, VW, VH, true);
+  const lineBh = document.getElementById('bf-line-bh');
+  const areaL  = document.getElementById('bf-area-left');
+  if (lineBh) lineBh.setAttribute('points', bhPts);
+  if (areaL)  areaL.setAttribute('points', makeAreaPoints(bhPts, VW, VH));
+
+  if (s1?.points?.length) {
+    const s1Pts = normalizeSvgPoints(s1.points, VW, VH, true);
+    const lineS1 = document.getElementById('bf-line-s1');
+    if (lineS1) lineS1.setAttribute('points', s1Pts);
+  }
+
+  const bhVals = bh.points.map(p => p[1]);
+  if (bhVals.length >= 2) {
+    const ret = ((bhVals[bhVals.length - 1] / bhVals[0]) - 1) * 100;
+    const el = document.getElementById('bf-sp-ret');
+    if (el) el.textContent = (ret >= 0 ? '+' : '') + ret.toFixed(0) + '%';
+  }
+
+  [document.getElementById('bf-line-bh'), document.getElementById('bf-line-s1')].forEach(el => {
+    if (!el) return;
+    el.style.animation = 'none';
+    void el.offsetWidth;
+    el.style.animation = '';
+  });
+}
+
+function drawRightPanel(drawdown, indexRace) {
+  const VW = 180, VH = 160;
+
+  if (drawdown?.series?.length) {
+    const sp  = drawdown.series.find(s => s.name === 'S&P500');
+    const nas = drawdown.series.find(s => s.name === 'NASDAQ');
+
+    if (sp?.points?.length) {
+      const pts = normalizeSvgPoints(sp.points, VW, VH, false);
+      const line = document.getElementById('bf-line-dd1');
+      if (line) line.setAttribute('points', pts);
+
+      const cur = sp.points[sp.points.length - 1]?.[1];
+      const el = document.getElementById('bf-dd-val');
+      if (el && typeof cur === 'number') {
+        el.textContent = cur === 0 ? 'ATH' : cur.toFixed(1) + '%';
+        el.style.color = cur === 0 ? '#3fb950' : '#f85149';
+      }
+    }
+    if (nas?.points?.length) {
+      const pts = normalizeSvgPoints(nas.points, VW, VH, false);
+      const line = document.getElementById('bf-line-dd2');
+      if (line) line.setAttribute('points', pts);
+    }
+  }
+
+  if (indexRace?.series?.length) {
+    const today = new Date().getFullYear() + '-01-01';
+    const parts = [];
+    for (const s of indexRace.series) {
+      const ytd = s.points?.filter(p => p[0] >= today);
+      if (ytd?.length >= 2 && ytd[0][1]) {
+        const chg = ((ytd[ytd.length - 1][1] / ytd[0][1]) - 1) * 100;
+        parts.push(`${s.name} ${chg >= 0 ? '+' : ''}${chg.toFixed(1)}%`);
+      }
+    }
+    const el = document.getElementById('bf-ytd-val');
+    if (el && parts.length) {
+      el.textContent = parts.join(' · ');
+      el.style.color = '#e6edf3';
+      el.style.fontSize = '11px';
+    }
+  }
+
+  [document.getElementById('bf-line-dd1'), document.getElementById('bf-line-dd2')].forEach(el => {
+    if (!el) return;
+    el.style.animation = 'none';
+    void el.offsetWidth;
+    el.style.animation = '';
+  });
+}
+
   </script>
 </body>
 
