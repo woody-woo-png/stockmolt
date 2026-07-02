@@ -1856,6 +1856,16 @@
     .gm-boom.r{background:radial-gradient(circle,#ffc4bddd,#f8514966,transparent 72%);}
     @keyframes gmBoom{0%{transform:translate(-50%,-50%) scale(.2);opacity:1;}100%{transform:translate(-50%,-50%) scale(3.6);opacity:0;}}
     @media(max-width:760px){#gm-battlefield{display:none;}}
+    /* ── Battlefield data badges ── */
+    #bf-breadth-bar{position:absolute;top:0;left:0;right:0;height:3px;z-index:2;pointer-events:none;
+      background:linear-gradient(90deg,#3fb950 var(--bf-pct,50%),#f85149 var(--bf-pct,50%));}
+    .bf-badge{position:absolute;background:rgba(13,17,23,.78);border:1px solid #ffffff14;
+      border-radius:10px;padding:9px 12px;backdrop-filter:blur(6px);pointer-events:none;z-index:2;min-width:130px;}
+    .bf-badge-lbl{font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:#6b7280;margin-bottom:3px;}
+    .bf-badge-val{font-size:16px;font-weight:800;}
+    .bf-badge-sub{font-size:10px;color:#6b7280;margin-top:2px;line-height:1.4;}
+    #bf-badge-breadth{left:14px;top:14px;}
+    #bf-badge-pulse{right:14px;top:14px;text-align:right;}
     .gm-card{background:rgba(22,27,34,.85);border:1px solid #ffffff14;border-radius:16px;padding:18px 18px;}
     .gm-card h3{font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:#8b949e;margin-bottom:14px;font-weight:700;}
     /* character */
@@ -6481,7 +6491,20 @@
       if(window.matchMedia && window.matchMedia('(max-width:760px)').matches) return; // desktop only
       const pg=document.getElementById('page-game'); if(!pg) return;
       let bf=document.getElementById('gm-battlefield');
-      if(!bf){ bf=document.createElement('div'); bf.id='gm-battlefield'; bf.innerHTML='<div class="gm-radar g"></div><div class="gm-radar r"></div>'; pg.appendChild(bf); }
+      if(!bf){ bf=document.createElement('div'); bf.id='gm-battlefield'; bf.innerHTML=`
+  <div class="gm-radar g"></div>
+  <div class="gm-radar r"></div>
+  <div id="bf-breadth-bar"></div>
+  <div class="bf-badge" id="bf-badge-breadth">
+    <div class="bf-badge-lbl">Market Breadth</div>
+    <div class="bf-badge-val" id="bf-bval">—</div>
+    <div class="bf-badge-sub" id="bf-bsub"></div>
+  </div>
+  <div class="bf-badge" id="bf-badge-pulse">
+    <div class="bf-badge-lbl">Daily Pulse</div>
+    <div class="bf-badge-val" id="bf-pval" style="font-size:12px;color:#58a6ff">—</div>
+    <div class="bf-badge-sub" id="bf-psub"></div>
+  </div>`; pg.appendChild(bf); }
       gmLoadBattleUnits(submitted); // refreshes dir when called again post-submit
       if(gmBattleTimer) return; // only the interval is single-start
       gmBattleTimer=setInterval(()=>{
@@ -7294,9 +7317,27 @@
     function applyBreadth(breadth) {
       if (!breadth?.current) return;
       const pct = breadth.current.pct_above_200d;
+      const uni = breadth.current.universe;
       if (typeof pct !== 'number') return;
       gmBreadthPct = pct;
+      const bar = document.getElementById('bf-breadth-bar');
+      if (bar) bar.style.setProperty('--bf-pct', pct.toFixed(1) + '%');
+      const bval = document.getElementById('bf-bval');
+      const bsub = document.getElementById('bf-bsub');
+      if (bval) { bval.textContent = pct.toFixed(0) + '%'; bval.style.color = pct >= 50 ? '#3fb950' : '#f85149'; }
+      if (bsub && uni) bsub.textContent = 'of ' + uni + ' stocks above 200d MA';
     }
+
+    function applyDailyPulse(pulse) {
+      if (!pulse?.fact) return;
+      const pval = document.getElementById('bf-pval');
+      const psub = document.getElementById('bf-psub');
+      if (pval) pval.textContent = pulse.fact.headline || '—';
+      if (psub) psub.textContent = (pulse.fact.metric || '').slice(0, 60);
+    }
+
+    window.applyBreadth = applyBreadth;
+    window.applyDailyPulse = applyDailyPulse;
 
   })();
   </script>
