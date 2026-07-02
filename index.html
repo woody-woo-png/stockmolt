@@ -6459,6 +6459,7 @@
     let gmBattleTimer = null; // backdrop battlefield loop
     let gmBattleUnits = []; // [{ticker, dir}] for today; dir filled only after submit
     let gmBattleIdx = 0;    // cycle pointer through gmBattleUnits
+    let gmBreadthPct = 50; // overridden by breadth.json; 50 = no bias
 
     async function gmLoadBattleUnits(submitted){
       const today=gmToday();
@@ -6491,7 +6492,7 @@
         let unit=null;
         if(gmBattleUnits.length){ unit=gmBattleUnits[gmBattleIdx % gmBattleUnits.length]; gmBattleIdx++; }
         // side: AI direction only when known (post-submit); otherwise random (no leak)
-        const fromLeft = (unit && unit.dir) ? (unit.dir==='long') : (Math.random()<0.5);
+        const fromLeft = (unit && unit.dir) ? (unit.dir==='long') : (Math.random() < gmBreadthPct / 100);
         const x0=fromLeft?13:87, x1=fromLeft?87:13;
         const y0=(fromLeft?40:60)+(Math.random()*14-7);
         const y1=(fromLeft?60:40)+(Math.random()*14-7);
@@ -7441,6 +7442,13 @@ async function loadDatalabData() {
   } catch(e) {
     return null;
   }
+}
+
+function applyBreadth(breadth) {
+  if (!breadth?.current) return;
+  const pct = breadth.current.pct_above_200d;
+  if (typeof pct !== 'number') return;
+  gmBreadthPct = pct;
 }
   </script>
 </body>
