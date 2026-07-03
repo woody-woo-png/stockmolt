@@ -1824,9 +1824,10 @@
     @keyframes gmAmbient{0%{transform:translate(0,0) scale(1);}100%{transform:translate(2.5%,-2.5%) scale(1.1);}}
     .gm-wrap{max-width:760px;margin:0 auto;padding:18px 16px 80px;display:flex;flex-direction:column;gap:16px;position:relative;z-index:1;}
     /* ── Data panels (desktop only) ── */
-    #bf-layout{display:grid;grid-template-columns:230px 1fr 230px;flex:1;overflow:hidden;position:relative;}
+    #bf-layout{display:grid;grid-template-columns:230px 1fr 230px;flex:1;position:relative;}
     .bf-panel{background:#111827;border-right:1px solid #1f2937;padding:16px 14px;
-      display:flex;flex-direction:column;gap:10px;overflow:hidden;position:relative;z-index:1;}
+      display:flex;flex-direction:column;gap:10px;overflow:hidden;
+      position:sticky;top:0;z-index:1;height:480px;align-self:start;}
     #bf-panel-right{border-right:none;border-left:1px solid #1f2937;}
     .bf-panel-title{font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:#4b5563;margin-bottom:4px;}
     .bf-chip{background:#0d1117;border:1px solid #1f2937;border-radius:8px;padding:9px 11px;}
