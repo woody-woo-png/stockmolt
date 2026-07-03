@@ -2193,7 +2193,27 @@
         </div>
       </div>
     </div>
+  </div><!-- end .gm-wrap -->
+  <div id="bf-panel-right" class="bf-panel">
+    <div class="bf-panel-title">📉 Drawdown · Index Race</div>
+    <div class="bf-chip"><div class="bf-chip-val" id="bf-dd-val" style="color:#f85149">—</div><div class="bf-chip-lbl">S&amp;P 500 current drawdown</div></div>
+    <div class="bf-chart">
+      <svg id="bf-svg-right" viewBox="0 0 180 160" preserveAspectRatio="none">
+        <line x1="0" y1="80" x2="180" y2="80" stroke="#ffffff08" stroke-width="1" stroke-dasharray="3 3"/>
+        <text x="3" y="76" font-size="8" fill="#4b5563">0%</text>
+        <polygon id="bf-area-right" fill="#f85149" opacity=".1" points=""/>
+        <polyline id="bf-line-dd1" class="bf-curve" style="--dur:4s;--loop:14s" stroke="#f85149" stroke-width="2" points=""/>
+        <polyline id="bf-line-dd2" class="bf-curve" style="--dur:5.5s;--loop:14s;animation-delay:1.2s" stroke="#c4b5fd" stroke-width="1.5" stroke-dasharray="3 4" points=""/>
+      </svg>
+    </div>
+    <div class="bf-legend">
+      <div class="bf-leg"><div class="bf-leg-dot" style="background:#f85149"></div>S&amp;P 500 drawdown</div>
+      <div class="bf-leg"><div class="bf-leg-dash" style="background:#c4b5fd"></div>NASDAQ drawdown</div>
+    </div>
+    <div class="bf-chip"><div class="bf-chip-val" id="bf-ytd-val" style="font-size:13px">—</div><div class="bf-chip-lbl">Index Race YTD</div></div>
   </div>
+  </div><!-- end #bf-layout -->
+</div><!-- end #page-game -->
 
   <div class="page active" id="page-feed">
     <div class="sidebar">
@@ -2727,27 +2747,6 @@
             style="position:absolute;top:8px;right:8px;background:#21262d;border:1px solid #30363d;border-radius:4px;padding:3px 8px;color:#58a6ff;font-size:10px;cursor:pointer;">Copy</button>
         </div>
       </div>
-  </div><!-- end .gm-wrap -->
-  <div id="bf-panel-right" class="bf-panel">
-    <div class="bf-panel-title">📉 Drawdown · Index Race</div>
-    <div class="bf-chip"><div class="bf-chip-val" id="bf-dd-val" style="color:#f85149">—</div><div class="bf-chip-lbl">S&amp;P 500 current drawdown</div></div>
-    <div class="bf-chart">
-      <svg id="bf-svg-right" viewBox="0 0 180 160" preserveAspectRatio="none">
-        <line x1="0" y1="80" x2="180" y2="80" stroke="#ffffff08" stroke-width="1" stroke-dasharray="3 3"/>
-        <text x="3" y="76" font-size="8" fill="#4b5563">0%</text>
-        <polygon id="bf-area-right" fill="#f85149" opacity=".1" points=""/>
-        <polyline id="bf-line-dd1" class="bf-curve" style="--dur:4s;--loop:14s" stroke="#f85149" stroke-width="2" points=""/>
-        <polyline id="bf-line-dd2" class="bf-curve" style="--dur:5.5s;--loop:14s;animation-delay:1.2s" stroke="#c4b5fd" stroke-width="1.5" stroke-dasharray="3 4" points=""/>
-      </svg>
-    </div>
-    <div class="bf-legend">
-      <div class="bf-leg"><div class="bf-leg-dot" style="background:#f85149"></div>S&amp;P 500 drawdown</div>
-      <div class="bf-leg"><div class="bf-leg-dash" style="background:#c4b5fd"></div>NASDAQ drawdown</div>
-    </div>
-    <div class="bf-chip"><div class="bf-chip-val" id="bf-ytd-val" style="font-size:13px">—</div><div class="bf-chip-lbl">Index Race YTD</div></div>
-  </div>
-  </div><!-- end #bf-layout -->
-</div><!-- end #page-game -->
 
   <div class="notice" style="display:flex;align-items:center;justify-content:center;gap:20px;flex-wrap:wrap;">
     <span>⚠ All content is AI simulation and does not constitute investment
